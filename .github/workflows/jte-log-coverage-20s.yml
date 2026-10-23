@@ -1,4 +1,4 @@
-name: JTE 20s Signal Coverage Diagnostic (No Research Data)
+name: JTE 20s Signal Coverage and Ambient Origin Diagnostic
 on:
   push:
     paths:
