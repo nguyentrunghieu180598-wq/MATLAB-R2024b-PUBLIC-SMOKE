@@ -1,0 +1,60 @@
+name: JTE SLX Model Package Build and Encrypted Handoff
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-package-slx-encrypted.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned public upstream source only
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Generate and compile candidate SLX models
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte_build
+      - name: Seal generated SLX models and compile evidence
+        run: |
+          mkdir -p private-slx-package
+          cp generated/JTE2026B0L.slx generated/JTE2026LocalBias.slx private-slx-package/
+          cp reports/jte-build-compile-receipt.mat private-slx-package/
+          sha256sum private-slx-package/*.slx > private-slx-package/MODEL_SHA256.txt
+          printf 'Reference only. R2024b. G2/G3 build and compile validated. G5 equivalence pending.\n' > private-slx-package/STATUS.txt
+          python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
+          python3 jte-public/encrypt_results.py --source private-slx-package --dest encrypted-models --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label JTE_G3_MODEL_PACKAGE
+          rm -rf private-slx-package generated reports
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte-slx-compiled-models-encrypted
+          path: encrypted-models/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Release encrypted model package only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create jte-slx-models-encrypted-20261023 encrypted-models/encrypted-results.bin encrypted-models/envelope.json --repo "${{ github.repository }}" --title 'JTE compiled candidate Simulink SLX files (encrypted)' --notes 'Encrypted SLX candidates and actual compile receipt. G5 physics comparison NOT YET ACCEPTED. Private decryption key never enters GitHub.'
+      - name: Verify original unmodified
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
