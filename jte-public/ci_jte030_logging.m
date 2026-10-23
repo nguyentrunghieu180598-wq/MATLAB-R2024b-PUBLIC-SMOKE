@@ -10,6 +10,7 @@ catch ME
     failure=struct('identifier',ME.identifier,'report',getReport(ME,'extended','hyperlinks','off'));
     save(fullfile(folder,'diagnostic_failure.mat'),'failure','-v7.3');
     fprintf('JTE030_LOGGING_FAILED_PRIVATE_DIAGNOSTIC_SAVED\n');
+    error('JTE030:PrivateDiagnosticFailure','Diagnostic failed. Original error retained in private encrypted payload.');
 end
 end
 function payload=collect(root)
