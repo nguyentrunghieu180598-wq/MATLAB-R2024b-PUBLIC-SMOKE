@@ -3,7 +3,8 @@ function [Tmeas, ex] = JTE2026bias(Ttrue, channel, biasK)
 % Ttrue: vector of temperatures [K]; biasK <= 0 [K].
 validateattributes(Ttrue,{'double'},{'real','finite','vector','nonempty'});
 validateattributes(channel,{'double'},{'real','finite','scalar','integer','positive'});
-validateattributes(biasK,{'double'},{'real','finite','scalar','nonpositive'});
+validateattributes(biasK,{'double'},{'real','finite','scalar'});
+assert(biasK<=0,'Temperature sensor offset must be nonpositive [K].');
 assert(numel(Ttrue)>=2,'Need at least 2 temperature channels.');
 assert(channel<=numel(Ttrue),'Channel exceeds vector length.');
 Tmeas = Ttrue;
