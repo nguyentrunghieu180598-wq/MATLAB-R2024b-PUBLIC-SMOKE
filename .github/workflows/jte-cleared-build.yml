@@ -41,13 +41,12 @@ jobs:
           if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
             echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
           fi
-      - name: Save public-source generated candidates and logs
+      - name: Save nonconfidential gate evidence; do not publish generated SLX
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jte-public-source-build-compile-candidates
+          name: jte-public-code-gates-only
           path: |
             reports/
-            generated/*.slx
           retention-days: 3
           if-no-files-found: warn
