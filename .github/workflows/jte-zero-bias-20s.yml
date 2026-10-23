@@ -1,4 +1,4 @@
-name: JTE B0L C0 20s CI Gate (No Research Data Upload)
+name: JTE B0L C0 20s CI Gate V2 (No Research Data Upload)
 
 on:
   push:
