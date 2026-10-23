@@ -1,0 +1,55 @@
+name: JTE Exploratory One-Channel Negative Sensor Bias Pilot (Unvalidated)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-bias-hot-pilot.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone frozen MathWorks public upstream
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Run B0L to rank channels; pilot C1 one negative-temperature sensor
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte_bias_exploratory_hot
+      - name: Encrypt provisional bias results only, keep private
+        run: |
+          python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
+          python3 jte-public/encrypt_results.py --source private-bias-pilot --dest encrypted-bias-pilot --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label 'EXPLORATORY_HOT_NEG2K_2400'
+          rm -rf private-bias-pilot generated-pilot
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte-bias-hot-neg2K-pilot-encrypted
+          path: encrypted-bias-pilot/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Release ciphertext only; this is not a validated scientific G6 result
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create jte-bias-hot-neg2K-pilot-enc-20261023 encrypted-bias-pilot/encrypted-results.bin encrypted-bias-pilot/envelope.json --repo "${{ github.repository }}" --title 'JTE exploratory biased-sensor pilot encrypted' --notes 'Exploratory only: G5 not accepted, no numeric study results published; source publicly available but ciphertext can only be opened with external private key.'
+      - name: Verify upstream has not changed
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
