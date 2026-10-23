@@ -42,6 +42,19 @@ assert(ev.maxTempSolverDeltaK<=tolTempK && ...
     'Solver variations exceed reviewed thresholds.');
 assert(isfield(receipt,'alignment') && numel(receipt.alignment)==4, ...
     'Missing explicit B0/C0 time alignment diagnostics.');
+% An equal single-point log is NOT evidence of agreement throughout 2400s.
+% Every compared channel must cover the entire model horizon.
+fullCoverage=[receipt.alignment,receipt.zeroBiasAlignment,ev.comparisons(:).'];
+for k=1:numel(fullCoverage)
+    diag=fullCoverage(k);
+    assert(diag.nCompare>=2 && isfinite(diag.maxStepA_s) && ...
+           isfinite(diag.maxStepB_s), ...
+           'G5 BLOCKED: insufficient time coverage for %s',diag.name);
+    endTol=1e-8*max(1,receipt.horizon_s);
+    assert(abs(diag.timeStart_s)<=endTol && ...
+           abs(diag.timeEnd_s-receipt.horizon_s)<=endTol, ...
+           'G5 BLOCKED: incomplete horizon for %s',diag.name);
+end
 receipt.G5_PASS=true;
 receipt.reviewer=char(reviewer);receipt.reviewedAt=datestr(now,31);
 receipt.tolerance_T_K=tolTempK;receipt.tolerance_u=tolCmd;
