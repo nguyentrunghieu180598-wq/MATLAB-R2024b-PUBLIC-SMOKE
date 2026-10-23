@@ -1,0 +1,29 @@
+name: JTE Encrypted Artifact Self Test (Synthetic Data Only)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-encryption-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  encryption-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Encrypt a synthetic, nonresearch file and upload ciphertext only
+        run: |
+          mkdir -p synthetic
+          printf 'JTE_TEST_ONLY=123456789; no research data\n' > synthetic/hello.txt
+          python3 -m pip install --quiet --break-system-packages "cryptography>=42,<47"
+          python3 jte-public/encrypt_results.py --source synthetic --dest encrypted-test --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label SYNTHETIC_TEST
+          test -s encrypted-test/encrypted-results.bin
+          test -s encrypted-test/envelope.json
+          rm -rf synthetic
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte-synthetic-encryption-check
+          path: encrypted-test/
+          retention-days: 1
+          if-no-files-found: error
