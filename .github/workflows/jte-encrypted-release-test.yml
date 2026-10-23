@@ -1,0 +1,26 @@
+name: JTE Encrypted Release Transport Test (Synthetic Only)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-encrypted-release-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  transport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Encrypt synthetic-only file
+        run: |
+          mkdir -p synthetic
+          printf 'JTE_SYNTHETIC_ONLY=123456789\n' > synthetic/synthetic.txt
+          python3 -m pip install --quiet --break-system-packages "cryptography>=42,<47"
+          python3 jte-public/encrypt_results.py --source synthetic --dest encrypted-test --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label SYNTHETIC_RELEASE_TEST
+          rm -rf synthetic
+      - name: Publish CIPHERTEXT ONLY via public release for downloadability test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create jte-crypto-transport-test-20261023 encrypted-test/encrypted-results.bin encrypted-test/envelope.json --title 'Synthetic Encryption Transport Test' --notes 'Nonresearch synthetic encryption check. Contains only authenticated AES-GCM ciphertext and RSA-wrapped key, no secrets or research measurements.'
