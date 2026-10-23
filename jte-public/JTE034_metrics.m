@@ -97,7 +97,7 @@ R.maxInstantaneousTmaxIncrease_K=max(trueMax-baseMax);
 R.minInstantaneousTmaxChange_K=min(trueMax-baseMax);
 R.maxSpatialSpreadStudy_K=max(max(T,[],2)-min(T,[],2));
 R.maxAbsCommandDifference=max(abs(u-ub));
-R.Ju_absDifference_s=integrate(t,abs(u-ub),mode);
+R.Ju_absDifference_s=integrateAbsDifference(t,u-ub,mode);
 R.integralCommandBaseline_s=integrate(t,ub,mode);
 R.integralCommandStudy_s=integrate(t,u,mode);
 R.commandIntegralMethod=mode;
@@ -129,6 +129,19 @@ R.G5Accepted=logicalOption(opts,'G5Accepted',false);
 if R.unitsVerified && R.matchedInputsVerified && R.G5Accepted
     R.status='METRICS_COMPUTED__SCIENTIFIC_REVIEW_STILL_REQUIRED';
 end
+end
+
+function y=integrateAbsDifference(t,d,mode)
+% Exact integral of |piecewise-linear command difference|; split sign crossings.
+if strcmp(mode,'verified_zoh')
+    y=sum(diff(t).*abs(d(1:end-1)));
+    return;
+end
+a=d(1:end-1);b=d(2:end);dt=diff(t);
+area=dt.*(abs(a)+abs(b))/2;
+cross=(a<0 & b>0) | (a>0 & b<0);
+area(cross)=dt(cross).*(a(cross).^2+b(cross).^2)./(2*(abs(a(cross))+abs(b(cross))));
+y=sum(area);
 end
 
 function y=integrate(t,x,mode)
