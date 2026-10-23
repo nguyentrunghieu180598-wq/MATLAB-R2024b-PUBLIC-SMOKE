@@ -13,27 +13,21 @@ bfile=fullfile(outputDir,[bname '.slx']); cfile=fullfile(outputDir,[cname '.slx'
 assert(~isfile(bfile)&&~isfile(cfile),'Generated models exist. Choose a NEW outputDir; no overwrite.');
 assert(~bdIsLoaded(bname)&&~bdIsLoaded(cname),'Close prior generated model windows first.');
 files=struct('baseline',bfile,'study',cfile,'sourceSHA256',info.originalSHA256);
-completed=false;
-finish=onCleanup(@cleanup);
-copyfile(info.source,bfile); copyfile(info.source,cfile);
 try
+    copyfile(info.source,bfile);
+    copyfile(info.source,cfile);
     buildOne(bname,bfile,false);
     buildOne(cname,cfile,true);
     assert(strcmpi(JTE2026sha256(info.source),info.originalSHA256), ...
       'Original model changed; STOP.');
-    completed=true;
     fprintf('GENERATED, NOT COMPILED: %s\n%s\n',bfile,cfile);
 catch ME
+    if bdIsLoaded(bname),close_system(bname,0);end
+    if bdIsLoaded(cname),close_system(cname,0);end
+    if isfile(bfile),delete(bfile);end
+    if isfile(cfile),delete(cfile);end
     rethrow(ME);
 end
-    function cleanup()
-       if bdIsLoaded(bname),close_system(bname,0);end
-       if bdIsLoaded(cname),close_system(cname,0);end
-       if ~completed
-           if isfile(bfile),delete(bfile);end
-           if isfile(cfile),delete(cfile);end
-       end
-    end
 end
 
 function buildOne(model,path,addBias)
