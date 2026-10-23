@@ -25,10 +25,12 @@ jobs:
         with:
           command: addpath('jte-public'); ci_jte030_logging
       - name: Encrypt diagnostic
+        if: always()
         run: |
           python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
           python3 jte-public/encrypt_results.py --source private-jte030 --dest encrypted-jte030 --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label 'JTE030_G5_LOGGING_20S'
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: jte030-g5-logging-encrypted
           path: encrypted-jte030/
