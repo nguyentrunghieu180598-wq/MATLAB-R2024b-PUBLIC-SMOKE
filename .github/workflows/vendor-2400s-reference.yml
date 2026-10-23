@@ -1,0 +1,51 @@
+name: Official MathWorks Pack 2400s Reference (No JTE Data)
+
+on:
+  push:
+    paths:
+      - '.github/workflows/vendor-2400s-reference.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vendor-2400:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone and verify pinned public MathWorks tag
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - name: Install MATLAB R2024b Simscape requirements
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Electrical
+            Simscape_Fluids
+            Simscape_Battery
+            Stateflow
+      - name: Run original public vendor 2400s reference
+        uses: matlab-actions/run-command@v3
+        with:
+          command: vendor_2400s_reference
+      - name: Verify original unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
+      - name: Upload source-only simulation receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor-2400s-source-only-receipt
+          path: reports/
+          retention-days: 3
+          if-no-files-found: warn
