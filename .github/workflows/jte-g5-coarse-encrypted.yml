@@ -1,0 +1,53 @@
+name: JTE G5 Coarse 2400s Encrypted Results (Public Code, Private Data)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-g5-coarse-encrypted.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  coarse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone and authenticate public MathWorks original
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - name: Setup MATLAB R2024b with required products
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Run full 2400 s B0L/C0 coarse, no public numeric stdout
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte_coarse_2400
+      - name: Encrypt entire raw MAT/CSV/receipt with public-key cryptography
+        run: |
+          python3 -m pip install --quiet --break-system-packages "cryptography>=42,<47"
+          python3 jte-public/encrypt_results.py --source private-g5-coarse --dest encrypted-g5-coarse --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label G5_COARSE_2400
+          rm -rf private-g5-coarse ephemeral-models
+          test -s encrypted-g5-coarse/encrypted-results.bin
+      - name: Upload encrypted artifact only (no plaintext research files)
+        uses: actions/upload-artifact@v4
+        with:
+          name: jte-g5-coarse-2400-encrypted
+          path: encrypted-g5-coarse/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Verify original unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
