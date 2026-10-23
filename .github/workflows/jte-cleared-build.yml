@@ -34,7 +34,7 @@ jobs:
       - name: Test algebra and build/compile two public-source model copies
         uses: matlab-actions/run-command@v3
         with:
-          command: ci_jte_build
+          command: addpath('jte-public'); ci_jte_build
       - name: Verify vendor source intact
         if: always()
         run: |
