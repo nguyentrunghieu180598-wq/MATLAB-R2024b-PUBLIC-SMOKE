@@ -48,6 +48,7 @@ add_block('simulink/Sinks/To Workspace', [model '/Log'], ...
 add_line(model, 'Input/1', 'Gain/1');
 add_line(model, 'Gain/1', 'Log/1');
 set_param(model, 'Solver', 'ode45', 'StopTime', '2');
+set_param(model, 'SaveTime', 'on', 'TimeSaveName', 'tout');
 set_param(model, 'SimulationCommand', 'update');
 fprintf('Minimal Simulink diagram update/compile: PASS\n');
 
@@ -56,7 +57,11 @@ y = out.get('smoke_y');
 assert(isa(y, 'timeseries'), 'Expected timeseries output');
 assert(~isempty(y.Data) && all(isfinite(y.Data(:))), 'Bad output');
 assert(abs(double(y.Data(end)) - 6) < 1e-9, 'Wrong gain test result');
-assert(abs(double(y.Time(end)) - 2) < 1e-6, 'Wrong stop time');
+tSim = out.get('tout');
+assert(isnumeric(tSim) && ~isempty(tSim) && ...
+    abs(double(tSim(end)) - 2) < 1e-6, ...
+    'Simulator end time not 2 s');
+fprintf('Logged Constant signal last timestamp: %g s (event-based sample, not run end)\n', double(y.Time(end)));
 fprintf('Minimal Simulink simulation: PASS (value 6 at 2 s)\n');
 
 save_system(model, fullfile(reportDir, [model '.slx']));
