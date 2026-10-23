@@ -1,0 +1,39 @@
+name: JTE030 G5 logging diagnostic encrypted
+on:
+  push:
+    branches: ['codex/jte030-g5-logging']
+    paths: ['.github/workflows/jte030-logging.yml']
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned MathWorks source
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Short diagnostic only; capture private output
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte030_logging
+      - name: Encrypt diagnostic
+        run: |
+          python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
+          python3 jte-public/encrypt_results.py --source private-jte030 --dest encrypted-jte030 --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label 'JTE030_G5_LOGGING_20S'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte030-g5-logging-encrypted
+          path: encrypted-jte030/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Source integrity
+        if: always()
+        run: echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
