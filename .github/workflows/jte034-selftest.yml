@@ -22,6 +22,10 @@ jobs:
         uses: matlab-actions/run-command@v3
         with:
           command: addpath('jte-public'); diary('JTE034_crossing.log'); JTE034_crossing_test; diary off
+      - name: Fail-closed diagnostic regression
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); diary('JTE034_failure_boundary.log'); JTE034_failure_boundary_test; diary off
       - uses: actions/upload-artifact@v4
         if: always()
         with:
