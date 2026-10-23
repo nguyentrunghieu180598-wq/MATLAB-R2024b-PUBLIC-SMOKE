@@ -3,21 +3,22 @@ function ci_jte_build()
 % No private model files, unpublished data, paper material or study results.
 assert(strcmp(version('-release'),'2024b'),'R2024b required');
 addpath(fullfile(pwd,'jte-public'));
-reports=fullfile(pwd,'reports');
+runnerRoot=pwd;
+reports=fullfile(runnerRoot,'reports');
 if ~isfolder(reports),mkdir(reports);end
 diary(fullfile(reports,'jte-build-gates.log'));diary on;
 d=onCleanup(@()diary('off')); %#ok<NASGU>
 r=JTE2026selftest();
 assert(r.passed && strcmp(r.type,'ALGEBRA_ONLY'),'Algebra selftest not PASS');
 fprintf('G1 algebra selftest PASS: %d checks\n',r.numericCases);
-root=fullfile(pwd,'vendor-pack');
+root=fullfile(runnerRoot,'vendor-pack');
 projectFile=fullfile(root,'batteryExamplesProjectSetup.prj');
 assert(isfile(projectFile),'Pinned upstream project absent');
 p=openProject(projectFile);
 closePrj=onCleanup(@()safeCloseProject(p)); %#ok<NASGU>
 info=JTE2026preflight(root);
 fprintf('G1 source preflight hash: %s\n',info.originalSHA256);
-generatedDir=fullfile(pwd,'generated');
+generatedDir=fullfile(runnerRoot,'generated');
 models=JTE2026build(root,generatedDir);
 fprintf('G3 generated models: %s / %s\n',models.baseline,models.study);
 g1=JTE2026inspectGraph(models.baseline,false);
