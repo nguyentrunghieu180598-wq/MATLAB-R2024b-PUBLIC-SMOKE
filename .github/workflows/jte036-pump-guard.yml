@@ -1,0 +1,25 @@
+name: JTE036 Synthetic Fail-Closed Pump Guard
+on:
+  push:
+    branches:
+      - chat/jte036-emergency-pump-guard
+    paths:
+      - '.github/workflows/jte036-pump-guard.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  guarded-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+      - name: Execute 034 and 036 MATLAB synthetic safety tests
+        uses: matlab-actions/run-command@v3
+        with:
+          command: assert(strcmp(version('-release'),'2024b')); addpath('jte-public'); JTE034_selftest; JTE034_crossing_test; JTE036_pump_guard_test
+      - name: Publish no study data
+        run: echo 'Only synthetic algebraic checks. No JTE numeric study artifacts.'

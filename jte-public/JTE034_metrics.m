@@ -106,12 +106,13 @@ R.commandIntegralMethod=mode;
 R.pumpEnergyBaseline_J=NaN;R.pumpEnergyStudy_J=NaN;
 R.deltaPumpEnergy_J=NaN;
 if logicalOption(opts,'pumpLinkVerified',false)
-    assert(commandUnitVerified,'JTE034:PumpCommandMustBeVerified');
-    assert(isfield(opts,'pumpScale_W'),'JTE034:MissingPumpScale');
-    validateattributes(opts.pumpScale_W,{'numeric'},{'scalar','finite','nonnegative'});
-    R.pumpEnergyBaseline_J=opts.pumpScale_W*R.integralCommandBaseline_s;
-    R.pumpEnergyStudy_J=opts.pumpScale_W*R.integralCommandStudy_s;
-    R.deltaPumpEnergy_J=R.pumpEnergyStudy_J-R.pumpEnergyBaseline_J;
+    % Fails closed: source JTE2026build.m logs FlwR_calc outport as jteUcore.
+    % Actual plant/pump FlwR passes via 'sensor dynamics 1' TransferFcn.
+    % Pump power must be logged independently from the physical pump path.
+    error('JTE034:PumpSignalMismatch', ...
+       ['Refuse 500*jteUcore. This is PRE-filter controller command, ' ...
+        'not proven plant FlwR/pump power. Log Pump_power_calc ' ...
+        'output and verify its units/time semantics first.']);
 end
 R.pumpDisclaimer='MathWorks-model assumption only; not vehicle measurement';
 % Thermal limit optional. Linear interpolation of sampled Tmax assumed; not physical certification.
