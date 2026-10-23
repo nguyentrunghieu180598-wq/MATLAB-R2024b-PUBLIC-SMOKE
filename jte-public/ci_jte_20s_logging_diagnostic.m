@@ -20,6 +20,18 @@ for k=1:numel(names)
  fprintf('LOG_SCOPE %s samples=%d first_s=%g last_s=%g channels=%d full=%d\n', ...
   names{k},numel(t),t(1),t(end),size(x,2),full);
 end
+f=get_param([mdl '/Battery Control/FlwR_calc'],'PortHandles');
+ambientLine=get_param(f.Inport(2),'Line');
+ambientPort=get_param(ambientLine,'SrcPortHandle');
+ambientBlock=get_param(ambientPort,'Parent');
+ambientType=get_param(ambientBlock,'BlockType');
+fprintf('AMBIENT_SOURCE_BLOCK path=%s type=%s\n',ambientBlock,ambientType);
+if strcmp(ambientType,'Constant')
+    fprintf('AMBIENT_SOURCE_CONSTANT_BLOCK_VERIFIED\n');
+    fprintf('AMBIENT_SOURCE_SAMPLE_TIME=%s\n',get_param(ambientBlock,'SampleTime'));
+else
+    fprintf('AMBIENT_SOURCE_REQUIRES_UPSTREAM_TRACE_NO_CONSTANT_INFERENCE\n');
+end
 fprintf('LOGGING_DIAGNOSTIC_COMPLETE_20S; NO_STUDY_DATA_PRINTED\n');
 end
 function quietClose(p)
