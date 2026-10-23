@@ -1,0 +1,32 @@
+name: Relay JTE G5 Coarse Ciphertext Only
+on:
+  workflow_run:
+    workflows:
+      - "JTE G5 Coarse 2400s Encrypted Results (Public Code, Private Data)"
+    types: [completed]
+permissions:
+  actions: read
+  contents: write
+jobs:
+  relay:
+    if: ${{ github.event.workflow_run.id == 39959824855 && github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download ciphertext-only artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ciphertext
+          gh run download 39959824855 --repo "${{ github.repository }}" -n jte-g5-coarse-2400-encrypted -D ciphertext
+          test -s ciphertext/encrypted-results.bin
+          test -s ciphertext/envelope.json
+          jq -e '.version=="JTE_ENVELOPE_V1" and .label=="G5_COARSE_2400" and .cipher=="AES-256-GCM" and .keyWrap=="RSA-3072-OAEP-SHA256" and .filesCount>=2' ciphertext/envelope.json
+          actual="$(sha256sum ciphertext/encrypted-results.bin | cut -d' ' -f1)"
+          expected="$(jq -r '.sha256Ciphertext' ciphertext/envelope.json)"
+          test "$actual" = "$expected"
+      - name: Make encrypted-only release for controlled retrieval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create jte-g5-coarse-enc-20261023-r1 ciphertext/encrypted-results.bin ciphertext/envelope.json --repo "${{ github.repository }}" --title 'JTE G5 Coarse encrypted research output' --notes 'Encrypted research output only. Decryption key is kept outside GitHub. Not scientifically accepted G5 results.'
