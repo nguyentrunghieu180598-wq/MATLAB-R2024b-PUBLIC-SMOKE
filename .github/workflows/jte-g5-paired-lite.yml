@@ -1,0 +1,55 @@
+name: JTE G5 Sequential 2400s B0L C0 Numeric Residual (Encrypted)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-g5-paired-lite.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout MathWorks immutable public reference
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Run sequential B0L then C0 at 2400s with bounded memory
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte_paired_compact_review
+      - name: Encrypt exact residual numbers prior to transmission
+        run: |
+          python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
+          python3 jte-public/encrypt_results.py --source private-paired-lite --dest encrypted-pair --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label 'G5_PAIRED_2400'
+          rm -rf private-paired-lite generated-comparison
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte-g5-paired-2400-residuals-encrypted
+          path: encrypted-pair/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish ciphertext only; no research values or private keys
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create jte-g5-paired-2400-encrypted-20261023 encrypted-pair/encrypted-results.bin encrypted-pair/envelope.json --repo "${{ github.repository }}" --title 'JTE B0L C0 2400s encrypted G5 residuals' --notes 'Contains authenticated ciphertext only. Numeric G5 acceptance requires separate review of decrypted results and solver-sensitivity evidence.'
+      - name: Check original source remains unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
