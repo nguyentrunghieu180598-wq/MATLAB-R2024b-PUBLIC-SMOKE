@@ -1,4 +1,4 @@
-name: JTE G5 Sequential 2400s B0L C0 Numeric Residual (Encrypted)
+name: JTE G5 Sequential 2400s B0L C0 Numeric Residual V2 (Encrypted)
 on:
   push:
     paths:
