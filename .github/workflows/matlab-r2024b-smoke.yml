@@ -1,0 +1,50 @@
+name: MATLAB R2024b Public Smoke (No Research Data)
+
+on:
+  push:
+    paths:
+      - '.github/workflows/matlab-r2024b-smoke.yml'
+      - 'matlab_r2024b_smoke.m'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: matlab-r2024b-public-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Verify MATLAB R2024b, Simulink and Simscape packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Get public smoke-test files
+        uses: actions/checkout@v4
+
+      - name: Install MATLAB R2024b with requested products
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Electrical
+            Simscape_Battery
+            Stateflow
+          cache: false
+
+      - name: Run MATLAB license and Simulink smoke test
+        uses: matlab-actions/run-command@v3
+        with:
+          command: matlab_r2024b_smoke
+
+      - name: Save public smoke report (no JTE data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-r2024b-public-smoke-log
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 3
