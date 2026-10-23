@@ -1,0 +1,69 @@
+name: JTE G5 Four Independent 2400s Solver Runs (Encrypted)
+on:
+  push:
+    paths:
+      - '.github/workflows/jte-g5-four-independent.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: B0L
+            solver_profile: original
+          - case: C0
+            solver_profile: original
+          - case: B0L
+            solver_profile: fine
+          - case: C0
+            solver_profile: fine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin MathWorks model and verify byte hash
+        run: |
+          git clone --branch 24.2.1.5 --depth 1 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Run actual 2400s physical model with compact G5 signal capture
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); ci_jte_compact_2400('${{ matrix.case }}','${{ matrix.solver_profile }}')
+      - name: Encrypt results before publish
+        run: |
+          python3 -m pip install --quiet --break-system-packages 'cryptography>=42,<47'
+          python3 jte-public/encrypt_results.py --source private-compact-results --dest encrypted-g5 --key jte-public/JTE2026_PUBLIC_RSA_ENCRYPTION_KEY.pem --label "JTE_G5_${{ matrix.case }}_${{ matrix.solver_profile }}_2400"
+          rm -rf private-compact-results generated-ephemeral
+          test -s encrypted-g5/encrypted-results.bin
+      - name: Upload ciphertext artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "jte-g5-${{ matrix.case }}-${{ matrix.solver_profile }}-2400-encrypted"
+          path: encrypted-g5/
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish only ciphertext for audit and secure retrieval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "jte-g5-${{ matrix.case }}-${{ matrix.solver_profile }}-encrypted-20261023" encrypted-g5/encrypted-results.bin encrypted-g5/envelope.json --repo "${{ github.repository }}" --title "Encrypted JTE G5 ${{ matrix.case }} ${{ matrix.solver_profile }}" --notes "Encrypted data only. RSA private key is outside GitHub. Numeric G5 NOT ACCEPTED until paired solver review."
+      - name: Ensure official model is unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
