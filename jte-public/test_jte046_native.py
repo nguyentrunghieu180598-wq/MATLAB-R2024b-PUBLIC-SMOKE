@@ -127,11 +127,13 @@ class PipelineTests(unittest.TestCase):
     def test_c0_full_zero_bias_vector_is_compared(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)/'input';root.mkdir();m=self.fixture(root)
+            values=[300.0]+[299.0]*311
             for key in ('C0_original','C0_fine'):
                 for name in ('jteTtrue','jteTmeas'):
                     f=root/(key+'_'+name+'.csv')
-                    f.write_text('time_s,value_1,value_2\n' +
-                        ''.join(f'{t},300,299\n' for t in (0,1,1,2400)))
+                    header='time_s,'+','.join(f'value_{j}' for j in range(1,313))+'\n'
+                    f.write_text(header+''.join(f'{t},'+','.join(map(str,values))+'\n'
+                                                for t in (0,1,1,2400)))
                     m['cases'][key]['signals'][name]={
                       'file':f.name,'sha256':digest(f),
                       'sampling':'linear','duplicate_convention':'first_pre_last_post'}
@@ -140,15 +142,19 @@ class PipelineTests(unittest.TestCase):
             self.assertFalse(z['G5_PASS'])
             self.assertEqual(set(z['zero_bias_full_vectors']),{'C0_original','C0_fine'})
             self.assertEqual(z['zero_bias_full_vectors']['C0_original']['maxAbs'],0)
-            self.assertFalse(any('ZERO_BIAS_FULL_VECTOR_NOT_AVAILABLE' in b for b in z['blockers']))
+            self.assertFalse(any('ZERO_BIAS_FULL_VECTOR_NOT' in b for b in z['blockers']))
 
     def test_c0_sensor_mismatch_flagged_even_if_max_agrees(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)/'input';root.mkdir();m=self.fixture(root)
-            for name,values in [('jteTtrue',(300,299)),('jteTmeas',(300,297))]:
+            vals=[300.0]+[299.0]*311
+            for name in ('jteTtrue','jteTmeas'):
                 f=root/('C0_original_'+name+'.csv')
-                f.write_text('time_s,value_1,value_2\n' +
-                    ''.join(f'{t},{values[0]},{values[1]}\n' for t in (0,1,1,2400)))
+                values=list(vals)
+                if name=='jteTmeas': values[-1]=297.0
+                header='time_s,'+','.join(f'value_{j}' for j in range(1,313))+'\n'
+                f.write_text(header+''.join(f'{t},'+','.join(map(str,values))+'\n'
+                                            for t in (0,1,1,2400)))
                 m['cases']['C0_original']['signals'][name]={
                   'file':f.name,'sha256':digest(f),
                   'sampling':'linear','duplicate_convention':'first_pre_last_post'}
@@ -159,6 +165,22 @@ class PipelineTests(unittest.TestCase):
             self.assertIn('C0_original:ZERO_BIAS_FULL_VECTOR_NONZERO_REVIEW',z['blockers'])
             self.assertIn('C0_fine:ZERO_BIAS_FULL_VECTOR_NOT_AVAILABLE',z['blockers'])
             self.assertFalse(z['G5_PASS'])
+
+    def test_plot_T_two_column_pseudo_vector_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)/'input';root.mkdir();m=self.fixture(root)
+            for name in ('jteTtrue','jteTmeas'):
+                f=root/('C0_original_'+name+'.csv')
+                f.write_text('time_s,value_1,value_2\n' +
+                             ''.join(f'{t},300,299\n' for t in (0,1,1,2400)))
+                m['cases']['C0_original']['signals'][name]={
+                  'file':f.name,'sha256':digest(f),
+                  'sampling':'linear','duplicate_convention':'first_pre_last_post'}
+            (root/'manifest.json').write_text(json.dumps(m))
+            z=audit(root,Path(d)/'review.json')
+            self.assertFalse(z['G5_PASS'])
+            self.assertNotIn('C0_original',z['zero_bias_full_vectors'])
+            self.assertIn('C0_original:ZERO_BIAS_FULL_VECTOR_NOT_312_CHANNELS',z['blockers'])
 
 if __name__=='__main__':
     unittest.main(verbosity=2)
