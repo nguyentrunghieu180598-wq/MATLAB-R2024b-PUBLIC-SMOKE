@@ -1,0 +1,19 @@
+name: JTE059 Python synthetic audit only
+on:
+  push:
+    branches: ['chat/jte059-g5-memory-event-audit-20261025']
+    paths: ['jte059/TRIGGER_SYNTHETIC_ONLY.txt']
+permissions:
+  contents: read
+jobs:
+  synthetic-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare NumPy for synthetic-only fixtures
+        run: python3 -m pip install --quiet numpy
+      - name: Run existing and new mathematical regression tests
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE058_native_math test_JTE058_review test_JTE059_streaming

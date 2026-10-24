@@ -1,0 +1,3 @@
+JTE059 authorized source-only Python regression. No MATLAB battery model, no research data, no G5/G6.
+Repeat JTE059 synthetic suite including fail-closed forged-evidence regression.
+Repeat after preserving full312 error-message regression contract.

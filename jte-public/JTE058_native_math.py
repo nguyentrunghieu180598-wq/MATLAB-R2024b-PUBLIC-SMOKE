@@ -49,11 +49,17 @@ def _linear_columns(t, x, knots):
     return np.column_stack([np.interp(knots, t, x[:, j]) for j in range(x.shape[1])])
 
 def thermal_comparison(t_a, data_a, t_b, data_b):
-    """maxAbs and exact time RMSE of piecewise-linear differences, per channel.
+    """Per-channel maxAbs and time RMSE of piecewise-linear thermal traces.
 
-    For difference linear on a union-grid interval: integral(delta**2)
-    = dt*(d0**2 + d0*d1 + d1**2)/3. Units equal input temperature.
-    This is NOT a confidence bound or physical validation.
+    Exact integral of SQUARED DIFFERENCE of two explicitly interpolated
+    piecewise-linear traces over all union knots. It is NOT exact for the
+    unobserved physical Simscape trajectory between logged timestamps.
+
+    Streaming per-column: avoids building multiple dense (union-times x
+    312-channel) arrays for 2400-s/variable-step G5 data. O(union-times)
+    temporary memory, not O(union-times * channels). No rounding,
+    time deduplication or source value modification; conflicting duplicate
+    thermal timestamps are rejected.
     """
     ta, xa = _native(t_a, data_a, "thermal_A")
     tb, xb = _native(t_b, data_b, "thermal_B")
@@ -63,20 +69,29 @@ def thermal_comparison(t_a, data_a, t_b, data_b):
     ta, xa = _thermal_unique(ta, xa)
     tb, xb = _thermal_unique(tb, xb)
     knots = np.union1d(ta, tb)
-    # Scale per channel before squaring: avoid false zero/Inf from finite
-    # small/large differences. Integration is exact for these interpolants,
-    # not for the unknown continuous-time Simscape trajectory between knots.
+    duration = knots[-1] - knots[0]
     with np.errstate(over="raise", invalid="raise", divide="raise"):
-        delta = _linear_columns(ta, xa, knots) - _linear_columns(tb, xb, knots)
-        scale = np.max(np.abs(delta), axis=0)
-        z = np.divide(delta, scale, out=np.zeros_like(delta), where=scale != 0)
-        weights = (np.diff(knots)/(knots[-1]-knots[0]))[:, None]
-        mean_square = np.sum(weights*(z[:-1]**2+z[:-1]*z[1:]+z[1:]**2)/3., axis=0)
-        rmse = scale*np.sqrt(np.maximum(mean_square, 0.0))
+        weights = np.diff(knots) / duration
+    maxima = np.empty(xa.shape[1], dtype=float)
+    rmses = np.empty(xa.shape[1], dtype=float)
+    # Process one channel at a time. Avoid allocating 3+ dense 312-column
+    # arrays and triggering memory pressure on large native study traces.
+    for j in range(xa.shape[1]):
+        with np.errstate(over="raise", invalid="raise", divide="raise"):
+            d = np.interp(knots, ta, xa[:, j]) - np.interp(knots, tb, xb[:, j])
+            scale = float(np.max(np.abs(d)))
+            maxima[j] = scale
+            if scale == 0:
+                rmses[j] = 0.0
+                continue
+            z = d / scale
+            terms = (z[:-1]**2 + z[:-1]*z[1:] + z[1:]**2) / 3.0
+            rmses[j] = scale * np.sqrt(max(0.0, float(np.sum(weights*terms))))
     return {
-        "max_abs_by_channel": np.max(np.abs(delta), axis=0),
-        "time_weighted_rmse_by_channel": rmse,
-        "method": "matched horizon, union knots, linear thermal segments, exact squared integral",
+        "max_abs_by_channel": maxima,
+        "time_weighted_rmse_by_channel": rmses,
+        "method": "native common horizon; piecewise-linear interpolants; per-column exact squared integral",
+        "scientific_acceptance": False,
     }
 
 def native_switches(time_s, command):
@@ -118,3 +133,45 @@ def command_integral(t_a, data_a, t_b, data_b):
         "method": "right-continuous zero-order hold; duplicate native rows retained for events",
     }
 
+
+def observed_event_bracket_diagnostics(time_s, command):
+    """Clock-bracket diagnostics for OBSERVED discrete command changes.
+
+    Each change from row i-1 to row i is conservatively bracketed by
+    [time[i-1], time[i]]. Equal-time pre/post samples yield a zero-width
+    bracket. No timestamp is rounded or projected onto an event instant.
+
+    CONDITIONAL estimate of maximum error in integrating this single command
+    if each logged transition represents EXACTLY ONE actual switch somewhere
+    in its bracket, and NO other switches were omitted:
+        sum(abs(level_after - level_before) * bracket_width_s).
+    Without proven source-specific event completeness, the sum is NOT an
+    unconditional bound on actual command integrals, event times or energy.
+    """
+    t, x = _native(time_s, command, "observed_command")
+    if x.shape[1] != 1:
+        raise ValueError("Expected scalar command")
+    y = x[:, 0]
+    with np.errstate(over="raise", invalid="raise"):
+        idx = np.flatnonzero(np.diff(y) != 0) + 1
+        widths = t[idx] - t[idx-1]
+        jumps = np.abs(y[idx] - y[idx-1])
+        timing_area = float(np.sum(widths*jumps))
+        if not np.isfinite(timing_area):
+            raise ValueError("Nonfinite event-bracket diagnostic")
+    events = [
+        {"left_time_s": float(t[i-1]),
+         "right_time_s": float(t[i]),
+         "before": float(y[i-1]), "after": float(y[i]),
+         "bracket_width_s": float(t[i] - t[i-1])}
+        for i in idx
+    ]
+    return {
+        "observed_changes": len(events),
+        "events": events,
+        "candidate_integral_timing_error_command_seconds": timing_area,
+        "conditional_on": "one real change per observed bracket, no missing/extra changes, piecewise-constant core command",
+        "event_coverage_verified": False,
+        "actual_physical_event_times_verified": False,
+        "scientific_acceptance": False,
+    }
