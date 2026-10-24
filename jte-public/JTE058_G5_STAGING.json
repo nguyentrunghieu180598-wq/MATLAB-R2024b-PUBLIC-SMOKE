@@ -138,5 +138,11 @@
       "failure/cancel/partial-upload handling, no duplicate/partial accepted",
       "quota/cost approval and least privilege"
     ]
+  },
+  "mathUseGate": {
+    "thermal": "Only declared continuous piecewise-linear interpolants; reject conflicting duplicate rows and unequal complete horizons. Not a bound on unobserved physical trajectory.",
+    "coreCommand": "BLOCKED_UNQUALIFIED_EVENT_SIDE. Synthetic Step event log already violated exact-time post-row assumption in run40125692340; inspect precise native bracket. Pinned FlwR_calc event capture must be independently qualified, not inferred from name or toy.",
+    "postfilter": "Continuous signal; never commandZOH or infer physical volume/power/energy.",
+    "nativeSwitches": "Logged row changes only, including zero-duration transitions, not exact physical switching times."
   }
 }
