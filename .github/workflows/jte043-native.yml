@@ -50,3 +50,4 @@ jobs:
         run: echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
 # Revision 2: synthetic model workspace available before compiled inspection.
 # Revision 3: valid ZOH fixture end behavior; retain per-stage safe metadata on failure.
+# Revision 4: preserve raw shapes; compare only explicit IsTimeFirst canonical views.
