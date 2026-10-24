@@ -11,7 +11,7 @@ def validate_c1(t_true, true_K, t_meas, measured_K, channel_1based, bias_K):
         raise ValueError('C1 protocol requires bias=-2 K')
     tt,T=_native(t_true,true_K,'C1_true');tm,M=_native(t_meas,measured_K,'C1_measured')
     if T.shape[1]!=312 or M.shape!=T.shape:
-        raise ValueError('C1 requires full 312-channel same-case observation vectors')
+        raise ValueError('C1 requires full312 same-case modeled observation channels (not installed physical sensors)')
     if not np.array_equal(tt,tm):
         raise ValueError('C1 true/measured clocks must match exactly, including duplicates')
     j=int(channel_1based)-1
