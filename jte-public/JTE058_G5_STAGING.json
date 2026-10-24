@@ -105,5 +105,38 @@
     "channelMapping": "UNASSIGNED until Chat G5 acceptance and authenticated baseline ranking1800..2400s",
     "identity": "Within same C1: M(:,j)=T(:,j)-2, all other channels exact; physical C1 need not equal C0",
     "caseLimit": 3
+  },
+  "recoveryRequirements": {
+    "status": "BLOCKED_OWNER_AUTHORIZATION",
+    "researchConnectionSharedDrivesObserved": 0,
+    "knownOutputFolderIsSharedDrive": false,
+    "runnerSinkIdentity": null,
+    "sinkResource": null,
+    "supportedPaths": [
+      "Existing organization Shared Drive plus authorized WIF/service identity",
+      "Explicit user OAuth delegation via secure authorization channel, not copied Work connector OAuth",
+      "Existing private Cloud Storage only after IAM/quota/cost verified"
+    ],
+    "forbidden": [
+      "RSA backup bypass",
+      "standalone service account owning MyDrive files",
+      "assume connector auth is transferable",
+      "paid project/trial registration"
+    ],
+    "oidcTrustTemplateOnly": {
+      "repository_id": "1430976859",
+      "repository_owner_id": "329413460",
+      "ref": "refs/heads/work/jte058-technical-gates-20261025",
+      "workflow_ref": "nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE/.github/workflows/jte058-private-sink-fixture.yml@refs/heads/work/jte058-technical-gates-20261025",
+      "event_name": "push",
+      "note": "Future sink-only fixture workflow does not exist; no auth policy/resource created. Protected execution/revision approval also required."
+    },
+    "requiredSyntheticEvidence": [
+      "runner-direct push; no Work RSA",
+      "complete commit object size/SHA/ACL",
+      "fresh independent retrieval without original runner context",
+      "failure/cancel/partial-upload handling, no duplicate/partial accepted",
+      "quota/cost approval and least privilege"
+    ]
   }
 }
