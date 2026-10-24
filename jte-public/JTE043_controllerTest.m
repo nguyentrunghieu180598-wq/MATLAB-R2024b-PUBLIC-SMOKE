@@ -46,12 +46,14 @@ for k=1:3
  add_line(h,[labels{k} '/1'],[labels{k} 'Log/1']);
 end
 set_param(h,'StopTime',num2str(t(end)));
+mw=get_param(h,'ModelWorkspace');
+for k=1:4,assignin(mw,vars{k},timeseries(arrays{k},t));end
 feval(h,[],[],[],'compile');
 sampleTime=get_param([h '/fault'],'CompiledSampleTime');
 ports=get_param([h '/fault'],'CompiledPortDimensions');
 feval(h,[],[],[],'term');
 in=Simulink.SimulationInput(h);
-for k=1:4,in=in.setVariable(vars{k},timeseries(arrays{k},t));end
+for k=1:4,in=in.setVariable(vars{k},timeseries(arrays{k},t),'Workspace',h);end
 out=sim(in);
 u=cell(1,3);res=zeros(1,3);
 for k=1:3
