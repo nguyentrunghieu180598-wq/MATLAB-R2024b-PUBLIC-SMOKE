@@ -13,16 +13,25 @@ from __future__ import annotations
 import numpy as np
 
 def _native(time_s, values, name: str):
-    t = np.asarray(time_s, dtype=float).reshape(-1)
-    x = np.asarray(values, dtype=float)
+    raw_t = np.asarray(time_s)
+    raw_x = np.asarray(values)
+    if raw_t.dtype.kind not in "fiu" or raw_x.dtype.kind not in "fiu":
+        raise ValueError(f"{name}: real numeric arrays required; no complex/coercion")
+    if not (raw_t.ndim == 1 or (raw_t.ndim == 2 and 1 in raw_t.shape)):
+        raise ValueError(f"{name}: clock must be a vector, not a flattened matrix")
+    t = raw_t.astype(float).reshape(-1)
+    x = raw_x.astype(float)
     if x.ndim == 1:
         x = x[:, None]
-    if x.ndim != 2 or t.size != x.shape[0] or t.size < 2:
+    if x.ndim != 2 or t.size != x.shape[0] or t.size < 2 or x.shape[1] < 1:
         raise ValueError(f"{name}: Time/Data dimensions or length invalid")
     if not np.all(np.isfinite(t)) or not np.all(np.isfinite(x)):
         raise ValueError(f"{name}: nonfinite native trace")
     if np.any(np.diff(t) < 0) or not t[-1] > t[0]:
         raise ValueError(f"{name}: reversed or zero-duration clock")
+    with np.errstate(over="raise", invalid="raise"):
+        if not np.isfinite(t[-1] - t[0]):
+            raise ValueError(f"{name}: nonfinite duration")
     return t, x
 
 def _matched_horizon(t1, t2):
@@ -54,10 +63,16 @@ def thermal_comparison(t_a, data_a, t_b, data_b):
     ta, xa = _thermal_unique(ta, xa)
     tb, xb = _thermal_unique(tb, xb)
     knots = np.union1d(ta, tb)
-    delta = _linear_columns(ta, xa, knots) - _linear_columns(tb, xb, knots)
-    dt = np.diff(knots)[:, None]
-    integral = np.sum(dt * (delta[:-1]**2 + delta[:-1]*delta[1:] + delta[1:]**2)/3., axis=0)
-    rmse = np.sqrt(np.maximum(integral/(knots[-1]-knots[0]), 0.0))
+    # Scale per channel before squaring: avoid false zero/Inf from finite
+    # small/large differences. Integration is exact for these interpolants,
+    # not for the unknown continuous-time Simscape trajectory between knots.
+    with np.errstate(over="raise", invalid="raise", divide="raise"):
+        delta = _linear_columns(ta, xa, knots) - _linear_columns(tb, xb, knots)
+        scale = np.max(np.abs(delta), axis=0)
+        z = np.divide(delta, scale, out=np.zeros_like(delta), where=scale != 0)
+        weights = (np.diff(knots)/(knots[-1]-knots[0]))[:, None]
+        mean_square = np.sum(weights*(z[:-1]**2+z[:-1]*z[1:]+z[1:]**2)/3., axis=0)
+        rmse = scale*np.sqrt(np.maximum(mean_square, 0.0))
     return {
         "max_abs_by_channel": np.max(np.abs(delta), axis=0),
         "time_weighted_rmse_by_channel": rmse,
@@ -91,11 +106,15 @@ def command_integral(t_a, data_a, t_b, data_b):
         raise ValueError("Expected scalar command")
     knots = np.union1d(ta, tb)
     dt = np.diff(knots)
-    d = _right_hold(ta, xa, knots[:-1]) - _right_hold(tb, xb, knots[:-1])
+    with np.errstate(over="raise", invalid="raise"):
+        d = _right_hold(ta, xa, knots[:-1]) - _right_hold(tb, xb, knots[:-1])
+        signed = float(np.sum(d*dt))
+        absolute = float(np.sum(np.abs(d)*dt))
     return {
-        "signed_command_seconds": float(np.sum(d*dt)),
-        "absolute_command_seconds": float(np.sum(np.abs(d)*dt)),
+        "signed_command_seconds": signed,
+        "absolute_command_seconds": absolute,
         "events_a": native_switches(ta, xa),
         "events_b": native_switches(tb, xb),
         "method": "right-continuous zero-order hold; duplicate native rows retained for events",
     }
+

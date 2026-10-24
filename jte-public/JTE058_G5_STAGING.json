@@ -1,0 +1,109 @@
+{
+  "schema": "JTE058_G5_STAGING_DISABLED_V1",
+  "runEnabled": false,
+  "blocker": "BLOCKED_RECOVERY_AFTER_RESET",
+  "recoveryReceipt": null,
+  "source": {
+    "tag": "24.2.1.5",
+    "commit": "f98d21929a3a269dacd1ee38999cd9773760c6db",
+    "modelSHA256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+    "loadSHA256": "a6b9e9353cadf2819255e55c1bcaf7beee439345311d2d0de30220e8e36e6986",
+    "parameterScriptSHA256": "b7477acb70d19bca2f25502b21aa5611531dc58564f03ce610ddcc196a401cdd"
+  },
+  "casesSerial": [
+    "B0L_original",
+    "C0_original",
+    "B0L_fine",
+    "C0_fine"
+  ],
+  "start_s": 0,
+  "stop_s": 2400,
+  "biasK": 0,
+  "profiles": {
+    "original": {
+      "Solver": "ode23t",
+      "RelTol": "1e-3",
+      "AbsTol": "1e-3",
+      "MaxStep": "0.05"
+    },
+    "fine": {
+      "Solver": "ode23t",
+      "RelTol": "1e-4",
+      "AbsTol": "1e-4",
+      "MaxStep": "0.025"
+    }
+  },
+  "profileStatus": "FROZEN_NUMERICAL_REFINEMENT_CANDIDATE_NOT_SENSITIVITY_VALIDATED",
+  "localSolver": {
+    "source": "root Solver Configuration SID1, pinned XML",
+    "UseLocalSolver": "off",
+    "LocalSolverChoice": "NE_BACKWARD_EULER_ADVANCER",
+    "LocalSolverSampleTime": "0.001",
+    "policy": "Preserve both profiles; sample time inactive while off. Verify resolved mask snapshot before every case; abort on mismatch."
+  },
+  "initialConditions": {
+    "LoadInitialState": "off",
+    "requireSamePhysicalResolvedSnapshot": true,
+    "requireSameNativePhysicalVectorAtT0": true,
+    "note": "Source-defined Simscape initialization, not an asserted dump of converged internal state."
+  },
+  "nativeSchema": {
+    "schema": "JTE058_G5_NATIVE_V1",
+    "temperatureUnit": "K",
+    "timeUnit": "s",
+    "sensorColumns": 312,
+    "B0L": [
+      "jteTtrue"
+    ],
+    "C0": [
+      "jteTtrue",
+      "jteTmeas"
+    ],
+    "reducerPairColumns": [
+      "Tmin_K",
+      "Tmax_K"
+    ],
+    "commands": {
+      "jteUcore": "prefilter normalized 0..1; ZOH integration BLOCKED until source-specific event capture qualified",
+      "jteFlwR": "postTransferFcn normalized actuator command; NOT physical flow or power; do not use ZOH"
+    },
+    "timestamps": "original nondecreasing arrays; retain pre/post rows, no decimation/interpolation",
+    "constantAmbient": "Constant3 SID199 provenance; retain single sample, do not extrapolate",
+    "metadata": [
+      "source/model/code/load/parameter SHA",
+      "plain SimulationMetadata.ModelInfo including effective SolverInfo",
+      "plain ExecutionInfo and TimingInfo",
+      "requested SimulationInput overrides",
+      "resolved physical IC/base/model/mask variables with defining source",
+      "native clocks and units"
+    ]
+  },
+  "perCaseGate": [
+    "runtime success + complete2400horizon + schema312 + finite native arrays",
+    "source unchanged + requested/effective config match + matched IC/load",
+    "C0 within-case bias0 identity (not applied to C1)",
+    "direct private sink commit with bytes/SHA and restricted ACL",
+    "fresh-context private readback, reopen MAT, verify bytes/SHA",
+    "only then unlock NEXT case"
+  ],
+  "resourcePlanningOnly": {
+    "assumedSamplesOriginal": 48001,
+    "assumedSamplesFine": 96001,
+    "C0_vector_bytes_original": 239620992,
+    "C0_vector_bytes_fine": 479236992,
+    "B0L_vector_bytes_original": 119810496,
+    "B0L_vector_bytes_fine": 239618496,
+    "note": "Planning near MaxStep only; adaptive events can exceed counts. Not a size upper bound or compression prediction. No 2400s timing benchmark; pilot includes compile and cannot be linearly extrapolated.",
+    "proposedHardWallMinutesPerCase": 45,
+    "hardLimitsStatus": "REQUIRE_OWNER_SINK_QUOTA_AND_RUNTIME_PREFLIGHT_BEFORE_ENABLING"
+  },
+  "G6": {
+    "runEnabled": false,
+    "schema": "JTE058_C1_NATIVE_V1",
+    "collector": "SEPARATE C1 path, never JTE056collect zero-bias assertions",
+    "biasK": -2,
+    "channelMapping": "UNASSIGNED until Chat G5 acceptance and authenticated baseline ranking1800..2400s",
+    "identity": "Within same C1: M(:,j)=T(:,j)-2, all other channels exact; physical C1 need not equal C0",
+    "caseLimit": 3
+  }
+}
