@@ -179,9 +179,16 @@ def audit(folder,output):
     # Full-vector evidence is optional in old compact archives; its absence is an
     # explicit blocker, NEVER silently treated as sensor-level agreement.
     zero_vectors={}
+    # The official pinned model's diagnostic logged 312 observation channels.
+    # A two-column plot-T/min-max export MUST NOT masquerade as a full vector.
+    # This known model-specific dimension must be independently reconfirmed
+    # against the authenticated 2400 s MAT source before scientific acceptance.
     for key,v in traces.items():
         if not key.startswith('C0'): continue
         if 'jteTtrue' in v and 'jteTmeas' in v:
+            if v['jteTtrue'].width != 312 or v['jteTmeas'].width != 312:
+                blockers.append(key+':ZERO_BIAS_FULL_VECTOR_NOT_312_CHANNELS')
+                continue
             report=compare(v['jteTtrue'],v['jteTmeas'])
             zero_vectors[key]=report
             if report['maxAbs']!=0:
