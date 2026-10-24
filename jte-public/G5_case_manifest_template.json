@@ -1,0 +1,236 @@
+{
+  "scope": "TEMPLATE_NOT_EVIDENCE",
+  "source_sha256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+  "horizon_s": 2400,
+  "matched_conditions_verified": false,
+  "solver_profiles": {
+    "original": {
+      "Solver": null,
+      "SolverType": null,
+      "RelTol": null,
+      "AbsTol": null,
+      "MaxStep": null
+    },
+    "fine": {
+      "Solver": null,
+      "SolverType": null,
+      "RelTol": null,
+      "AbsTol": null,
+      "MaxStep": null
+    }
+  },
+  "cases": {
+    "B0L_original": {
+      "temperature_unit_verified": null,
+      "ambient_actual_K": null,
+      "solver_profile": "original",
+      "model_sha256": null,
+      "load_sha256": null,
+      "initial_state_sha256": null,
+      "gcm_receipt_file": null,
+      "gcm_receipt_sha256": null,
+      "source_mat_file": null,
+      "source_mat_sha256": null,
+      "source_mat_member": null,
+      "data_time_source": "UNVERIFIED",
+      "root_event_coverage_verified": false,
+      "signals": {
+        "jteTmaxTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTminTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTtrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUcore": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUfiltered": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        }
+      }
+    },
+    "C0_original": {
+      "temperature_unit_verified": null,
+      "ambient_actual_K": null,
+      "solver_profile": "original",
+      "model_sha256": null,
+      "load_sha256": null,
+      "initial_state_sha256": null,
+      "gcm_receipt_file": null,
+      "gcm_receipt_sha256": null,
+      "source_mat_file": null,
+      "source_mat_sha256": null,
+      "source_mat_member": null,
+      "data_time_source": "UNVERIFIED",
+      "root_event_coverage_verified": false,
+      "signals": {
+        "jteTmaxTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTminTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTtrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUcore": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUfiltered": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTmaxMeas": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTmeas": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        }
+      }
+    },
+    "B0L_fine": {
+      "temperature_unit_verified": null,
+      "ambient_actual_K": null,
+      "solver_profile": "fine",
+      "model_sha256": null,
+      "load_sha256": null,
+      "initial_state_sha256": null,
+      "gcm_receipt_file": null,
+      "gcm_receipt_sha256": null,
+      "source_mat_file": null,
+      "source_mat_sha256": null,
+      "source_mat_member": null,
+      "data_time_source": "UNVERIFIED",
+      "root_event_coverage_verified": false,
+      "signals": {
+        "jteTmaxTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTminTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTtrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUcore": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUfiltered": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        }
+      }
+    },
+    "C0_fine": {
+      "temperature_unit_verified": null,
+      "ambient_actual_K": null,
+      "solver_profile": "fine",
+      "model_sha256": null,
+      "load_sha256": null,
+      "initial_state_sha256": null,
+      "gcm_receipt_file": null,
+      "gcm_receipt_sha256": null,
+      "source_mat_file": null,
+      "source_mat_sha256": null,
+      "source_mat_member": null,
+      "data_time_source": "UNVERIFIED",
+      "root_event_coverage_verified": false,
+      "signals": {
+        "jteTmaxTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTminTrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTtrue": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUcore": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteUfiltered": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTmaxMeas": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        },
+        "jteTmeas": {
+          "file": null,
+          "sha256": null,
+          "sampling": "UNVERIFIED",
+          "duplicate_convention": "UNVERIFIED"
+        }
+      }
+    }
+  }
+}
