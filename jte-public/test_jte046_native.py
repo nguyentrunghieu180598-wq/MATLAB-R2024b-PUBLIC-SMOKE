@@ -130,8 +130,8 @@ class PipelineTests(unittest.TestCase):
             for key in ('C0_original','C0_fine'):
                 for name in ('jteTtrue','jteTmeas'):
                     f=root/(key+'_'+name+'.csv')
-                    f.write_text('time_s,value_1,value_2\\n' +
-                        ''.join(f'{t},300,299\\n' for t in (0,1,1,2400)))
+                    f.write_text('time_s,value_1,value_2\n' +
+                        ''.join(f'{t},300,299\n' for t in (0,1,1,2400)))
                     m['cases'][key]['signals'][name]={
                       'file':f.name,'sha256':digest(f),
                       'sampling':'linear','duplicate_convention':'first_pre_last_post'}
@@ -147,8 +147,8 @@ class PipelineTests(unittest.TestCase):
             root=Path(d)/'input';root.mkdir();m=self.fixture(root)
             for name,values in [('jteTtrue',(300,299)),('jteTmeas',(300,297))]:
                 f=root/('C0_original_'+name+'.csv')
-                f.write_text('time_s,value_1,value_2\\n' +
-                    ''.join(f'{t},{values[0]},{values[1]}\\n' for t in (0,1,1,2400)))
+                f.write_text('time_s,value_1,value_2\n' +
+                    ''.join(f'{t},{values[0]},{values[1]}\n' for t in (0,1,1,2400)))
                 m['cases']['C0_original']['signals'][name]={
                   'file':f.name,'sha256':digest(f),
                   'sampling':'linear','duplicate_convention':'first_pre_last_post'}
