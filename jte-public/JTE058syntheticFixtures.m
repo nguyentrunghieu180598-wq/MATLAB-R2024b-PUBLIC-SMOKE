@@ -30,20 +30,20 @@ add_line(m,'Step/1','Filter/1');add_line(m,'Step/1','Core/1');add_line(m,'Filter
 s=Simulink.SimulationInput(m);s=s.setModelParameter('StopTime','2','Solver','ode45','MaxStep','0.1','RelTol','1e-8','AbsTol','1e-10');
 z=sim(s);[tc,u]=JTE2026timeseries(z,'fixtureCore');[tp,y]=JTE2026timeseries(z,'fixturePost');
 assert(all(u(tc<1)==0)&&all(u(tc>1)==1),'JTE058:StepSides','Synthetic/staging contract assertion failed.');
-at=find(tc==1);rightAtExactEvent=~isempty(at)&&u(at(end))==1;
+at=find(tc==1);exactAlignmentObserved=~isempty(at)&&u(at(end))==1;
 % Logging side/clock precision is measured, NEVER forced to match assumption.
 near=find(tc>=.99 & tc<=1.01);
 for q=near(:).',fprintf('JTE058_SYNTHETIC_EVENT_ROW t=%.17g u=%.17g\n',tc(q),u(q));end
-fprintf('JTE058_SYNTHETIC_EVENT_PROBE exact_event_rows=%d last_exact_row_post=%d raw_duplicate_rows=%d\n',numel(at),rightAtExactEvent,sum(diff(tc)==0));
-if ~rightAtExactEvent
- fprintf('JTE058_RIGHT_HOLD_UNQUALIFIED clock/event-side assumption not established; no rounding or event-time repair performed\n');
+fprintf('JTE058_SYNTHETIC_EVENT_PROBE exact_event_rows=%d exact_time_post_sample_present=%d raw_duplicate_rows=%d\n',numel(at),exactAlignmentObserved,sum(diff(tc)==0));
+if ~exactAlignmentObserved
+ fprintf('JTE058_EXACT_EVENT_NOT_SAMPLED native bracket retained; not a refutation of Step right continuity; pinned capture remains unqualified\n');
 end
 assert(any(y(tp>1)>0&y(tp>1)<1),'JTE058:PostIsDynamic','Synthetic/staging contract assertion failed.');
 expected=zeros(size(tp));ix=tp>=1;expected(ix)=1-exp(-(tp(ix)-1)/.2);
 assert(max(abs(y-expected))<1e-5,'JTE058:ContinuousTransfer','Synthetic/staging contract assertion failed.');
 meta=JTE058metadataSnapshot(z);assert(strcmp(meta.modelInfo.SolverInfo.Solver,'ode45'));
 assert(meta.modelInfo.StartTime==0&&meta.modelInfo.StopTime==2);
-fprintf('JTE058_SYNTHETIC_CONTRACT_FIXTURES_PASS release=%s version=%s duplicate_input_rows_retained=true C1_within_case=true postfilter_continuous=true toy_log_right_hold_qualified=%d PINNED_CONTROLLER_SEMANTICS_NOT_VALIDATED=true NO_BATTERY_MODEL=true NO_G5=true\n',version('-release'),version,rightAtExactEvent);
+fprintf('JTE058_SYNTHETIC_CONTRACT_FIXTURES_PASS release=%s version=%s duplicate_input_rows_retained=true C1_within_case=true postfilter_continuous=true toy_exact_event_alignment_observed=%d PINNED_CONTROLLER_SEMANTICS_NOT_VALIDATED=true NO_BATTERY_MODEL=true NO_G5=true\n',version('-release'),version,exactAlignmentObserved);
 end
 function r=thermalRMSE(ta,a,tb,b)
 assert(ta(1)==tb(1)&&ta(end)==tb(end),'JTE058:Horizon','Synthetic/staging contract assertion failed.');

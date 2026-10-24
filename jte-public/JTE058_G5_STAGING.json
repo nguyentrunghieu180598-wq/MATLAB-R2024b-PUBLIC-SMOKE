@@ -141,7 +141,7 @@
   },
   "mathUseGate": {
     "thermal": "Only declared continuous piecewise-linear interpolants; reject conflicting duplicate rows and unequal complete horizons. Not a bound on unobserved physical trajectory.",
-    "coreCommand": "BLOCKED_UNQUALIFIED_EVENT_SIDE. Synthetic Step event log already violated exact-time post-row assumption in run40125692340; inspect precise native bracket. Pinned FlwR_calc event capture must be independently qualified, not inferred from name or toy.",
+    "coreCommand": "BLOCKED_PENDING_PINNED_CONTROLLER_EVENT_COVERAGE. Step toy logs bracket t=1 at 0.99999999999999989(pre) /1.0000000000000071(post); no exact t=1 row. This does NOT disprove Step right continuity or right-hold reconstruction of sampled rows. Exact-event precision was an unjustified fixture assertion. Preserve native brackets and quantify event/interpolation uncertainty; actual mod-based FlwR_calc capture remains unqualified. Do not round/retime data.",
     "postfilter": "Continuous signal; never commandZOH or infer physical volume/power/energy.",
     "nativeSwitches": "Logged row changes only, including zero-duration transitions, not exact physical switching times."
   }
