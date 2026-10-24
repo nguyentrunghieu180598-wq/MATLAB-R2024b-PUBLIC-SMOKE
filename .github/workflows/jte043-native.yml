@@ -27,17 +27,19 @@ jobs:
         with:
           command: addpath('jte-public'); ci_jte043_controller_native
       - name: Package public source and approved metadata ONLY
+        if: always()
         run: |
           python3 - <<'PY'
           import pathlib,shutil,json,hashlib,os
           out=pathlib.Path('jte043-source-metadata');out.mkdir()
           names=['JTE043_law.m','JTE043_instrumentNative.m','JTE043_controllerTest.m','JTE043_nativeCapture.m','ci_jte043_controller_native.m']
           for name in names:shutil.copyfile(pathlib.Path('jte-public')/name,out/name)
-          shutil.copyfile('jte043-safe-metadata/receipt.json',out/'receipt.json')
+          for p in pathlib.Path('jte043-safe-metadata').glob('*.json'):shutil.copyfile(p,out/p.name)
           rows=[{'file':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(out.iterdir())]
           (out/'manifest.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'scope':'source, dimensions and synthetic controller metadata only; NO research MAT/CSV/SLX or project keys','files':rows},indent=2))
           PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: jte043-source-and-approved-metadata
           path: jte043-source-metadata/
@@ -47,3 +49,4 @@ jobs:
         if: always()
         run: echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
 # Revision 2: synthetic model workspace available before compiled inspection.
+# Revision 3: valid ZOH fixture end behavior; retain per-stage safe metadata on failure.
