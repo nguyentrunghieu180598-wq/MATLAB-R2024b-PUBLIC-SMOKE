@@ -100,6 +100,21 @@ def controller(tmax,ambient):
     q=min(.95,max(.001,.1*(tmax-ambient)))
     return max(.25,q-q%.25)
 
+def threshold_brackets(trace,ambient):
+    """Linear-reconstruction estimates; never label these as original solver roots."""
+    need(trace.mode=='linear' and trace.width==1,'THRESHOLD_TRACE_SCHEMA')
+    out=[]
+    for i in range(len(trace.times)-1):
+        t0,t1=trace.times[i:i+2]
+        a=trace.right[i][0]-ambient;b=trace.left[i+1][0]-ambient
+        for theta in (5.,7.5):
+            if (a<theta<=b) or (b<theta<=a):
+                out.append({'threshold_K':theta,'bracket_s':[t0,t1],
+                            'estimated_time_s':t0+(theta-a)*(t1-t0)/(b-a),
+                            'direction':'up' if b>a else 'down',
+                            'time_kind':'LINEAR_RECONSTRUCTION_ESTIMATE_NOT_SOLVER_ROOT'})
+    return out
+
 def audit(folder,output):
     root=Path(folder).resolve();m=json.loads((root/'manifest.json').read_text(encoding='utf-8-sig'))
     need(m.get('scope')=='AUTHENTICATED_MATLAB_STUDY','TEMPLATE_OR_SYNTHETIC_NOT_STUDY')
@@ -151,8 +166,19 @@ def audit(folder,output):
         results[label]={name:compare(traces[ka][name],traces[kb][name])
                         for name in traces[ka].keys() & traces[kb].keys()}
     zero={key:compare(v['jteTmaxTrue'],v['jteTmaxMeas']) for key,v in traces.items() if key.startswith('C0')}
+    conformance={};thresholds={}
+    for key,v in traces.items():
+        temp=v.get('jteTmaxMeas' if key.startswith('C0') else 'jteTmaxTrue')
+        core=v.get('jteUcore');a=m['cases'][key]['ambient_actual_K']
+        if temp and temp.mode=='linear' and temp.width==1:
+            thresholds[key]=threshold_brackets(temp,a)
+        if core and temp and core.times==temp.times and core.width==temp.width==1:
+            conformance[key]={'right_side_pointwise_maxAbs':max(abs(core.right[i][0]-controller(temp.right[i][0],a)) for i in range(len(core.times))),
+                              'scope':'Recorded right-side states only; not event completeness'}
+        elif core:
+            blockers.append(key+':CORE_AND_TMAX_CLOCK_NOT_IDENTICAL_NO_SILENT_RESAMPLING')
     result={'status':'NUMERIC_EVIDENCE_REVIEW_REQUIRED','G5_PASS':False,'scope':m['scope'],
-            'results':results,'zero_bias_max':zero,'lineage':lineage,'blockers':sorted(set(blockers)),
+            'results':results,'zero_bias_max':zero,'core_conformance':conformance,'threshold_brackets_estimated':thresholds,'lineage':lineage,'solver_profiles':profiles,'blockers':sorted(set(blockers)),
             'auth_caution':'Receipt validation is a provenance check, not decryption/GCM performed by this program'}
     out=Path(output).resolve();need(not out.exists() and not out.is_relative_to(root),'OUTPUT_MUST_BE_NEW_OUTSIDE_INPUT')
     with out.open('x',encoding='utf-8') as f:json.dump(result,f,indent=2,allow_nan=False)
