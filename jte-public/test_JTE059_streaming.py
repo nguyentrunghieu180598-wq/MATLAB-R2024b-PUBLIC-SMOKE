@@ -76,5 +76,17 @@ class G5MemoryEventTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"scalar"):
             observed_event_bracket_diagnostics([0,1],[[0,0],[1,1]])
 
+    def test_forged_event_verification_string_rejected(self):
+        # An arbitrary 'evidence' string must never unlock qualified G5 core
+        # command integrals before real source-specific event coverage audit.
+        from JTE058_C1_contract import command_area_qualified
+        with self.assertRaisesRegex(ValueError, "BLOCKED_EVENT_COMPLETENESS"):
+            command_area_qualified(
+                [0, 1], [0, .25], [0, 1], [0, 0],
+                signal_name="jteUcore",
+                semantics="verified_right_continuous_zoh",
+                evidence_id="synthetic_fake_approval",
+            )
+
 if __name__ == "__main__":
     unittest.main()
