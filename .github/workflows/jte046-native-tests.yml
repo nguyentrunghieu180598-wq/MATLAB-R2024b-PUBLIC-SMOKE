@@ -1,0 +1,49 @@
+name: JTE046 native comparison synthetic checks
+on:
+  push:
+    branches: ['codex/jte046-native-comparison']
+    paths: ['.github/workflows/jte046-native-tests.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python analytic event and provenance fixtures
+        shell: bash
+        run: |
+          set -o pipefail
+          python jte-public/test_jte046_native.py 2>&1 | tee JTE046_python_synthetic.log
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+      - name: MATLAB native layout export fixtures only
+        uses: matlab-actions/run-command@v3
+        with:
+          command: assert(strcmp(version('-release'),'2024b')); addpath('jte-public'); diary('JTE046_matlab_synthetic.log'); JTE046_exportSelftest; diary off
+      - name: Source and software logs only
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib,os,shutil,sys
+          out=pathlib.Path('jte046-source-only');out.mkdir()
+          names=['jte046_native_compare.py','test_jte046_native.py','JTE046_exportNative.m','JTE046_exportSelftest.m','G5_case_manifest_template.json','JTE046_README.md']
+          for name in names:shutil.copyfile(pathlib.Path('jte-public')/name,out/name)
+          for p in pathlib.Path('.').glob('JTE046_*synthetic.log'):shutil.copyfile(p,out/p.name)
+          rows=[{'file':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(out.iterdir())]
+          (out/'manifest.json').write_text(json.dumps({'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'scope':'SOURCE AND SYNTHETIC TEST LOGS ONLY; NO AUTHENTICATED RESEARCH RESULTS OR KEYS','python':sys.version,'files':rows},indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jte046-source-and-synthetic-logs
+          path: jte046-source-only/
+          retention-days: 30
+          if-no-files-found: error
