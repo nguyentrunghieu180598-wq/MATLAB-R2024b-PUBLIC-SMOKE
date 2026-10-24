@@ -1,0 +1,1 @@
+JTE058 synthetic event probe: inspect exact native event-side/clock rows after run40125692340 rejected assumed post-row at exactt1. Do not force qualification; keep source controller and G5 gates blocked.
