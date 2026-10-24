@@ -34,7 +34,7 @@ baseline=m+0.4*sin(t);
 arrays={max(Tm,[],2),m,baseline,a};vars={'faultInput','shadowInput','baselineInput','ambientInput'};
 for k=1:4
  add_block('simulink/Sources/From Workspace',[h '/' vars{k}], ...
-  'VariableName',vars{k},'Interpolate','off','SampleTime','1');
+  'VariableName',vars{k},'Interpolate','off','SampleTime','1','OutputAfterFinalValue','Holding final value');
 end
 labels={'fault','shadow','baseline'};
 for k=1:3
