@@ -16,7 +16,7 @@ expectError(@()JTE056normalize([0;2;1;3],x,true),'JTE056:TimeReversal');
 expectError(@()JTE056normalize(t,x.',true),'JTE056:TimeShape');
 expectError(@()JTE056normalize(t,single(x),true),'MATLAB:');
 % Real MATLAB timeseries and SimulationOutput interface (no simulator).
-ts=timeseries(x,t); out=Simulink.SimulationOutput; out=out.set('fixture',ts);
+ts=timeseries(x,t); out=Simulink.SimulationOutput; out.fixture=ts;
 [a,b]=JTE2026timeseries(out,'fixture');
 assert(isequal(a,t)&&isequal(b,x),'JTE056:TimeseriesRoundtrip');
 % Distinct min/max pair and full-vector math, including duplicate event rows.
