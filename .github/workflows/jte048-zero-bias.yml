@@ -1,0 +1,20 @@
+name: JTE048 synthetic C0 full-vector audit regression
+on:
+  push:
+    branches: ['chat/jte048-zero-bias-vector-audit']
+    paths: ['.github/workflows/jte048-zero-bias.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full C0 vector zero-bias audit fixtures (no study data)
+        run: python jte-public/test_jte046_native.py
+      - name: Confirm no scientific PASS claimed
+        run: echo 'JTE048 synthetic software tests only; G5/G6/G7/G8 scientific gates remain blocked.'
