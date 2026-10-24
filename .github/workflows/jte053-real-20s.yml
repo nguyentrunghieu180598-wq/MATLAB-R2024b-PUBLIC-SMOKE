@@ -1,0 +1,59 @@
+name: JTE053 real MATLAB 20s encrypted diagnostic (manual trigger file)
+on:
+  push:
+    branches: ['chat/jte053-cloud-20s-transport']
+    paths:
+      - 'jte053/TRIGGER_20S.txt'
+permissions:
+  contents: read
+jobs:
+  real-20s:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify recipient public-key fingerprint
+        run: |
+          echo '912e83932ab6a0463934580615a0944399eacd0a0d829ffa1c59a9b840f2c6c5  jte-public/JTE052_PUBLIC_RSA.pem' | sha256sum -c -
+      - name: Clone official MathWorks model, pin tag and source hash
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: >
+            Simulink
+            Simscape
+            Simscape_Battery
+            Simscape_Electrical
+            Simscape_Fluids
+            Stateflow
+      - name: Run real 20s zero-bias study and retain ONLY local MAT
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE053_native_20s_transport
+      - name: Encrypt results to JTE052 public recipient (NO plaintext upload)
+        run: |
+          python3 -m pip install --quiet 'cryptography>=42,<51'
+          python3 jte-public/encrypt_results.py --source jte053-private --dest jte053-encrypted --key jte-public/JTE052_PUBLIC_RSA.pem --label JTE053_REAL_20S_C0_DIAGNOSTIC
+          test -s jte053-encrypted/encrypted-results.bin
+          test -s jte053-encrypted/envelope.json
+      - name: Remove plaintext diagnostic before artifact upload
+        if: always()
+        run: |
+          rm -rf jte053-private jte053-generated
+      - name: Upload only ciphertext and public envelope
+        uses: actions/upload-artifact@v4
+        with:
+          name: jte053-real-20s-new-recipient-encrypted
+          path: jte053-encrypted/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Verify upstream source bytes unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi

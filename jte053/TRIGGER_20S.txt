@@ -1,0 +1,5 @@
+JTE053 USER-AUTHORIZED REAL MATLAB R2024b DIAGNOSTIC
+Scope: C0, bias=0 K, stopTime=20 s only.
+Work Cloud recipient verified by re-authenticating JTE052 synthetic artifact.
+Public PEM SHA256: 912e83932ab6a0463934580615a0944399eacd0a0d829ffa1c59a9b840f2c6c5
+No private key backup or disclosure. No 2400 s or G6 runs.
