@@ -47,9 +47,9 @@ compiled=struct();
 for k=1:numel(dictionary)
  b=dictionary(k).path;
  compiled.(dictionary(k).variable)=struct('dimensions',get_param(b,'CompiledPortDimensions'), ...
- 'sampleTime',get_param(b,'CompiledSampleTime'));
+ 'sampleTime',{sampleText(get_param(b,'CompiledSampleTime'))});
 end
-compiled.coreSampleTime=get_param([bc '/FlwR_calc'],'CompiledSampleTime');
+compiled.coreSampleTime=sampleText(get_param([bc '/FlwR_calc'],'CompiledSampleTime'));
 feval(mdl,[],[],[],'term');
 input=Simulink.SimulationInput(mdl);
 input=input.setModelParameter('StartTime','0','StopTime','20');
@@ -67,16 +67,18 @@ for k=1:numel(names)
  shapeMap.(name)=struct('timeShape',size(r.Time),'dataShape',size(r.Data), ...
  'nLoggedTimes',numel(t),'duplicateTimePairs',sum(diff(t)==0), ...
  'full20sCoverage',coverage,'nativeCopiedWithoutInterpolation',true, ...
- 'loggedUnits',r.DataInfo.Units);
+ 'loggedUnits',r.DataInfo.Units,'IsTimeFirst',r.IsTimeFirst);
  if ~strcmp(name,'jteAmbient'),assert(coverage,'JTE043:NativeCoverage');end
 end
 assert(isequaln(records.jteTtrue.Time,records.jteTmeas.Time),'JTE043:ZeroBiasClock');
-assert(isequaln(records.jteTtrue.Data,records.jteTmeas.Data),'JTE043:ZeroBiasVector');
+viewTrue=timeRows(records.jteTtrue);viewMeasured=timeRows(records.jteTmeas);
+assert(all(isfinite(viewTrue(:)))&&all(isfinite(viewMeasured(:))),'JTE043:InvalidVector','Nonfinite native vector');
+assert(isequaln(viewTrue,viewMeasured),'JTE043:ZeroBiasVector','Canonical zero-bias channel views differ');
 assert(strcmp(lawBefore,graphSignature([bc '/FlwR_calc'])),'JTE043:ControllerChanged');
 assert(strcmp(JTE2026sha256(sourceFile),expected),'JTE043:VendorChanged');
 receipt=struct('scope','METADATA_AND_SYNTHETIC_ONLY_G5_NOT_ACCEPTED','matlab',version, ...
  'sourceSHA256',expected,'controller',controller,'loggerDictionary',dictionary, ...
- 'compiled',compiled,'nativeShapeMap',shapeMap, ...
+ 'compiled',compiled,'nativeShapeMap',shapeMap,'zeroBiasCanonicalViewEqual',true,'canonicalVectorShape',size(viewTrue), ...
  'derivativeSLXSHA256',JTE2026sha256(files.study), ...
  'filterDenominator',filterDen,'pumpPowerUnitEvidence',get_param([mdl '/P'],'Unit'), ...
  'extremaOrder',{{get_param([bc '/min-max T/MinMax2'],'Function'),get_param([bc '/min-max T/MinMax3'],'Function')}}, ...
@@ -101,4 +103,19 @@ s=jsonencode(r);
 end
 function closePrj(p)
 try,close(p);catch,end
+end
+
+function x=timeRows(r)
+% Canonical comparison view only; raw Time/Data in records remain untouched.
+a=double(r.Data);n=numel(r.Time);
+if n==1,x=reshape(a,1,[]);
+elseif r.IsTimeFirst
+ assert(size(a,1)==n,'JTE043:TimeAxis','Declared first time axis mismatch');x=reshape(a,n,[]);
+else
+ nd=ndims(a);assert(size(a,nd)==n,'JTE043:TimeAxis','Declared last time axis mismatch');
+ x=reshape(permute(a,[nd 1:nd-1]),n,[]);
+end
+end
+function out=sampleText(st)
+if iscell(st),out=cellfun(@mat2str,st,'UniformOutput',false);else,out=mat2str(st);end
 end
