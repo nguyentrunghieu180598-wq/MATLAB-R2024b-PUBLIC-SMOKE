@@ -11,6 +11,10 @@ try
  receipt.controller.samples,max(receipt.controller.lawMaxAbsResidual),receipt.controller.decompositionMaxAbsResidual);
 catch ME
  fprintf('JTE043_SANITIZED_FAILURE identifier=%s\n',ME.identifier);
+    for z=1:min(4,numel(ME.stack))
+      fprintf('JTE043_FAILURE_SITE name=%s line=%d\n',ME.stack(z).name,ME.stack(z).line);
+    end
+    for z=1:numel(ME.cause),fprintf('JTE043_CAUSE identifier=%s\n',ME.cause{z}.identifier);end
  % Do not publish captured simulation console, error report, private values or MAT.
  error('JTE043:AuditFailed','Source/native audit failed; no research data published.');
 end
