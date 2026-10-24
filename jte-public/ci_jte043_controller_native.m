@@ -28,6 +28,8 @@ sourceFile=fullfile(vendor,'Models','Battery_Pack_Thermal_Management.slx');
 expected='0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0';
 assert(strcmp(JTE2026sha256(sourceFile),expected));
 controller=JTE043_controllerTest(sourceFile);
+fid=fopen(fullfile(root,'jte043-safe-metadata','controller_only.json'),'w');assert(fid>=0);
+fprintf(fid,'%s',jsonencode(struct('status','CONTROLLER_SYNTHETIC_PASS_ONLY_NATIVE_PENDING','sourceSHA256',expected,'controller',controller)));fclose(fid);
 files=JTE2026build(vendor,fullfile(root,'jte043-ephemeral-models'));
 load_system(files.study);mdl='JTE2026LocalBias';
 dictionary=JTE043_instrumentNative(mdl);
