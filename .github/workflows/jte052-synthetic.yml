@@ -1,0 +1,36 @@
+name: JTE052 Synthetic Recipient Transport Only
+on:
+  push:
+    branches: ['jte052/new-recipient-synthetic-20261024']
+    paths: ['.github/workflows/jte052-synthetic.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare only deterministic synthetic bytes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('jte052-synthetic-source');p.mkdir()
+          (p/'SYNTHETIC_ONLY.txt').write_bytes(b'JTE052 SYNTHETIC ONLY - NOT MATLAB RESEARCH DATA\n')
+          (p/'synthetic-bytes.bin').write_bytes(bytes(range(256))*4096)
+          PY
+          python -m pip install --quiet 'cryptography>=42,<51'
+      - name: Verify recipient and encrypt synthetic archive
+        run: |
+          echo '912e83932ab6a0463934580615a0944399eacd0a0d829ffa1c59a9b840f2c6c5  jte-public/JTE052_PUBLIC_RSA.pem' | sha256sum -c -
+          python jte-public/encrypt_results.py --source jte052-synthetic-source --dest jte052-synthetic-encrypted --key jte-public/JTE052_PUBLIC_RSA.pem --label JTE052_SYNTHETIC_ONLY
+      - name: Publish ciphertext only
+        uses: actions/upload-artifact@v4
+        with:
+          name: jte052-synthetic-new-recipient
+          path: jte052-synthetic-encrypted/
+          retention-days: 3
+          if-no-files-found: error
