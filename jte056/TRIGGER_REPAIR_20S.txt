@@ -1,0 +1,1 @@
+JTE056 logger repair test iteration2: fix verified mask-workspace metadata resolution with documented read-only API; preserve scope for identical variable names. Same C0 bias0 Stop20s only; no G5.
