@@ -40,18 +40,29 @@ record.ambient=evalin(mw,'jte056AmbientProvenance');
 % Snapshot cached, resolved variables after actual compile/sim. Includes IC
 % parameters, load/config workspace inputs; NOT a complete Simscape state dump.
 usage=Simulink.findVars(model,'SearchMethod','cached');
-record.resolvedVariables=struct();
+record.resolvedVariables=struct('name',{},'sourceType',{},'source',{},'value',{});
+record.resolvedVariableNames={usage.Name};
 for k=1:numel(usage)
- name=usage(k).Name;
+ name=usage(k).Name; source=usage(k).Source; sourceType=usage(k).SourceType;
  assert(isvarname(name),'JTE056:VariableName');
- if strcmp(usage(k).SourceType,'model workspace')
-   value=evalin(mw,name);
- elseif strcmp(usage(k).SourceType,'base workspace')
+ if strcmp(sourceType,'model workspace')
+   sourceWorkspace=get_param(source,'ModelWorkspace');
+   value=getVariable(sourceWorkspace,name);
+ elseif strcmp(sourceType,'base workspace')
    value=evalin('base',name);
+ elseif strcmp(sourceType,'mask workspace')
+   % Public read-only mask API; preserve defining block and duplicate names.
+   mask=Simulink.Mask.get(source);
+   assert(~isempty(mask),'JTE056:MissingMask','No mask at %s',source);
+   variables=mask.getWorkspaceVariables();
+   ix=find(strcmp({variables.Name},name));
+   assert(numel(ix)==1,'JTE056:MaskVariable','Cannot resolve %s in %s',name,source);
+   value=variables(ix).Value;
  else
-   error('JTE056:UnsupportedVariableSource','Uncaptured source for %s: %s',name,usage(k).SourceType);
+   error('JTE056:UnsupportedVariableSource','Uncaptured source for %s: %s',name,sourceType);
  end
- record.resolvedVariables.(name)=value;
+ record.resolvedVariables(end+1)=struct('name',name,'sourceType',sourceType, ...
+   'source',source,'value',{value}); %#ok<AGROW>
 end
 record.initialConditionsCoverage='Resolved workspace IC parameters plus effective config. Internal Simscape default ICs remain source-model-defined; compare source SHA and identical snapshots.';
 names={'jteTtrue','jteTmaxTrue','jteTminTrue','jteUcore','jteFlwR','jteAmbient'};

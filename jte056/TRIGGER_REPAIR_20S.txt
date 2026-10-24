@@ -1,1 +1,1 @@
-JTE056 user-authorized logger repair validation only: fixed synthetic MATLAB fixture first, then ONE C0 bias0 20s new native/postfilter/schema instrumentation check. Not accepted D20 rerun; no G5 2400s; encrypt only to verified existing session recipient.
+JTE056 logger repair test iteration2: fix verified mask-workspace metadata resolution with documented read-only API; preserve scope for identical variable names. Same C0 bias0 Stop20s only; no G5.
