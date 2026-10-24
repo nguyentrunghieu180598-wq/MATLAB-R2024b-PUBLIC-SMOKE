@@ -2,7 +2,10 @@ name: JTE048 synthetic C0 full-vector audit regression
 on:
   push:
     branches: ['chat/jte048-zero-bias-vector-audit']
-    paths: ['.github/workflows/jte048-zero-bias.yml']
+    paths:
+      - '.github/workflows/jte048-zero-bias.yml'
+      - 'jte-public/jte046_native_compare.py'
+      - 'jte-public/test_jte046_native.py'
 permissions:
   contents: read
 jobs:
