@@ -1,0 +1,51 @@
+name: JTE041 synthetic receipt and crypto regression
+on:
+  push:
+    branches: ['codex/jte041-decrypt-synthetic']
+    paths: ['.github/workflows/jte041-synthetic.yml']
+permissions:
+  contents: read
+jobs:
+  synthetic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install crypto dependency
+        run: python -m pip install 'cryptography>=42,<47'
+      - name: Original four synthetic cases
+        shell: bash
+        run: |
+          set -o pipefail
+          python jte-public/test_jte038_synthetic_crypto.py 2>&1 | tee JTE041_original_synthetic.log
+      - name: Receipt and extraction regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          python jte-public/test_jte041_receipt.py 2>&1 | tee JTE041_receipt_regression.log
+      - name: Package source and synthetic logs ONLY
+        if: always()
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,pathlib,shutil,sys
+          import cryptography
+          out=pathlib.Path('jte041-source-only');out.mkdir()
+          names=['jte038_private_decrypt.py','test_jte038_synthetic_crypto.py','test_jte041_receipt.py']
+          for name in names:shutil.copyfile(pathlib.Path('jte-public')/name,out/name)
+          for p in pathlib.Path('.').glob('JTE041_*.log'):shutil.copyfile(p,out/p.name)
+          rows=[{'file':p.name,'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in sorted(out.iterdir())]
+          manifest={'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'scope':'SYNTHETIC ONLY; no project RSA key or research data; G5 NOT ACCEPTED','python':sys.version,'cryptography':cryptography.__version__,'files':rows}
+          (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jte041-source-and-synthetic-logs
+          path: jte041-source-only/
+          retention-days: 30
+          if-no-files-found: error
