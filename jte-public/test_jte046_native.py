@@ -58,6 +58,11 @@ class NativeTests(unittest.TestCase):
         z=threshold_brackets(scalar([0,20],[300,310]),300)
         self.assertEqual([x['estimated_time_s'] for x in z],[10.,15.])
         self.assertTrue(all('NOT_SOLVER_ROOT' in x['time_kind'] for x in z))
+    def test_threshold_jump_is_not_an_interpolated_root(self):
+        t=scalar([0,1,1,2],[300,304,308,310],'linear','first_pre_last_post')
+        z=threshold_brackets(t,300)
+        self.assertEqual([v['logged_time_s'] for v in z],[1.,1.])
+        self.assertTrue(all(v['estimated_time_s'] is None and 'NOT_INTERPOLATED_ROOT' in v['time_kind'] for v in z))
     def test_csv_event_rows_retained(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'trace.csv';p.write_text('time_s,value_1\n0,0\n1,0\n1,1\n2,1\n')
