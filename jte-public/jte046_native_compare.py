@@ -113,7 +113,16 @@ def threshold_brackets(trace,ambient):
                             'estimated_time_s':t0+(theta-a)*(t1-t0)/(b-a),
                             'direction':'up' if b>a else 'down',
                             'time_kind':'LINEAR_RECONSTRUCTION_ESTIMATE_NOT_SOLVER_ROOT'})
-    return out
+    for i in range(1,len(trace.times)):
+        a=trace.left[i][0]-ambient;b=trace.right[i][0]-ambient
+        if a==b:continue
+        for theta in (5.,7.5):
+            if (a<theta<=b) or (b<theta<=a):
+                out.append({'threshold_K':theta,'bracket_s':[trace.times[i],trace.times[i]],
+                            'estimated_time_s':None,'logged_time_s':trace.times[i],
+                            'direction':'up' if b>a else 'down',
+                            'time_kind':'LOGGED_TWO_SIDED_VALUE_JUMP_NOT_INTERPOLATED_ROOT'})
+    return sorted(out,key=lambda x:(x.get('logged_time_s',x['estimated_time_s']),x['threshold_K']))
 
 def audit(folder,output):
     root=Path(folder).resolve();m=json.loads((root/'manifest.json').read_text(encoding='utf-8-sig'))
