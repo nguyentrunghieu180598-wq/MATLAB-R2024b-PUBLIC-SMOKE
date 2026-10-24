@@ -175,6 +175,26 @@ def audit(folder,output):
         results[label]={name:compare(traces[ka][name],traces[kb][name])
                         for name in traces[ka].keys() & traces[kb].keys()}
     zero={key:compare(v['jteTmaxTrue'],v['jteTmaxMeas']) for key,v in traces.items() if key.startswith('C0')}
+    # C0 bias=0 must preserve ALL observation channels, not merely their maximum.
+    # Full-vector evidence is optional in old compact archives; its absence is an
+    # explicit blocker, NEVER silently treated as sensor-level agreement.
+    zero_vectors={}
+    # The official pinned model's diagnostic logged 312 observation channels.
+    # A two-column plot-T/min-max export MUST NOT masquerade as a full vector.
+    # This known model-specific dimension must be independently reconfirmed
+    # against the authenticated 2400 s MAT source before scientific acceptance.
+    for key,v in traces.items():
+        if not key.startswith('C0'): continue
+        if 'jteTtrue' in v and 'jteTmeas' in v:
+            if v['jteTtrue'].width != 312 or v['jteTmeas'].width != 312:
+                blockers.append(key+':ZERO_BIAS_FULL_VECTOR_NOT_312_CHANNELS')
+                continue
+            report=compare(v['jteTtrue'],v['jteTmeas'])
+            zero_vectors[key]=report
+            if report['maxAbs']!=0:
+                blockers.append(key+':ZERO_BIAS_FULL_VECTOR_NONZERO_REVIEW')
+        else:
+            blockers.append(key+':ZERO_BIAS_FULL_VECTOR_NOT_AVAILABLE')
     conformance={};thresholds={}
     for key,v in traces.items():
         temp=v.get('jteTmaxMeas' if key.startswith('C0') else 'jteTmaxTrue')
@@ -187,7 +207,7 @@ def audit(folder,output):
         elif core:
             blockers.append(key+':CORE_AND_TMAX_CLOCK_NOT_IDENTICAL_NO_SILENT_RESAMPLING')
     result={'status':'NUMERIC_EVIDENCE_REVIEW_REQUIRED','G5_PASS':False,'scope':m['scope'],
-            'results':results,'zero_bias_max':zero,'core_conformance':conformance,'threshold_brackets_estimated':thresholds,'lineage':lineage,'solver_profiles':profiles,'blockers':sorted(set(blockers)),
+            'results':results,'zero_bias_max':zero,'zero_bias_full_vectors':zero_vectors,'core_conformance':conformance,'threshold_brackets_estimated':thresholds,'lineage':lineage,'solver_profiles':profiles,'blockers':sorted(set(blockers)),
             'auth_caution':'Receipt validation is a provenance check, not decryption/GCM performed by this program'}
     out=Path(output).resolve();need(not out.exists() and not out.is_relative_to(root),'OUTPUT_MUST_BE_NEW_OUTSIDE_INPUT')
     with out.open('x',encoding='utf-8') as f:json.dump(result,f,indent=2,allow_nan=False)
