@@ -178,7 +178,7 @@ def readback_sha(token,file_id,total):
 def upload_verified(token,folder,path,*,schema="SYNTHETIC_PREFLIGHT"):
     """Fail closed until content-complete private readback; no stdout secrets."""
     path=Path(path)
-    if schema not in {'SYNTHETIC_PREFLIGHT','JTE056_DIAGNOSTIC20_NOT_G5','JTE065_G5_RAW_UNREVIEWED','JTE067_G6_MINUS2K_RAW_UNREVIEWED','JTE068_ACTIVE_C0_RAW_UNREVIEWED'}:
+    if schema not in {'SYNTHETIC_PREFLIGHT','JTE056_DIAGNOSTIC20_NOT_G5','JTE065_G5_RAW_UNREVIEWED','JTE067_G6_MINUS2K_RAW_UNREVIEWED','JTE068_ACTIVE_C0_RAW_UNREVIEWED','JTE069_ACTIVE_G6_RAW_UNREVIEWED'}:
         raise ValueError('JTE063_UNKNOWN_SCHEMA')
     size,sha,md5=sha_file(path)
     url=_session(token,folder,path.name,size,sha,schema)
