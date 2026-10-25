@@ -45,8 +45,10 @@ mat=fullfile(dirp,'JTE068_ACTIVE_C0_AMBIENT293p15_2400_NATIVE.mat');
 save(mat,'record','-v7.3');
 loadCheck=load(mat,'record');
 assert(isequal(loadCheck.record.signalData.jteTtrue.values,record.signalData.jteTtrue.values),'JTE068:Readback');
+info=dir(mat);
+assert(info.bytes>0,'JTE068:MissingMAT');
 fprintf('JTE068_ACTIVE_C0_RAW_SAVED SHA256=%s MATbytes=%d activationReviewed=false\n',...
- JTE2026sha256(mat),dir(mat).bytes);
+ JTE2026sha256(mat),info.bytes);
 assert(strcmp(JTE2026sha256(fullfile(vendor,'Models','Battery_Pack_Thermal_Management.slx')),files.sourceSHA256),'JTE068:VendorSHAChanged');
 end
 function quietProject(p)
