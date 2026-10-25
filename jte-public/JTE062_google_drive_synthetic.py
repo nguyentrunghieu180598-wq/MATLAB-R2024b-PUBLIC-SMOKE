@@ -39,14 +39,8 @@ def assert_synthetic_and_manual(event, repository, ref, event_name):
     r = event.get("repository", {})
     if not isinstance(r, dict) or r.get("full_name") != EXPECTED_REPO or repository != EXPECTED_REPO:
         raise PermissionError("WRONG_REPOSITORY")
-    if ref != "refs/heads/main":
-        raise PermissionError("REQUIRES_TRUSTED_MAIN")
-    if event_name == "push":
-        commit = event.get("head_commit") or {}
-        if commit.get("message") != "JTE062_RUN_ONCE_OWNER_APPROVED_SYNTHETIC_1MB":
-            raise PermissionError("ONE_SHOT_TRIGGER_COMMIT_MISMATCH")
-    elif event_name != "workflow_dispatch":
-        raise PermissionError("REQUIRES_MANUAL_OR_ONE_SHOT_APPROVED_PUSH")
+    if ref != "refs/heads/main" or event_name != "workflow_dispatch":
+        raise PermissionError("REQUIRES_TRUSTED_MAIN_MANUAL_DISPATCH")
     if r.get("private") is not False:
         raise PermissionError("UNEXPECTED_VISIBILITY")
     return True
