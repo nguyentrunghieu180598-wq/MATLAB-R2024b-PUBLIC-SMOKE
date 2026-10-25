@@ -1,0 +1,23 @@
+name: JTE062 SYNTHETIC Google Drive OAuth pilot
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-drive-synthetic:
+    # Only on OWNER-controlled default branch; no pull-request secrets.
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Synthetic 1-MiB upload and private Drive byte-for-byte readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 jte-public/JTE062_google_drive_synthetic.py

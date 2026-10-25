@@ -1,0 +1,19 @@
+name: JTE062 synthetic-only Drive transport preflight unit tests
+on:
+  push:
+    branches: ['chat/jte062-gdrive-oauth-synthetic-20261025']
+    paths: ['jte062/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  no-secrets-no-drive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify guards locally without OAuth, Drive, or research data
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE062_google_drive_synthetic
