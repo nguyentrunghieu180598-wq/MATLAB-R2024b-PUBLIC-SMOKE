@@ -1,0 +1,1 @@
+Synthetic-only offline source/authorization tests. No MATLAB or Drive Secrets.
