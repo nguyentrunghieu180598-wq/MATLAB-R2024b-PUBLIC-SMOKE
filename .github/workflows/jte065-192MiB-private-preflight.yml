@@ -1,0 +1,24 @@
+name: JTE065 owner-approved 192MiB private Drive capacity preflight
+on:
+  push:
+    branches: [main]
+    paths: ['jte065/TRIGGER_192MIB_ONCE.txt']
+permissions:
+  contents: read
+jobs:
+  private-capacity:
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'JTE065_RUN_ONCE_PRIVATE_DRIVE_192MIB_SYNTHETIC_PREFLIGHT' }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 192MiB synthetic full-size SHA256 private Drive readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 jte-public/JTE065_private_192MiB_synthetic.py
