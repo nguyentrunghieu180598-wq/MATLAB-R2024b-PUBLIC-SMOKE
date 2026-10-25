@@ -1,0 +1,51 @@
+name: JTE067 three original-physics single-channel minus2K G6 studies
+on:
+  push:
+    branches: [main]
+    paths: ['jte067/TRIGGER_THREE_BIAS_ONCE.txt']
+permissions:
+  contents: read
+jobs:
+  g6-native:
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'JTE067_AUTHORIZE_THREE_SINGLE_CHANNEL_MINUS2K_CASES' }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        position: [hot, middle, cold]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Clone and SHA256-pin MathWorks unmodified pack source
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Derive site from full C0 physical run, 20s injection probe, then C1 original 2400s
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE056selftest; JTE067_G6_case('${{ matrix.position }}')
+      - name: Upload only unreviewed REAL G6 MAT to private owner Drive
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+          JTE_POSITION: ${{ matrix.position }}
+        run: |
+          python3 jte-public/JTE067_upload_G6.py
+      - name: Erase scratch raw MAT/model derivative
+        if: always()
+        run: rm -rf jte067-private jte067-generated-*
+      - name: Reverify official source untouched
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
