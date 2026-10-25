@@ -1,0 +1,1 @@
+G6 three-position −2 K mocked security tests only; no Google secrets or MAT data.
