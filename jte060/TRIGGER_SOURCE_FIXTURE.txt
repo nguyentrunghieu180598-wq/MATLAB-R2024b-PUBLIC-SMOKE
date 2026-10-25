@@ -1,0 +1,2 @@
+Authorized synthetic-only test of unchanged pinned FlwR_calc with threshold crossing input. NOT a G5 2400 s study, no confidential thermal measurements.
+Second source-specific fixture: synthetic threshold timing/oracle integration plus Python regressions. NO study data.

@@ -141,8 +141,31 @@
   },
   "mathUseGate": {
     "thermal": "Only declared continuous piecewise-linear interpolants; reject conflicting duplicate rows and unequal complete horizons. Not a bound on unobserved physical trajectory.",
-    "coreCommand": "BLOCKED_PENDING_PINNED_CONTROLLER_EVENT_COVERAGE. Step toy logs bracket t=1 at 0.99999999999999989(pre) /1.0000000000000071(post); no exact t=1 row. This does NOT disprove Step right continuity or right-hold reconstruction of sampled rows. Exact-event precision was an unjustified fixture assertion. Preserve native brackets and quantify event/interpolation uncertainty; actual mod-based FlwR_calc capture remains unqualified. Do not round/retime data.",
+    "coreCommand": "BLOCKED_PENDING_PINNED_CONTROLLER_EVENT_COVERAGE. Step toy logs bracket t=1 at 0.99999999999999989(pre) /1.0000000000000071(post); no exact t=1 row. This does NOT disprove Step right continuity or right-hold reconstruction of sampled rows. Exact-event precision was an unjustified fixture assertion. Preserve native brackets and quantify event/interpolation uncertainty; actual mod-based FlwR_calc capture remains unqualified. Do not round/retime data. JTE060 independently tested pinned controller source in isolated synthetic fixture (28/28 reference threshold crossings found), but THIS DOES NOT VALIDATE full-plant G5 event completeness or exact switch times. Run 40176453382. Keep locked.",
     "postfilter": "Continuous signal; never commandZOH or infer physical volume/power/energy.",
-    "nativeSwitches": "Logged row changes only, including zero-duration transitions, not exact physical switching times."
+    "nativeSwitches": "Logged row changes only, including zero-duration transitions, not exact physical switching times.",
+    "pinnedSourceIsolatedFixture": {
+      "status": "PASS_SOURCE_MATCHED_SYNTHETIC_ONLY",
+      "matlabRelease": "R2024b",
+      "githubRunId": 40176453382,
+      "sourceCommit": "f98d21929a3a269dacd1ee38999cd9773760c6db",
+      "sourceSLXSHA256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+      "loggedCoreRows": 2569,
+      "loggedPostfilterRows": 2569,
+      "algebraicMaxAbsResidualAtLoggedTimes": 0,
+      "expectedSyntheticThresholdCrossings": 28,
+      "observedSourceControllerSwitches": 28,
+      "expectedWithinObservedBrackets": 28,
+      "syntheticLoggedBracketsMaxWidth_s": 0.000658268190264,
+      "syntheticExactOracleCommandArea_normalized_s": 2,
+      "syntheticSampledZOHCommandArea_normalized_s": 1.99992196492,
+      "syntheticCommandAreaAbsError_normalized_s": 0.0000780350787881,
+      "conditionalLoggedBracketAreaBound_normalized_s": 0.000330425879319,
+      "pythonSyntheticRegressionCount": 46,
+      "physicalBatteryPlantSimulated": false,
+      "plantEventCompletenessValidated": false,
+      "plantG5Accepted": false,
+      "rationale": "Copied original pinned FlwR_calc and downstream TransferFcn into independent Simulink fixture. Observed 28/28 input-derived synthetic threshold crossings. No mathematical guarantee for full 2400s battery solver event completeness or hidden transitions; no unqualified G5 event-integral claims."
+    }
   }
 }
