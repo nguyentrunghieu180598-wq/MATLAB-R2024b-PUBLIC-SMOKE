@@ -35,6 +35,20 @@ switch position
  case 'middle',j=rank(156,2);
  case 'cold',j=rank(1,2);
 end
+% First verify exact single-channel injection on a short real 20s model run.
+probe=Simulink.SimulationInput(model);
+probe=probe.setVariable('jteChannelIndex',j,'Workspace',model);
+probe=probe.setVariable('jteBiasK',-2,'Workspace',model);
+probe=probe.setModelParameter('StartTime','0','StopTime','20','SaveTime','on','TimeSaveName','tout');
+short=sim(probe);
+[tr,v]=JTE2026timeseries(short,'jteTtrue');
+[tm,m]=JTE2026timeseries(short,'jteTmeas');
+assert(isequal(tr,tm)&&size(v,2)==312,'JTE067:ProbeAlignment');
+other=setdiff(1:312,j);
+assert(all(m(:,other)==v(:,other),'all'),'JTE067:ProbeOtherChannels');
+assert(all(abs(m(:,j)-v(:,j)+2)<1e-9),'JTE067:ProbeMinus2');
+fprintf('JTE067_SINGLE_CHANNEL_20S_PROBE_PASS site=%s confidential_index_not_logged=true\\n',position);
+clear short tr v tm m probe
 % Retain metadata privately; no confidential cell index or thermal values in stdout.
 clear o0 T
 b=Simulink.SimulationInput(model);
