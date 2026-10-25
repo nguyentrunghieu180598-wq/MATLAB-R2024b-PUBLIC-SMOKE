@@ -9,11 +9,9 @@ NOT a substitute for immutable owner-controlled Drive archival and G5 review.
 """
 from __future__ import annotations
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
-import sys
 import zipfile
 
 PAYLOAD_NAME = "synthetic_fixture.bin"
@@ -38,7 +36,8 @@ def assert_private_context(event: dict, repository: str, event_name: str, visibi
 
 def synthetic_bytes(size: int = SYNTH_SIZE) -> bytes:
     # Constant deterministic fixture. NOT model data; no user information.
-    return (b"JTE061-SYNTHETIC-TRANSPORT-NO-STUDY-DATA\\n" * (size // 43 + 1))[:size]
+    block = b"JTE061-SYNTHETIC-TRANSPORT-NO-STUDY-DATA\\n"
+    return (block * (size // len(block) + 1))[:size]
 
 
 def sha256(payload: bytes) -> str:
