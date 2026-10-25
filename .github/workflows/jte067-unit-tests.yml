@@ -1,0 +1,19 @@
+name: JTE067 G6 no-secret guard and native uploader tests
+on:
+  push:
+    branches: ['chat/jte067-g6-three-bias-20261026']
+    paths: ['jte067/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  synthetic-guards-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test 3-position-only owner gate without Drive secrets or battery simulations
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE063_streaming_drive test_JTE067_g6_guards
