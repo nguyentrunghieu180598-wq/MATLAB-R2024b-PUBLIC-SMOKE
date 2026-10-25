@@ -1,0 +1,19 @@
+name: JTE061 PUBLIC security test only - no artifacts
+on:
+  push:
+    branches: ['chat/jte061-private-artifact-backend-20261025']
+    paths: ['jte061/TRIGGER_SECURITY_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  security-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test only safe synthetic branch and reject public uploads
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE061_private_artifact

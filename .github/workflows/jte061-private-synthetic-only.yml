@@ -1,0 +1,30 @@
+name: JTE061 PRIVATE synthetic artifact pilot only
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-synthetic-transport:
+    # CRITICAL: fail closed; never upload unencrypted artifacts from public repo.
+    if: ${{ github.event.repository.private == true && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify private GitHub context and produce safe synthetic fixture
+        run: |
+          python3 jte-public/JTE061_private_artifact.py make --dir jte061-artifact-out
+          python3 jte-public/JTE061_private_artifact.py verify --dir jte061-artifact-out
+      - name: Upload SYNTHETIC ONLY to PRIVATE Actions artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jte061-private-synthetic-${{ github.run_id }}
+          path: jte061-artifact-out/
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 3
+      - name: Verify upload context remains PRIVATE
+        run: |
+          python3 jte-public/JTE061_private_artifact.py verify --dir jte061-artifact-out
