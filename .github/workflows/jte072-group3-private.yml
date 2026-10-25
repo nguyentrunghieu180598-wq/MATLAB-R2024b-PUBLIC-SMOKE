@@ -1,0 +1,50 @@
+name: JTE072 preregistered triple-sensor bias active controller study
+on:
+  push:
+    branches: [main]
+    paths: ['jte072/TRIGGER_THREE_GROUPS_ONCE.txt']
+permissions:
+  contents: read
+jobs:
+  group3:
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'JTE072_AUTHORIZE_THREE_PREDECLARED_COSENSOR_GROUPS' }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [early,mid,late]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Official MathWorks source pin
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Matched C0 ranking, short three-channel injection preflight and full C1 physical run
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE056selftest; JTE072_group_C1('${{ matrix.group }}')
+      - name: Private Google Drive checksum-confirmed transfer
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+          JTE_GROUP: ${{ matrix.group }}
+        run: python3 jte-public/JTE072_upload_group.py
+      - name: Delete confidential MAT and derived model
+        if: always()
+        run: rm -rf jte072-private jte072-generated-*
+      - name: Official source preservation
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
