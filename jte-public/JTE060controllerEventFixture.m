@@ -93,6 +93,25 @@ for k=1:numel(expectedTimes)
     matched(k)=any(brackets(:,1)<=expectedTimes(k)+1e-8 & ...
                   brackets(:,2)>=expectedTimes(k)-1e-8);
 end
+% The synthetic source d(t) has known interpolation segments and all
+% threshold crossing instants can be solved analytically from that input.
+% Compare the sampled right-hold integral with exact source-law segments.
+% This is NOT a bound on full-plant event capture; only this fixture.
+exactKnots=[0;expectedTimes;4];
+midpoints=0.5*(exactKnots(1:end-1)+exactKnots(2:end));
+dMid=interp1(tin,d,midpoints,'linear');
+qMid=min(0.95,max(0.001,0.1*dMid));
+oracleMid=max(0.25,qMid-mod(qMid,0.25));
+trueFixtureArea=sum(diff(exactKnots).*oracleMid);
+sampledFixtureArea=sum(diff(tc).*u(1:end-1));
+bracketWidths=tc(change)-tc(change-1);
+conditionalAreaBound=sum(abs(u(change)-u(change-1)).*bracketWidths);
+fixtureAreaError=abs(sampledFixtureArea-trueFixtureArea);
+if all(matched) && numel(change)==numel(expectedTimes)
+    assert(fixtureAreaError<=conditionalAreaBound+1e-9,'JTE060:SyntheticTimingErrorBound');
+end
+fprintf('JTE060_SYNTHETIC_EVENT_TIMING exactFixtureArea=%.12g sampledRightHoldArea=%.12g absoluteAreaError=%.12g conditionalBracketAreaBound=%.12g maxObservedBracketSeconds=%.12g FULL_PLANT_VALIDATION=false\n', ...
+    trueFixtureArea,sampledFixtureArea,fixtureAreaError,conditionalAreaBound,max(bracketWidths));
 postDynamic=any(abs(y-interp1(tc,u,tp,'previous','extrap'))>1e-6);
 assert(postDynamic,'JTE060:FilterMustBeDynamic');
 assert(strcmp(JTE2026sha256(sourceFile),sourceSHA),'JTE060:VendorModified');
