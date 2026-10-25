@@ -1,0 +1,27 @@
+name: JTE073 pinned source Constant3 complete destination audit
+on:
+  push:
+    branches: ['chat/jte073-reference-topology-audit-20261026']
+    paths: ['jte073/TRIGGER_SOURCE_ONLY.txt']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Clone pinned MathWorks public model
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Print source public Constant3 receiver topology only
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE073_ambient_sink_audit
