@@ -6,8 +6,8 @@ root=pwd;vendor=fullfile(root,'vendor-pack');
 p=openProject(fullfile(vendor,'batteryExamplesProjectSetup.prj'));clean=onCleanup(@()closeQuiet(p)); %#ok<NASGU>
 src=fullfile(vendor,'Models','Battery_Pack_Thermal_Management.slx');
 assert(strcmp(JTE2026sha256(src),'0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0'),'JTE073:WrongVendor');
-load_system(src);
-model=bdroot('Battery_Pack_Thermal_Management');
+handle=load_system(src);
+model=get_param(handle,'Name');
 block=[model '/Constant3'];
 assert(getSimulinkBlockHandle(block)~=-1,'JTE073:NoConstant');
 ph=get_param(block,'PortHandles');
