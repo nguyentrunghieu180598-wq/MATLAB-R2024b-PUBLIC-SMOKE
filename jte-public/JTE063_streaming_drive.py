@@ -85,10 +85,10 @@ def _http(url, *, method="GET", bearer=None, data=None, headers=None, timeout=12
         return 503,{},b""
 
 
-def _session(token,folder,name,total,sha256):
+def _session(token,folder,name,total,sha256,schema="SYNTHETIC_PREFLIGHT"):
     doc={"name":"JTE063_PENDING_"+name,"parents":[folder],
          "mimeType":"application/octet-stream",
-         "appProperties":{"jte_schema":"G5_STAGING","state":"PENDING","sha256":sha256}}
+         "appProperties":{"jte_schema":schema,"state":"PENDING","sha256":sha256}}
     status,headers,_=_http(UPLOAD,method="POST",bearer=token,
          data=json.dumps(doc).encode(),headers={
            "Content-Type":"application/json; charset=UTF-8",
@@ -175,11 +175,13 @@ def readback_sha(token,file_id,total):
     return h.hexdigest()
 
 
-def upload_verified(token,folder,path):
+def upload_verified(token,folder,path,*,schema="SYNTHETIC_PREFLIGHT"):
     """Fail closed until content-complete private readback; no stdout secrets."""
     path=Path(path)
+    if schema not in {'SYNTHETIC_PREFLIGHT','JTE056_DIAGNOSTIC20_NOT_G5'}:
+        raise ValueError('JTE063_UNKNOWN_SCHEMA')
     size,sha,md5=sha_file(path)
-    url=_session(token,folder,path.name,size,sha)
+    url=_session(token,folder,path.name,size,sha,schema)
     metadata=upload_chunks(path,url,size)
     if metadata.get("md5Checksum")!=md5:
         raise RuntimeError("JTE063_REMOTE_MD5_MISMATCH")
@@ -187,7 +189,7 @@ def upload_verified(token,folder,path):
     if received!=sha:
         raise RuntimeError("JTE063_READBACK_SHA_MISMATCH")
     body=json.dumps({"name":"JTE063_VERIFIED_"+path.name,
-         "appProperties":{"jte_schema":"G5_STAGING","state":"VERIFIED","sha256":sha}}).encode()
+         "appProperties":{"jte_schema":schema,"state":"VERIFIED","sha256":sha}}).encode()
     status,_,_=_http(API+"/"+urllib.parse.quote(metadata["id"],safe="")+"?fields=id",
          method="PATCH",bearer=token,data=body,headers={"Content-Type":"application/json"})
     if status!=200:

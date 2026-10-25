@@ -1,0 +1,19 @@
+name: JTE064 offline native schema and private-MAT guard tests
+on:
+  push:
+    branches: ['chat/jte064-real20-direct-drive-20261026']
+    paths: ['jte064/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  no-credentials:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python native-metadata and Drive upload safety regression
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE063_streaming_drive test_JTE064_real20_gate
