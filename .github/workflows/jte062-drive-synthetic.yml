@@ -1,16 +1,12 @@
 name: JTE062 SYNTHETIC Google Drive OAuth pilot
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'jte062/TRIGGER_OAUTH_1MB_ONCE.txt'
 permissions:
   contents: read
 jobs:
   private-drive-synthetic:
     # Only on OWNER-controlled default branch; no pull-request secrets.
-    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.event.head_commit.message == 'JTE062_RUN_ONCE_OWNER_APPROVED_SYNTHETIC_1MB')) }}
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 12
