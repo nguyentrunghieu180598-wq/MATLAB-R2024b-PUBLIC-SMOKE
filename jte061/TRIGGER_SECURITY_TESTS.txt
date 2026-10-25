@@ -1,0 +1,1 @@
+Synthetic-only JTE061 security checks. Verify public fails closed and private manual workflow is gated. No research data, no runtime MATLAB, no artifacts.
