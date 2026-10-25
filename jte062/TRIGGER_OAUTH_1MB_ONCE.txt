@@ -1,0 +1,1 @@
+JTE062 owner-authorized 1MiB SYNTHETIC-only OAuth Drive test. One-shot push from trusted main. No MAT, no G5/G6, no export of results or credentials.
