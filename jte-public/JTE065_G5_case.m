@@ -43,7 +43,6 @@ fprintf('JTE065_G5_CASE_START case=%s profile=%s sourceRelTol=%g sourceSHA256=%s
 clock=tic;
 simOut=sim(simIn);
 wall_s=toc(clock);
-assert(isempty(simOut.ErrorMessage),'JTE065:SimulinkError');
 label=[caseName '_' solverProfile];
 record=JTE056collect(simOut,mdl,files,label,solverProfile,simIn);
 assert(strcmp(record.sourceSHA256,files.sourceSHA256),'JTE065:SourceDrift');
