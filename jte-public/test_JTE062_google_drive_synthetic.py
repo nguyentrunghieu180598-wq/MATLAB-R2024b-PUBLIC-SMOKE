@@ -61,7 +61,7 @@ class DriveOAuthSecurityFixture(unittest.TestCase):
     def test_upload_requires_committed_size(self):
         responses=[
             (200,{"Location":"https://www.googleapis.com/upload/drive/v3/files?upload_id=synthetic"},b""),
-            (200,{},json.dumps({"id":"id","size":"9"}).encode())
+            (200,{},json.dumps({"id":"id","size":"8"}).encode())
         ]
         with patch("JTE062_google_drive_synthetic.req",side_effect=responses):
             with self.assertRaisesRegex(RuntimeError,"SIZE"):
