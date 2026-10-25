@@ -13,7 +13,8 @@ files=JTE056build(vendor,fullfile(root,'jte068-generated'));
 mc=onCleanup(@()quietModel(model)); %#ok<NASGU>
 ambient=[model '/Constant3'];
 assert(strcmp(get_param(ambient,'BlockType'),'Constant')&&strcmp(get_param(ambient,'SID'),'199'),'JTE068:WrongAmbientSource');
-old=str2double(get_param(ambient,'Value'));
+old=slResolve(get_param(ambient,'Value'),ambient);
+validateattributes(old,{'double'},{'scalar','real','finite'});
 assert(abs(old-300)<1e-12,'JTE068:WrongOriginalAmbient');
 set_param(ambient,'Value','293.15');
 mw=get_param(model,'ModelWorkspace');
