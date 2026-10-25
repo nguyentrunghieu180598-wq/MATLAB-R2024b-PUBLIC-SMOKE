@@ -1,0 +1,19 @@
+name: JTE063 no-secret large-upload resumable contract tests
+on:
+  push:
+    branches: ['chat/jte063-large-mat-upload-staging-20261026']
+    paths: ['jte063/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  offline-protocol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test resumable upload with mocked Google API only
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE063_streaming_drive

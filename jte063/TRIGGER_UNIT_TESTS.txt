@@ -1,0 +1,1 @@
+Synthetic-only replay of JTE063 mocked Google Drive resumable protocol. Never reads credentials, no MAT study files.
