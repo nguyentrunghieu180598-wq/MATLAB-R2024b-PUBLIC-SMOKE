@@ -1,0 +1,19 @@
+name: JTE072 synthetic group experiment safety guards
+on:
+  push:
+    branches: ['chat/jte072-correlated-hot-group-20261026']
+    paths: ['jte072/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Offline no-credential correlated-sensor safety test
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE072_guards test_JTE063_streaming_drive
