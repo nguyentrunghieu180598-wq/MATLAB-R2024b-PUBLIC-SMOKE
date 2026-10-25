@@ -1,0 +1,21 @@
+name: JTE071 no-secret native scientific audit synthetic tests
+on:
+  push:
+    branches: ['chat/jte071-native-science-audit-20261026']
+    paths: ['jte071/TRIGGER_UNIT_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install only free scientific parser
+        run: python3 -m pip install --quiet numpy h5py
+      - name: Synthetic-only 312-channel mathematical tests
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE071_science_audit
