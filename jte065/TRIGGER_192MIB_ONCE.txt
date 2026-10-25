@@ -1,0 +1,1 @@
+JTE065 synthetic only capacity preflight 192 MiB, not battery data or a G5 result.
