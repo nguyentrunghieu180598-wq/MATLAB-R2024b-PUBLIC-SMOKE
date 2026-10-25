@@ -1,0 +1,45 @@
+name: JTE068 isolated ambient-reference control-activation hypothesis
+on:
+  push:
+    branches: [main]
+    paths: ['jte068/TRIGGER_ACTIVE_C0_ONCE.txt']
+permissions:
+  contents: read
+jobs:
+  active-C0:
+    if: ${{ github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE' && github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message == 'JTE068_AUTHORIZE_SEPARATE_20C_AMBIENT_CONTROL_ACTIVATION' }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify original unchanged MathWorks reference source SHA256
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: R2024b 2400s C0 trial only at fixed 20C ambient/reference setpoint
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE056selftest; JTE068_active_C0
+      - name: Upload private raw C0 alternate-operating-condition MAT
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE068_upload_active_C0.py
+      - name: Clear private runner output
+        if: always()
+        run: rm -rf jte068-private jte068-generated
+      - name: Recheck official vendor SHA
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
