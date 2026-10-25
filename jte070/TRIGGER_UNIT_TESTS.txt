@@ -1,0 +1,1 @@
+JTE070 synthetic no-secret preflight. No MAT, no external service.
