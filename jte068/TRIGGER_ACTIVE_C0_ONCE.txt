@@ -1,1 +1,2 @@
 Owner-authorized controlled second operating condition: ambient reference 293.15 K versus source 300 K, original load/IC, C0 0K, 2400s model, no paper. Data private only.
+Retry exactly same authorized synthetic-independent C0 activation case after correctly resolving symbolic ambient Constant3 source parameter.
