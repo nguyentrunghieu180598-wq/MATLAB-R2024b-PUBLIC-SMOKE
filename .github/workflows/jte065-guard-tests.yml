@@ -1,0 +1,19 @@
+name: JTE065 synthetic-only G5 authorization and Drive schema tests
+on:
+  push:
+    branches: ['chat/jte065-g5-fourcase-drive-20261026']
+    paths: ['jte065/TRIGGER_GUARD_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  no-secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run adversarial synthetic only G5 and resumable regression
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE063_streaming_drive test_JTE064_real20_gate test_JTE065_g5_guards
