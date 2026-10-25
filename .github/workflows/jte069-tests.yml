@@ -1,0 +1,19 @@
+name: JTE069 no-secret active-control pilot guards
+on:
+  push:
+    branches: ['chat/jte069-active-g6-check-20261026']
+    paths: ['jte069/TRIGGER_GUARD_TESTS.txt']
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test authorization and Drive schema without OAuth
+        run: |
+          cd jte-public
+          python3 -m unittest -v test_JTE069_guards test_JTE063_streaming_drive
