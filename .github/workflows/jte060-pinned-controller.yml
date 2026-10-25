@@ -16,6 +16,11 @@ jobs:
           git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
           test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
           echo "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx" | sha256sum -c -
+      - name: Synthetic selector and native-math regression
+        run: |
+          python3 -m pip install --quiet numpy
+          cd jte-public
+          python3 -m unittest -v test_JTE058_native_math test_JTE058_review test_JTE059_streaming test_JTE060_selector_oracle
       - uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024b
