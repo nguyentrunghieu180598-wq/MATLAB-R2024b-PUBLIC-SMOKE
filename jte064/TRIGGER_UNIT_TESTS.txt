@@ -1,1 +1,2 @@
 JTE064 restricted offline Python tests, no Drive credentials or real MATLAB data.
+Rerun after fixing a syntax error found by first unit attempt.
