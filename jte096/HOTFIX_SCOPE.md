@@ -26,3 +26,5 @@ the first anomaly in 40355277420. Preserve that negative finding.
 W96-02 requires an authorized interactive Cloud MATLAB R2024b, documented event
 inspection, private profiler/trace persistence with SHA/readback, and BOTH event
 windows. Without that: BLOCKED_NO_EVENT_CAUSAL_EVIDENCE, no blind solver sweep.
+
+Independent raw PortConnectivity equality failed BEFORE intervention in 40370880203: Simscape DstPort contains session-dependent handles (documented R2024b). Canonicalization resolves each actual destination handle against its owning block PortHandles group/index; no endpoint is dropped. Fail on unresolved physical handles. Compare pristine independent copies first, then source/derivative. Source blocks/dialog/declared-IC/solver checks remain strict.

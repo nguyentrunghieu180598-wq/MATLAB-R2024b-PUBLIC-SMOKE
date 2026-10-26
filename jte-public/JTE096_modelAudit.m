@@ -2,7 +2,7 @@ function a=JTE096_modelAudit(m,excluded)
 % Static independently loaded model audit. No solved Simscape IC equivalence.
 if nargin<2,excluded={};end
 blocks=sort(find_system(m,'LookUnderMasks','all','FollowLinks','off','Type','Block'));
-a.blocks=cell(0,3);a.connectivity=cell(0,2);
+a.blocks=cell(0,3);a.connectivity=cell(0,2);a.canonicalPortHandles=0;
 for k=1:numel(blocks)
  b=blocks{k};
  if any(cellfun(@(x)strcmp(b,x)||startsWith(b,[x '/']),excluded)),continue;end
@@ -21,7 +21,9 @@ for k=1:numel(blocks)
  for j=1:numel(pc)
   dst=cell(numel(pc(j).DstBlock),1);
   for z=1:numel(dst)
-   dst{z}=[handleName(pc(j).DstBlock(z),m) ':' num2str(pc(j).DstPort(z))];
+   [portName,isHandle]=portIdentity(pc(j).DstBlock(z),pc(j).DstPort(z),any(startsWith(pc(j).Type,{'LConn','RConn'})));
+   a.canonicalPortHandles=a.canonicalPortHandles+isHandle;
+   dst{z}=[handleName(pc(j).DstBlock(z),m) ':' portName];
   end
   src=arrayfun(@(h)handleName(h,m),pc(j).SrcBlock,'UniformOutput',false);
   c{j}={pc(j).Type,src,pc(j).SrcPort,sort(dst)};
@@ -38,6 +40,25 @@ if strcmp(get_param(m,'Type'),'block_diagram')
  a.config={keys,vals};
 end
 a.solvedSimscapeIC='UNAVAILABLE_STATIC_ONLY';
+end
+function [n,resolvedHandle]=portIdentity(block,value,mustBeHandle)
+% R2024b PortConnectivity.DstPort uses handles for Simscape connections.
+% Convert against actual owning PortHandles; never compare session numbers.
+resolvedHandle=0;matches={};
+ph=get_param(block,'PortHandles');groups=fieldnames(ph);
+for k=1:numel(groups)
+ indices=find(ph.(groups{k})==value);
+ for j=indices(:)'
+  matches{end+1}=[groups{k} '#' num2str(j)]; %#ok<AGROW>
+ end
+end
+if ~isempty(matches)
+ assert(numel(matches)==1,'JTE096:AmbiguousPort','Port handle belongs to multiple groups.');
+ n=matches{1};resolvedHandle=1;return;
+end
+assert(~mustBeHandle,'JTE096:PhysicalPortHandle','Physical destination handle not resolved to owning port.');
+assert(isscalar(value)&&isfinite(value)&&value>=0&&value==fix(value),'JTE096:PortIndex','Invalid ordinary zero-based port index.');
+n=['index0#' num2str(value)];
 end
 function n=handleName(h,m)
 if h==-1,n='NO_BLOCK';else,n=relative(getfullname(h),m);end

@@ -31,6 +31,8 @@ sourceStatic=JTE096_modelAudit(sourceModel,{sourceStep});
 sourceOrphans=JTE096_orphanLines(sourceModel);
 pristineCopyStatic=JTE096_modelAudit(mdl,{step});
 JTE096_assertWiring(sourceStatic,pristineCopyStatic,'BEFORE_PATCH_INDEPENDENT_LOADS');
+assert(sourceStatic.canonicalPortHandles>0&&sourceStatic.canonicalPortHandles==pristineCopyStatic.canonicalPortHandles,'JTE096:PhysicalPortCoverage','Physical port handle audit unavailable.');
+fprintf('JTE096_CANONICAL_PORT_AUDIT sourceRows=%d destinationHandlesResolved=%d independentPristineCopiesMatch=1\n',size(sourceStatic.connectivity,1),sourceStatic.canonicalPortHandles);
 % Same already-tested arithmetic, exact five endpoint removals BEFORE blocks.
 proof=JTE096_replaceArithmetic(step);
 derivedStatic=JTE096_modelAudit(mdl,{step});

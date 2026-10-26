@@ -21,6 +21,11 @@ jobs:
           git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
           test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
           echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - name: Prefer working official HTTPS Ubuntu mirror for dependency install
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
       - uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024b
@@ -34,3 +39,5 @@ jobs:
       - name: Remove compile-only scratch, never publish MAT
         if: always()
         run: rm -rf jte094-generated
+
+# Canonicalize Simscape DstPort session handles to owning PortHandles field/index.
