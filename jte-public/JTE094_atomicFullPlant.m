@@ -29,11 +29,13 @@ assert(strcmp(config{1},'ode23t')&&strcmp(config{8},'off'),'JTE094:Config','Pres
 sourceStep=[sourceModel '/Battery Control/FlwR_calc/Step Change'];
 sourceStatic=JTE096_modelAudit(sourceModel,{sourceStep});
 sourceOrphans=JTE096_orphanLines(sourceModel);
+pristineCopyStatic=JTE096_modelAudit(mdl,{step});
+JTE096_assertWiring(sourceStatic,pristineCopyStatic,'BEFORE_PATCH_INDEPENDENT_LOADS');
 % Same already-tested arithmetic, exact five endpoint removals BEFORE blocks.
 proof=JTE096_replaceArithmetic(step);
 derivedStatic=JTE096_modelAudit(mdl,{step});
 assert(isequal(sourceStatic.blocks,derivedStatic.blocks),'JTE096:IndependentParams','Independent declared block/IC targets differ outside patch.');
-assert(isequal(sourceStatic.connectivity,derivedStatic.connectivity),'JTE096:IndependentWiring','Independent PortConnectivity differs outside patch.');
+JTE096_assertWiring(sourceStatic,derivedStatic,'AFTER_SELECTIVE_PATCH');
 assert(isequal(sourceStatic.config,derivedStatic.config),'JTE096:IndependentConfig','Independent solver/declared model IC settings differ.');
 assert(JTE096_orphanLines(mdl)==sourceOrphans,'JTE096:OrphanDelta','Derivative introduced orphan lines.');
 assert(strcmp(JTE2026sha256(files.baseline),baselineSHA),'JTE096:BaselineChanged','Pristine B0L file modified.');
