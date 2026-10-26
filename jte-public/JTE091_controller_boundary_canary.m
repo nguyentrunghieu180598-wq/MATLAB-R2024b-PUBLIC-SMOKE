@@ -31,8 +31,9 @@ add_line(m,'TmaxRamp/1','OriginalFlwR/1');
 add_line(m,'Ambient/1','OriginalFlwR/2');
 add_line(m,'OriginalFlwR/1','TFWithController/1');
 add_line(m,'ConstantCommand/1','TFWithConstant/1');
-for pair={'OriginalFlwR','jte091Command';'TFWithController','jte091ControllerTF';'TFWithConstant','jte091ConstantTF'}
-  block=pair{1,1};v=pair{1,2};sink=[m '/' v];
+links={'OriginalFlwR','jte091Command';'TFWithController','jte091ControllerTF';'TFWithConstant','jte091ConstantTF'};
+for kk=1:size(links,1)
+  block=links{kk,1};v=links{kk,2};sink=[m '/' v];
   add_block('simulink/Sinks/To Workspace',sink,'VariableName',v,'SaveFormat','Timeseries');
   add_line(m,[block '/1'],[v '/1']);
 end
