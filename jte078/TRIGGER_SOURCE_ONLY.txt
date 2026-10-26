@@ -1,1 +1,2 @@
 Auditable source-only MATLAB TransferFcn topology check. No study result publishing or G5 acceptance.
+Rerun after audit-probe-only fix: do not assume unsupported R2024b TransferFcn InitialStates property.
