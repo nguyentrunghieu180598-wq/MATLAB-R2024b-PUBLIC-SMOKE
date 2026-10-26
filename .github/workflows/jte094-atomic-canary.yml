@@ -20,3 +20,5 @@ jobs:
       - uses: matlab-actions/run-command@v3
         with:
           command: addpath('jte-public'); JTE094_AtomicBlock_probe
+
+# Use real newline escapes in MATLAB chart script and status records.
