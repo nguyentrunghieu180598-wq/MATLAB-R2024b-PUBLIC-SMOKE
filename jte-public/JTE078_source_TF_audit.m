@@ -36,10 +36,17 @@ for k=1:numel(paths)
     destinations=get_param(outputLine,'DstPortHandle');
     assert(any(destinations==loggerPorts.Inport(1)),'JTE078:MissingLoggerDestination');
     numerator=get_param(tf,'Numerator');
-    initialStates=get_param(tf,'InitialStates');
+    params=get_param(tf,'DialogParameters');
+    names=fieldnames(params);
+    initialStates='UNEXPOSED_BLOCK_PARAMETER';
+    for z={'InitialStates','InitialState','InitialConditions','InitialCondition'}
+        if isfield(params,z{1})
+            initialStates=get_param(tf,z{1});break;
+        end
+    end
     assert(ischar(numerator) && ~isempty(numerator),'JTE078:EmptyNumerator');
-    fprintf('JTE078_SOURCE_TF_PATH_PASS model=%s tfSID=197 inputSameAsCore=true postfilterLogger=true numerator=%s denominator=[1e-3 1] initialStates=%s sourceSHA=%s\n', ...
-        name,numerator,initialStates,files.sourceSHA256);
+    fprintf('JTE078_SOURCE_TF_PATH_PASS model=%s tfSID=197 inputSameAsCore=true postfilterLogger=true numerator=%s denominator=[1e-3 1] initialStateAttr=%s availableParams=%s sourceSHA=%s\n', ...
+        name,numerator,initialStates,strjoin(names,','),files.sourceSHA256);
     clear guard
     safeModel(name);
 end
