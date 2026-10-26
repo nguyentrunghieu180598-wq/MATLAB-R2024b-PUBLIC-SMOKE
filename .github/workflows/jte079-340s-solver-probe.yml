@@ -1,0 +1,35 @@
+name: JTE079 source-pinned 340s TF solver diagnostic (no raw MAT)
+on:
+  push:
+    branches: ['chat/jte079-g5-350s-solver-local-probe-20261026']
+    paths: ['jte079/TRIGGER_340S.txt']
+permissions:
+  contents: read
+jobs:
+  source-local-triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [original, strict340]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pin official source
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Source-specific independent first-event solver triage
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE056selftest; JTE079_short_solver_pole_case('${{ matrix.profile }}')
+      - name: Remove generated derivative and transient work files
+        if: always()
+        run: rm -rf jte079-generated-* 
