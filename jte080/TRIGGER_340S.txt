@@ -1,0 +1,1 @@
+Independent source-pinned MATLAB ode15s stiff solver 0-340s diagnostic of fast transfer-function state. No G5 acceptance or private output publication.
