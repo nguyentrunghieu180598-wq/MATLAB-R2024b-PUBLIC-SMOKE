@@ -28,9 +28,14 @@ qport=sourcePort(mp.Inport(1));sport=sourcePort(mp.Inport(2));
 qin=get_param(qport,'Parent');sin=get_param(sport,'Parent');
 assert(any(strcmp(qin,ip))&&any(strcmp(sin,ip))&&~strcmp(qin,sin),'JTE094:StepInputs','Mod inputs must be source inports.');
 oh=get_param(op{1},'PortHandles');sumport=sourcePort(oh.Inport(1));sub=get_param(sumport,'Parent');
-assert(strcmp(get_param(sub,'BlockType'),'Sum')&&strcmp(get_param(sub,'Inputs'),'+-'),'JTE094:Subtract','Source output must be q minus mod.');
+assert(strcmp(get_param(sub,'BlockType'),'Sum'),'JTE094:SubtractType','Source output must come from Sum.');
+signs=erase(get_param(sub,'Inputs'),'|'); % | is a Sum icon spacer, not an arithmetic input.
 sh=get_param(sub,'PortHandles');
-assert(sourcePort(sh.Inport(1))==qport&&sourcePort(sh.Inport(2))==mp.Outport(1),'JTE094:StepLaw','Source operation order changed.');
+assert(numel(sh.Inport)==2&&numel(signs)==2,'JTE094:SubtractPorts','Expected two signed arithmetic inputs.');
+sp=[sourcePort(sh.Inport(1)),sourcePort(sh.Inport(2))];
+qi=find(sp==qport);mi=find(sp==mp.Outport(1));
+assert(numel(qi)==1&&numel(mi)==1&&signs(qi)=='+'&&signs(mi)=='-','JTE094:StepLaw','Source must add q and subtract mod; no law relaxation.');
+fprintf('JTE094_SOURCE_STEP_GRAPH_VERIFIED qPositive=1 modNegative=1 iconSpacerIgnored=1\n');
 outer=get_param(step,'PortHandles');qnum=str2double(get_param(qin,'Port'));snum=str2double(get_param(sin,'Port'));
 calc=get_param([core '/FlwR calc'],'PortHandles');const=get_param([core '/step'],'PortHandles');
 assert(sourcePort(outer.Inport(qnum))==calc.Outport(1)&&sourcePort(outer.Inport(snum))==const.Outport(1),'JTE094:OuterInputs','Unexpected q or step source.');

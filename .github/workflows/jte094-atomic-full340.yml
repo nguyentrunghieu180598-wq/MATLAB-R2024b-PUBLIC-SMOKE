@@ -36,3 +36,5 @@ jobs:
 # q logging branches at the containing subsystem boundary (no cross-hierarchy line).
 
 # Exclude display-only Scope dialog getters from the physical-parameter audit.
+
+# Validate signed source connectivity independent of Sum icon spacer and port ordering.
