@@ -71,8 +71,8 @@ for k=1:stateCount
       end
    end
 end
-fprintf('JTE088_NATIVE_STATE_AUDIT_RESULT TFstateLocated=%d stateSignalCount=%d analyticLTIInvalidAtEvent=%d stateTimeAligned=%d stateAbruptDelta=%d stateDatasetElements=%d coreConstant=1\\n', ...
- found>0,found,deviatesFromAnalytic,logical(stateNearMatch),logical(stateJump),stateCount);
+fprintf('JTE088_NATIVE_STATE_AUDIT_RESULT TFstateLocated=%d stateSignalCount=%d analyticLTIInvalidAtEvent=%d stateTimeAligned=%d stateAbruptDelta=%d stateDatasetElements=%d coreConstant=1 nearDuplicateStateClock=%d exactLoggerClockAligned=%d\\n', ...
+ found>0,found,deviatesFromAnalytic,logical(stateNearMatch),logical(stateJump),stateCount,logical(stateNativeDuplicate),logical(stateInputOutputConsistency));
 assert(found>0,'JTE088:TransferFcnContinuousStateNotFound');
 assert(strcmp(JTE2026sha256(fullfile(vendor,'Models','Battery_Pack_Thermal_Management.slx')),pin),'JTE088:ModifiedSource');
 end
