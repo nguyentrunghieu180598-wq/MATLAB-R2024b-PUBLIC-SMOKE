@@ -3,6 +3,9 @@ on:
   push:
     branches: ['codex/jte094-evidence-quantizer']
     paths: ['.github/workflows/jte094-atomic-full340.yml']
+concurrency:
+  group: jte094-atomic-full340
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -31,3 +34,5 @@ jobs:
         run: rm -rf jte094-generated
 
 # q logging branches at the containing subsystem boundary (no cross-hierarchy line).
+
+# Exclude display-only Scope dialog getters from the physical-parameter audit.

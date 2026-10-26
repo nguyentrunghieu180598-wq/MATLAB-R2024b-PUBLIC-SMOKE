@@ -105,6 +105,13 @@ s=cell(0,3);
 for k=1:numel(blocks)
  b=blocks{k};
  if strcmp(b,excluded)||startsWith(b,[excluded '/']),continue;end
+ type=get_param(b,'BlockType');
+ if any(strcmp(type,{'Scope','Display'}))
+  % UI getters may launch Scope windows and fail in headless R2024b.
+  % Retain identity/type, explicitly exclude only display-dialog state.
+  s(end+1,:)={b,type,'DISPLAY_UI_PARAMETERS_NOT_INSPECTED'}; %#ok<AGROW>
+  continue;
+ end
  dp=get_param(b,'DialogParameters');if isempty(dp),keys={};else,keys=sort(fieldnames(dp));end
  values=cell(size(keys));
  for j=1:numel(keys),values{j}=get_param(b,keys{j});end

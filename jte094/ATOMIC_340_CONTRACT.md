@@ -23,3 +23,5 @@ Frozen before the new 340s diagnostic:
   supported R2024b solver/Simscape event tracing; report missing detailed
   event access explicitly if it cannot be established.
 - No G5/G6/G7/G8 pass, physical validation claim, paper, paid service or merge.
+
+Display-only Scope/Display dialog getters are not queried in headless CI; identities/types remain checked. This is an auditor-access correction, not a change to any display or physical model.
