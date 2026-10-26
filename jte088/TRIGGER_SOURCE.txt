@@ -1,1 +1,2 @@
 R2024b official source 340 s TF state invariant and event clock diagnostic; no uploaded MAT or confidential data.
+CI rerun: explicit continuous-state native clock alignment flags.
