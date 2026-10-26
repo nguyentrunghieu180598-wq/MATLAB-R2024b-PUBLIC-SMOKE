@@ -9,7 +9,7 @@ for v=[.25 .5 .75]
  q=[q typecast(bits-uint64(1),'double') v typecast(bits+uint64(1),'double')]; %#ok<AGROW>
 end
 old=max(.25,q-mod(q,.25));candidate=JTE094_quantizerCandidate(q);
-assert(isequal(old,candidate),'JTE094:NonEquivalentMATLABDouble');
+quantizerAgreement=isequal(old,candidate);
 assert(isequal(JTE094_quantizerCandidate([.001 .25 .5 .75 .95]),[.25 .25 .5 .75 .75]),'JTE094:Ties');
 for qbad={NaN,Inf,.0009,.951,single(.5)}
  rejected=false;try,JTE094_quantizerCandidate(qbad{1});catch ME,rejected=strcmp(ME.identifier,'JTE094:CandidateDomain');end
@@ -31,5 +31,7 @@ e=JTE094_evidenceRows(nonfinite,[330 338],[334 335]);
 assert(strcmp(e.phase(1).bracketInputDifference,'UNAVAILABLE'),'JTE094:UnreadableIsUnavailable');
 line=sprintf('JTE094_NEWLINE_CHECK\n');
 assert(line(end)==char(10)&&~contains(line,'\n'),'JTE094:LiteralBackslashN');
-fprintf('JTE094_WORK_PREFLIGHT_PASS MATLAB_double_cases=%d boundariesAndAdjacentULPs=PASS evidenceSemantics=PASS newline=PASS ChatOracleStatus=NOT_SUPPLIED fullPlantStatus=NOT_RUN G5_ACCEPTED=false\n',numel(q));
+fprintf('JTE094_WORK_EVIDENCE_AND_DOMAIN_TESTS_PASS quantizerAgreement=%d\n',quantizerAgreement);
+assert(quantizerAgreement,'JTE094:NonEquivalentMATLABDouble');
+fprintf('JTE094_WORK_PREFLIGHT_PASS MATLAB_double_cases=%d boundariesAndAdjacentULPs=PASS evidenceSemantics=PASS newline=PASS ChatOracleStatus=RUN_SEPARATELY fullPlantStatus=NOT_RUN G5_ACCEPTED=false\n',numel(q));
 end
