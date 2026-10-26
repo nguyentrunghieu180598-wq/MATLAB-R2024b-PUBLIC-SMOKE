@@ -29,6 +29,22 @@ fprintf('JTE085_EVENT_MAT_PRIVATE_STATE_RECORDED schemaVariableCount=%d\\n',nume
 raw=load(stats.file);
 rootNames=fieldnames(raw);
 fprintf('JTE085_PROFILE_SCHEMA_FIELDS=%s\\n',strjoin(rootNames,','));
+for kk=1:numel(rootNames)
+  elem=raw.(rootNames{kk});
+  fprintf('JTE085_PROFILE_SESSION_CLASS=%s ISSTRUCT=%d ISOBJECT=%d ISCELL=%d\\n',...
+    class(elem),isstruct(elem),isobject(elem),iscell(elem));
+  if isobject(elem)
+    try
+      pname=properties(elem);
+      fprintf('JTE085_PROFILE_SESSION_PUBLIC_PROPERTIES=%s\\n',strjoin(pname,','));
+    catch
+      fprintf('JTE085_PROFILE_SESSION_PROPERTIES_NOT_PUBLIC\\n');
+    end
+  elseif iscell(elem)
+    fprintf('JTE085_PROFILE_SESSION_CELL_COUNT=%d\\n',numel(elem));
+    if ~isempty(elem),fprintf('JTE085_PROFILE_FIRST_CELL_CLASS=%s\\n',class(elem{1}));end
+  end
+end
 target=334.87941079024;
 foundZC=false;foundReset=false;atZC=false;atReset=false;
 for k=1:numel(rootNames)
