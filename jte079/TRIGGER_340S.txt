@@ -1,0 +1,1 @@
+No export; bounded 0 to 340s original vs preregistered strict numerical diagnostic to isolate source TF event; not G5 numerical acceptance.
