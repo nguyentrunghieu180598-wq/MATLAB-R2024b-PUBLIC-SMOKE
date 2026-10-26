@@ -1,0 +1,1 @@
+JTE087 minimal zero-crossing impact flag only, source physics unchanged, short 340s diagnostic, no study MAT.
