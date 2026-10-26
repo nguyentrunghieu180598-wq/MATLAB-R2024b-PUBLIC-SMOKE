@@ -26,6 +26,34 @@ fprintf('JTE085_REAL_SOURCE_SOLVER_PROFILER_PASS hadZeroCrossing=%d hadSolverRes
  summ.zcNumber>0,summ.resetNumber>0,summ.exceptionNumber>0,strcmp(summ.solver,'ode23t'));
 info=whos('-file',stats.file);
 fprintf('JTE085_EVENT_MAT_PRIVATE_STATE_RECORDED schemaVariableCount=%d\\n',numel(info));
+raw=load(stats.file);
+rootNames=fieldnames(raw);
+fprintf('JTE085_PROFILE_SCHEMA_FIELDS=%s\\n',strjoin(rootNames,','));
+target=334.87941079024;
+foundZC=false;foundReset=false;atZC=false;atReset=false;
+for k=1:numel(rootNames)
+  obj=raw.(rootNames{k});
+  if isstruct(obj)
+    member=fieldnames(obj);
+    fprintf('JTE085_PROFILE_SCHEMA_ROOT_MEMBER=%s\\n',strjoin(member,','));
+    if isfield(obj,'profilerData') && isstruct(obj.profilerData),obj=obj.profilerData;end
+    if isfield(obj,'zcEvents')
+      z=obj.zcEvents;
+      if isstruct(z) && isfield(z,'t')
+        times=double([z.t]); foundZC=true;
+        atZC=any(abs(times-target)<.05);
+      end
+    end
+    if isfield(obj,'resetTime')
+      t=obj.resetTime;
+      if isnumeric(t)
+        foundReset=true;atReset=any(abs(double(t(:))-target)<.05);
+      end
+    end
+  end
+end
+fprintf('JTE085_PROFILE_EVENT_BRACKET_CHECK zcTimesAvailable=%d resetTimesAvailable=%d zeroCrossNearNativeTFEvent=%d solverResetNearNativeTFEvent=%d\\n',...
+ foundZC,foundReset,atZC,atReset);
 assert(strcmp(JTE2026sha256(fullfile(vendor,'Models','Battery_Pack_Thermal_Management.slx')),pin),'JTE085:VendorChanged');
 end
 function quietProject(p)
