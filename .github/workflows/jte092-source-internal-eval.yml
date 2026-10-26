@@ -1,0 +1,31 @@
+name: JTE092 pinned source internal gain saturation mod first-event audit
+on:
+  push:
+    branches: ['chat/jte092-internal-controller-evals-20261026']
+    paths: ['jte092/TRIGGER_SOURCE_EVAL.txt']
+permissions:
+  contents: read
+jobs:
+  direct-original-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify unchanged official MathWorks model
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Original physics 340s source internal listener test
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE056selftest; JTE092_internal_eval_probe
+      - name: Cleanup private scratch and derivative source
+        if: always()
+        run: rm -rf jte092-generated
