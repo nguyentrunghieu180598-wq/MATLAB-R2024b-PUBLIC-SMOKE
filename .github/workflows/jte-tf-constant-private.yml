@@ -1,0 +1,38 @@
+name: TF constant-input diagnostic private access gate (no simulation yet)
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte-tf-constant-private.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte-tf-constant-private
+  cancel-in-progress: false
+jobs:
+  new-guard-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: New guard tests only
+        run: PYTHONPATH=jte-public python3 -m unittest discover -s jte-public -p 'test_JTE_TF_private_guard.py' -v
+  private-access:
+    needs: new-guard-unit
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify private reference and receipt readback BEFORE MATLAB
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE_TF_private_gate.py
+      - name: Remove private preflight scratch
+        if: always()
+        run: rm -rf tf-constant-private
