@@ -1,0 +1,2 @@
+JTE085 0-340s source-locked MATLAB solver Profiler, zero-cross reset source event, private ephemeral MAT no artifact.
+Second pass: inspect private R2024b Solver Profiler event MAT schema and native time bracket, never publish MAT.\nThird pass: read sessionData object type and public field/property structure only; no private MAT contents.
