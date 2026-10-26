@@ -27,9 +27,13 @@ assert(strcmp(get_param(modblock,'Operator'),'mod'),'JTE094:Mod','Unexpected sou
 qport=sourcePort(mp.Inport(1));sport=sourcePort(mp.Inport(2));
 qin=get_param(qport,'Parent');sin=get_param(sport,'Parent');
 assert(any(strcmp(qin,ip))&&any(strcmp(sin,ip))&&~strcmp(qin,sin),'JTE094:StepInputs','Mod inputs must be source inports.');
-oh=get_param(op{1},'PortHandles');sumport=sourcePort(oh.Inport(1));sub=get_param(sumport,'Parent');
-assert(strcmp(get_param(sub,'BlockType'),'Sum'),'JTE094:SubtractType','Source output must come from Sum.');
-signs=erase(get_param(sub,'Inputs'),'|'); % | is a Sum icon spacer, not an arithmetic input.
+oh=get_param(op{1},'PortHandles');maxport=sourcePort(oh.Inport(1));maxblock=get_param(maxport,'Parent');
+assert(strcmp(get_param(maxblock,'BlockType'),'MinMax')&&strcmp(get_param(maxblock,'Function'),'max'),'JTE094:FinalMax','Pinned source final max must be retained.');
+mh=get_param(maxblock,'PortHandles');
+assert(numel(mh.Inport)==2&&sourcePort(mh.Inport(2))==sport,'JTE094:FinalMaxInputs','Final max must compare quantized q with step.');
+sumport=sourcePort(mh.Inport(1));sub=get_param(sumport,'Parent');
+assert(strcmp(get_param(sub,'BlockType'),'Sum'),'JTE094:SubtractType','Source max input must come from Sum.');
+signs=erase(get_param(sub,'Inputs'),'|');
 sh=get_param(sub,'PortHandles');
 assert(numel(sh.Inport)==2&&numel(signs)==2,'JTE094:SubtractPorts','Expected two signed arithmetic inputs.');
 sp=[sourcePort(sh.Inport(1)),sourcePort(sh.Inport(2))];
@@ -40,25 +44,21 @@ outer=get_param(step,'PortHandles');qnum=str2double(get_param(qin,'Port'));snum=
 calc=get_param([core '/FlwR calc'],'PortHandles');const=get_param([core '/step'],'PortHandles');
 assert(sourcePort(outer.Inport(qnum))==calc.Outport(1)&&sourcePort(outer.Inport(snum))==const.Outport(1),'JTE094:OuterInputs','Unexpected q or step source.');
 assert(str2double(get_param([core '/step'],'Value'))==.25,'JTE094:Quarter','Step changed.');
-% Copy port blocks before replacing only this virtual subsystem's contents.
-backup='JTE094_PORT_BACKUP';new_system(backup);bg=onCleanup(@()quietModel(backup)); %#ok<NASGU>
-ports=[ip;op];names=cellfun(@(b)get_param(b,'Name'),ports,'UniformOutput',false);
-for k=1:numel(ports),add_block(ports{k},[backup '/' names{k}]);end
-qname=get_param(qin,'Name');sname=get_param(sin,'Name');oname=get_param(op{1},'Name');
-Simulink.SubSystem.deleteContents(step);
-for k=1:numel(ports),add_block([backup '/' names{k}],[step '/' names{k}]);end
+% Source XML proves max is INSIDE Step Change (SID207), not outside it.
+% Replace ONLY Mod SID205 and Subtract1 SID204; retain original max and ports.
+assert(strcmp(get_param(modblock,'SID'),'205')&&strcmp(get_param(sub,'SID'),'204')&&strcmp(get_param(maxblock,'SID'),'207'),'JTE094:SourceSIDs','Unexpected pinned source graph.');
+delete_block(modblock);delete_block(sub);
 block=[step '/JTE094 Atomic Quantization'];
 add_block('simulink/User-Defined Functions/MATLAB Function',block);
 sf=sfroot;chart=sf.find('-isa','Stateflow.EMChart','Path',block);
 assert(numel(chart)==1,'JTE094:Chart','Missing atomic chart.');
 chart.Script=sprintf('function y=atomicQuantization(q,step)\n%%#codegen\ny=q-mod(q,step);\nend\n');
-qh=get_param([step '/' qname],'PortHandles');sth=get_param([step '/' sname],'PortHandles');
-ah=get_param(block,'PortHandles');outh=get_param([step '/' oname],'PortHandles');
+ah=get_param(block,'PortHandles');
 assert(numel(ah.Inport)==2,'JTE094:AtomicPorts','Atomic ports unavailable.');
-add_line(step,qh.Outport(1),ah.Inport(1),'autorouting','on');
-add_line(step,sth.Outport(1),ah.Inport(2),'autorouting','on');
-add_line(step,ah.Outport(1),outh.Inport(1),'autorouting','on');
-quietModel(backup);
+add_line(step,qport,ah.Inport(1),'autorouting','on');
+add_line(step,sport,ah.Inport(2),'autorouting','on');
+add_line(step,ah.Outport(1),mh.Inport(1),'autorouting','on');
+assert(sourcePort(oh.Inport(1))==mh.Outport(1)&&sourcePort(mh.Inport(2))==sport,'JTE094:MaxRetained','Original final max wiring changed.');
 assert(isequal(outsideBefore,outsideSnapshot(mdl,step)),'JTE094:OutsideChanged','A block outside quantization changed.');
 sat=[core '/FlwR calc/Saturation'];satH=get_param(sat,'PortHandles');
 calc=get_param([core '/FlwR calc'],'PortHandles');

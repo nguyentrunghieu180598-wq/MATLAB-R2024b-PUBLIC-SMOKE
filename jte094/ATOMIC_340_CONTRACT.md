@@ -25,3 +25,5 @@ Frozen before the new 340s diagnostic:
 - No G5/G6/G7/G8 pass, physical validation claim, paper, paid service or merge.
 
 Display-only Scope/Display dialog getters are not queried in headless CI; identities/types remain checked. This is an auditor-access correction, not a change to any display or physical model.
+
+Pinned source XML inspection 40354282515 proves final max SID207 is INSIDE Step Change, following Subtract1 SID204 and Mod SID205. The derivative preserves this max block and replaces ONLY Mod and Subtract1. Earlier guards failed before simulation because they incorrectly assumed the outport was directly driven by Sum. No source topology change is permitted to accommodate an audit assumption.

@@ -37,4 +37,4 @@ jobs:
 
 # Exclude display-only Scope dialog getters from the physical-parameter audit.
 
-# Validate signed source connectivity independent of Sum icon spacer and port ordering.
+# Actual pinned XML: preserve internal MinMax4 SID207; replace only SID204/SID205.
