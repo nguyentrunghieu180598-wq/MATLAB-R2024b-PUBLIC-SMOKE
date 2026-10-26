@@ -21,7 +21,7 @@ assert(str2double(get_param([from '/FlwR calc/Gain1'],'Gain'))==0.1,'JTE091:Gain
 m='JTE091_CONTROLLER_BOUNDARY_CANARY';
 assert(~bdIsLoaded(m),'JTE091:AlreadyLoaded');new_system(m);
 clean=onCleanup(@()safeModel(m)); %#ok<NASGU>
-add_block('simulink/Sources/Ramp',[m '/TmaxRamp'],'slope','0.1','start','302.4','time','0');
+add_block('simulink/Sources/Ramp',[m '/TmaxRamp'],'slope','0.1','start','0','InitialOutput','302.4');
 add_block('simulink/Sources/Constant',[m '/Ambient'],'Value','300');
 add_block('simulink/Sources/Constant',[m '/ConstantCommand'],'Value','0.25');
 add_block(from,[m '/OriginalFlwR']);
