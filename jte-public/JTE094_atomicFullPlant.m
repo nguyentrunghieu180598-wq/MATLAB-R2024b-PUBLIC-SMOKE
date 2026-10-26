@@ -56,9 +56,14 @@ add_line(step,ah.Outport(1),outh.Inport(1),'autorouting','on');
 quietModel(backup);
 assert(isequal(outsideBefore,outsideSnapshot(mdl,step)),'JTE094:OutsideChanged','A block outside quantization changed.');
 sat=[core '/FlwR calc/Saturation'];satH=get_param(sat,'PortHandles');
+calc=get_param([core '/FlwR calc'],'PortHandles');
+calcout=find_system([core '/FlwR calc'],'SearchDepth',1,'BlockType','Outport');
+assert(numel(calcout)==1,'JTE094:QOut','Expected scalar q subsystem output.');
+coh=get_param(calcout{1},'PortHandles');
+assert(sourcePort(coh.Inport(1))==satH.Outport(1),'JTE094:QPath','q logger must trace the saturation output.');
 sink=[core '/JTE094 q logger'];
 add_block('simulink/Sinks/To Workspace',sink,'VariableName','jte094Q','SaveFormat','Timeseries','MaxDataPoints','inf','Decimation','1');
-lh=get_param(sink,'PortHandles');add_line(core,satH.Outport(1),lh.Inport(1),'autorouting','on');
+lh=get_param(sink,'PortHandles');add_line(core,calc.Outport(1),lh.Inport(1),'autorouting','on');
 in=Simulink.SimulationInput(mdl);
 in=in.setModelParameter('StartTime','0','StopTime','340','SimulationMode','normal',...
  'SaveState','on','StateSaveName','jte094X','SaveFormat','Dataset','SaveTime','on','TimeSaveName','tout');

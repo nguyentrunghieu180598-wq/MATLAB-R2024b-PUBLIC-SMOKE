@@ -29,3 +29,5 @@ jobs:
       - name: Remove derivative scratch, no public research artifacts
         if: always()
         run: rm -rf jte094-generated
+
+# q logging branches at the containing subsystem boundary (no cross-hierarchy line).
