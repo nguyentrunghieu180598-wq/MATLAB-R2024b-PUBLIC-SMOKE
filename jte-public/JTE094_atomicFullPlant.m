@@ -1,5 +1,8 @@
-function JTE094_atomicFullPlant()
-% One new B0L counterfactual, not JTE092 replay and not G5 acceptance.
+function JTE094_atomicFullPlant(mode)
+% Default is static/compile hotfix verification; explicit diagnostic mode only.
+if nargin==0,mode='compileOnly';end
+assert(any(strcmp(mode,{'compileOnly','diagnostic340'})),'JTE096:Mode','Unknown mode.');
+% Compile-only by default. Optional legacy diagnostic is not G5 acceptance.
 % Atomic Step Change retains the original q-mod(q,step), not three thresholds.
 assert(strcmp(version('-release'),'2024b')&&contains(version,'24.2.0.3361896'),'JTE094:Runtime','Wrong MATLAB release/update.');
 root=pwd;vendor=fullfile(root,'vendor-pack');
@@ -9,7 +12,13 @@ assert(strcmp(JTE2026sha256(source),pin),'JTE094:Source','Vendor pin mismatch.')
 project=openProject(fullfile(vendor,'batteryExamplesProjectSetup.prj'));
 cg=onCleanup(@()quietProject(project)); %#ok<NASGU>
 files=JTE056build(vendor,fullfile(root,'jte094-generated'));
-[~,mdl]=fileparts(files.baseline);load_system(files.baseline);
+baselineSHA=JTE2026sha256(files.baseline);
+[~,sourceModel]=fileparts(files.baseline);
+derivative=fullfile(root,'jte094-generated','JTE096Derivative.slx');
+copyfile(files.baseline,derivative);
+load_system(files.baseline);load_system(derivative);
+[~,mdl]=fileparts(derivative);
+sg=onCleanup(@()quietModel(sourceModel)); %#ok<NASGU>
 mg=onCleanup(@()quietModel(mdl)); %#ok<NASGU>
 core=[mdl '/Battery Control/FlwR_calc'];step=[core '/Step Change'];
 tf=[mdl '/Battery Control/sensor dynamics 1'];
@@ -17,55 +26,37 @@ assert(strcmp(get_param(tf,'SID'),'197')&&strcmp(get_param(tf,'Numerator'),'[1]'
 keys={'Solver','SolverType','RelTol','AbsTol','MaxStep','SolverResetMethod','ZeroCrossControl','LoadInitialState','InitialState'};
 config=cellfun(@(k)get_param(mdl,k),keys,'UniformOutput',false);
 assert(strcmp(config{1},'ode23t')&&strcmp(config{8},'off'),'JTE094:Config','Preserve source solver and IC.');
-outsideBefore=outsideSnapshot(mdl,step);
-% Verify the original Step Change graph itself, not only an algebraic label.
-ip=find_system(step,'SearchDepth',1,'BlockType','Inport');
-op=find_system(step,'SearchDepth',1,'BlockType','Outport');
-assert(numel(ip)==2&&numel(op)==1,'JTE094:StepPorts','Unexpected source quantizer interface.');
-modblock=[step '/Mod'];mp=get_param(modblock,'PortHandles');
-assert(strcmp(get_param(modblock,'Operator'),'mod'),'JTE094:Mod','Unexpected source operator.');
-qport=sourcePort(mp.Inport(1));sport=sourcePort(mp.Inport(2));
-qin=get_param(qport,'Parent');sin=get_param(sport,'Parent');
-assert(any(strcmp(qin,ip))&&any(strcmp(sin,ip))&&~strcmp(qin,sin),'JTE094:StepInputs','Mod inputs must be source inports.');
-oh=get_param(op{1},'PortHandles');maxport=sourcePort(oh.Inport(1));maxblock=get_param(maxport,'Parent');
-assert(strcmp(get_param(maxblock,'BlockType'),'MinMax')&&strcmp(get_param(maxblock,'Function'),'max'),'JTE094:FinalMax','Pinned source final max must be retained.');
-mh=get_param(maxblock,'PortHandles');
-assert(numel(mh.Inport)==2&&sourcePort(mh.Inport(2))==sport,'JTE094:FinalMaxInputs','Final max must compare quantized q with step.');
-sumport=sourcePort(mh.Inport(1));sub=get_param(sumport,'Parent');
-assert(strcmp(get_param(sub,'BlockType'),'Sum'),'JTE094:SubtractType','Source max input must come from Sum.');
-signs=erase(get_param(sub,'Inputs'),'|');
-sh=get_param(sub,'PortHandles');
-assert(numel(sh.Inport)==2&&numel(signs)==2,'JTE094:SubtractPorts','Expected two signed arithmetic inputs.');
-sp=[sourcePort(sh.Inport(1)),sourcePort(sh.Inport(2))];
-qi=find(sp==qport);mi=find(sp==mp.Outport(1));
-assert(numel(qi)==1&&numel(mi)==1&&signs(qi)=='+'&&signs(mi)=='-','JTE094:StepLaw','Source must add q and subtract mod; no law relaxation.');
-fprintf('JTE094_SOURCE_STEP_GRAPH_VERIFIED qPositive=1 modNegative=1 iconSpacerIgnored=1\n');
-outer=get_param(step,'PortHandles');qnum=str2double(get_param(qin,'Port'));snum=str2double(get_param(sin,'Port'));
-calc=get_param([core '/FlwR calc'],'PortHandles');const=get_param([core '/step'],'PortHandles');
-assert(sourcePort(outer.Inport(qnum))==calc.Outport(1)&&sourcePort(outer.Inport(snum))==const.Outport(1),'JTE094:OuterInputs','Unexpected q or step source.');
-assert(str2double(get_param([core '/step'],'Value'))==.25,'JTE094:Quarter','Step changed.');
-% Source XML proves max is INSIDE Step Change (SID207), not outside it.
-% Replace ONLY Mod SID205 and Subtract1 SID204; retain original max and ports.
-assert(strcmp(get_param(modblock,'SID'),'205')&&strcmp(get_param(sub,'SID'),'204')&&strcmp(get_param(maxblock,'SID'),'207'),'JTE094:SourceSIDs','Unexpected pinned source graph.');
-% delete_block leaves the former output line attached at its destination.
-% Remove that exact unbranched Sum-to-Max line before replacing the arithmetic.
-oldOutputLine=get_param(mh.Inport(1),'Line');
-assert(get_param(oldOutputLine,'SrcPortHandle')==sh.Outport(1),'JTE094:OutputLine','Unexpected line to Max.');
-delete_line(oldOutputLine);
-delete_block(modblock);delete_block(sub);
-assert(get_param(mh.Inport(1),'Line')==-1,'JTE094:FreeMaxPort','Former Sum-to-Max line not removed.');
-block=[step '/JTE094 Atomic Quantization'];
-add_block('simulink/User-Defined Functions/MATLAB Function',block);
-sf=sfroot;chart=sf.find('-isa','Stateflow.EMChart','Path',block);
-assert(numel(chart)==1,'JTE094:Chart','Missing atomic chart.');
-chart.Script=sprintf('function y=atomicQuantization(q,step)\n%%#codegen\ny=q-mod(q,step);\nend\n');
-ah=get_param(block,'PortHandles');
-assert(numel(ah.Inport)==2,'JTE094:AtomicPorts','Atomic ports unavailable.');
-add_line(step,qport,ah.Inport(1),'autorouting','on');
-add_line(step,sport,ah.Inport(2),'autorouting','on');
-add_line(step,ah.Outport(1),mh.Inport(1),'autorouting','on');
-assert(sourcePort(oh.Inport(1))==mh.Outport(1)&&sourcePort(mh.Inport(2))==sport,'JTE094:MaxRetained','Original final max wiring changed.');
-assert(isequal(outsideBefore,outsideSnapshot(mdl,step)),'JTE094:OutsideChanged','A block outside quantization changed.');
+sourceStep=[sourceModel '/Battery Control/FlwR_calc/Step Change'];
+sourceStatic=JTE096_modelAudit(sourceModel,{sourceStep});
+sourceOrphans=JTE096_orphanLines(sourceModel);
+pristineCopyStatic=JTE096_modelAudit(mdl,{step});
+JTE096_assertWiring(sourceStatic,pristineCopyStatic,'BEFORE_PATCH_INDEPENDENT_LOADS');
+assert(sourceStatic.canonicalPortHandles>0&&sourceStatic.canonicalPortHandles==pristineCopyStatic.canonicalPortHandles,'JTE096:PhysicalPortCoverage','Physical port handle audit unavailable.');
+fprintf('JTE096_CANONICAL_PORT_AUDIT sourceRows=%d destinationHandlesResolved=%d independentPristineCopiesMatch=1\n',size(sourceStatic.connectivity,1),sourceStatic.canonicalPortHandles);
+% Same already-tested arithmetic, exact five endpoint removals BEFORE blocks.
+proof=JTE096_replaceArithmetic(step);
+derivedStatic=JTE096_modelAudit(mdl,{step});
+assert(isequal(sourceStatic.blocks,derivedStatic.blocks),'JTE096:IndependentParams','Independent declared block/IC targets differ outside patch.');
+JTE096_assertWiring(sourceStatic,derivedStatic,'AFTER_SELECTIVE_PATCH');
+assert(isequal(sourceStatic.config,derivedStatic.config),'JTE096:IndependentConfig','Independent solver/declared model IC settings differ.');
+assert(JTE096_orphanLines(mdl)==sourceOrphans,'JTE096:OrphanDelta','Derivative introduced orphan lines.');
+assert(strcmp(JTE2026sha256(files.baseline),baselineSHA),'JTE096:BaselineChanged','Pristine B0L file modified.');
+fprintf('JTE096_STATIC_SOURCE_DERIVATIVE_PASS scope=declared_params_wiring_solver_modelIC runtimeSimscapeIC=UNAVAILABLE physicalEquivalence=NOT_ESTABLISHED\n');
+if strcmp(mode,'compileOnly')
+ % These compile checks exercise the NEW graph hotfix; no time simulation.
+ originalLog=evalc('set_param(sourceModel,''SimulationCommand'',''update'');');
+ derivativeLog=evalc('set_param(mdl,''SimulationCommand'',''update'');');
+ [sw,sl]=warningCounts(originalLog);[dw,dl]=warningCounts(derivativeLog);
+ assert(dl<=sl,'JTE096:AddedWarning','New unintended unconnected-line warning.');
+ assert(JTE096_orphanLines(mdl)==sourceOrphans,'JTE096:CompiledOrphan','Compile introduced orphan.');
+ assert(strcmp(JTE2026sha256(files.baseline),baselineSHA)&&strcmp(JTE2026sha256(source),pin),'JTE096:Persistence','Source file changed.');
+ fprintf(['JTE096_COMPILE_RESULT originalWarningCount=%d derivativeWarningCount=%d ' ...
+  'originalUnconnectedLineWarnings=%d derivativeUnconnectedLineWarnings=%d ' ...
+  'sourceOrphanLeaves=%d derivativeOrphanLeaves=%d deletedEndpointPairs=%d ' ...
+  'newUnintendedUnconnectedWarnings=0 simulationRun=0 negativeOracleRerun=0 priorPassedTestsRerun=0\n'],sw,dw,sl,dl,sourceOrphans,JTE096_orphanLines(mdl),proof.removedEndpoints);
+ fprintf('JTE096_HOTFIX_COMPILE_PASS EVENT_ACTOR=UNAVAILABLE FIRST_SECOND_EVENT_COVERAGE=NOT_EXTENDED G5_BLOCKED=1\n');
+ return;
+end
 sat=[core '/FlwR calc/Saturation'];satH=get_param(sat,'PortHandles');
 calc=get_param([core '/FlwR calc'],'PortHandles');
 calcout=find_system([core '/FlwR calc'],'SearchDepth',1,'BlockType','Outport');
@@ -78,7 +69,7 @@ lh=get_param(sink,'PortHandles');add_line(core,calc.Outport(1),lh.Inport(1),'aut
 in=Simulink.SimulationInput(mdl);
 in=in.setModelParameter('StartTime','0','StopTime','340','SimulationMode','normal',...
  'SaveState','on','StateSaveName','jte094X','SaveFormat','Dataset','SaveTime','on','TimeSaveName','tout');
-fprintf('JTE094_ATOMIC_FULL_MODEL_START sourcePinned=1 sourceSolverUnchanged=1 physicsOutsideQuantizationUnchanged=1 originalFloatingPointLawRetained=1 horizon340=1\n');
+fprintf('JTE094_ATOMIC_FULL_MODEL_START sourcePinned=1 sourceSolverUnchanged=1 staticDeclaredWiringParamsChecked=1 runtimeSimscapeIC=UNAVAILABLE physicalEquivalence=NOT_ESTABLISHED horizon340=1\n');
 out=sim(in);
 assert(isequal(config,cellfun(@(k)get_param(mdl,k),keys,'UniformOutput',false)),'JTE094:ConfigDrift','Numerical settings changed.');
 [t,u]=JTE2026timeseries(out,'jteUcore');[tq,q]=JTE2026timeseries(out,'jte094Q');
@@ -96,7 +87,7 @@ for k=1:states.numElements
  if strcmp(path,tf),found=found+1;stateClock=isequal(double(el.Values.Time(:)),ty);end
 end
 assert(found==1,'JTE094:State','TF state identity unavailable.');
-fprintf(['JTE094_ATOMIC_FULL_MODEL_RESULT recordedLawExact=%d recordedCoreConstant=%d ' ...
+fprintf(['JTE094_ATOMIC_FULL_MODEL_RESULT derivativeRecordedLawSelfConsistency=%d recordedCoreConstant=%d ' ...
  'firstWindowPostfilterExcursion=%d TFstateFound=1 TFstateClockMatches=%d ' ...
  'secondEventWindow=NOT_COVERED acceptedStepClassification=UNAVAILABLE ' ...
  'solverResetActorStatus=UNAVAILABLE rawEvidenceRetention=NOT_ARCHIVED ' ...
@@ -110,24 +101,9 @@ line=get_param(dst,'Line');
 assert(line~=-1,'JTE094:Line','Source line missing.');
 p=get_param(line,'SrcPortHandle');
 end
-function s=outsideSnapshot(m,excluded)
-blocks=sort(find_system(m,'LookUnderMasks','all','FollowLinks','off','Type','Block'));
-s=cell(0,3);
-for k=1:numel(blocks)
- b=blocks{k};
- if strcmp(b,excluded)||startsWith(b,[excluded '/']),continue;end
- type=get_param(b,'BlockType');
- if any(strcmp(type,{'Scope','Display'}))
-  % UI getters may launch Scope windows and fail in headless R2024b.
-  % Retain identity/type, explicitly exclude only display-dialog state.
-  s(end+1,:)={b,type,'DISPLAY_UI_PARAMETERS_NOT_INSPECTED'}; %#ok<AGROW>
-  continue;
- end
- dp=get_param(b,'DialogParameters');if isempty(dp),keys={};else,keys=sort(fieldnames(dp));end
- values=cell(size(keys));
- for j=1:numel(keys),values{j}=get_param(b,keys{j});end
- s(end+1,:)={b,get_param(b,'BlockType'),{keys,values}}; %#ok<AGROW>
-end
+function [total,lines]=warningCounts(log)
+total=numel(regexp(log,'Warning:','match'));
+lines=numel(regexp(lower(log),'unconnected\s+(?:output\s+|input\s+)?line','match'));
 end
 function quietProject(p)
 try,close(p);catch,end
