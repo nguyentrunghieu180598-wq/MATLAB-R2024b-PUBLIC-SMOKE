@@ -47,7 +47,13 @@ assert(str2double(get_param([core '/step'],'Value'))==.25,'JTE094:Quarter','Step
 % Source XML proves max is INSIDE Step Change (SID207), not outside it.
 % Replace ONLY Mod SID205 and Subtract1 SID204; retain original max and ports.
 assert(strcmp(get_param(modblock,'SID'),'205')&&strcmp(get_param(sub,'SID'),'204')&&strcmp(get_param(maxblock,'SID'),'207'),'JTE094:SourceSIDs','Unexpected pinned source graph.');
+% delete_block leaves the former output line attached at its destination.
+% Remove that exact unbranched Sum-to-Max line before replacing the arithmetic.
+oldOutputLine=get_param(mh.Inport(1),'Line');
+assert(get_param(oldOutputLine,'SrcPortHandle')==sh.Outport(1),'JTE094:OutputLine','Unexpected line to Max.');
+delete_line(oldOutputLine);
 delete_block(modblock);delete_block(sub);
+assert(get_param(mh.Inport(1),'Line')==-1,'JTE094:FreeMaxPort','Former Sum-to-Max line not removed.');
 block=[step '/JTE094 Atomic Quantization'];
 add_block('simulink/User-Defined Functions/MATLAB Function',block);
 sf=sfroot;chart=sf.find('-isa','Stateflow.EMChart','Path',block);

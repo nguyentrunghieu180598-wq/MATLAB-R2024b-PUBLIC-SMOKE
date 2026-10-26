@@ -37,4 +37,4 @@ jobs:
 
 # Exclude display-only Scope dialog getters from the physical-parameter audit.
 
-# Actual pinned XML: preserve internal MinMax4 SID207; replace only SID204/SID205.
+# Remove exact former Sum-to-Max line before connecting its replacement.
