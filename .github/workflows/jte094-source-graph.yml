@@ -1,0 +1,44 @@
+name: JTE094 pinned source quantizer topology (no simulation)
+on:
+  push:
+    branches: ['codex/jte094-evidence-quantizer']
+    paths: ['.github/workflows/jte094-source-graph.yml']
+permissions:
+  contents: read
+jobs:
+  source-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Inspect pinned public source XML only
+        shell: python
+        run: |
+          import subprocess, pathlib, hashlib, zipfile, xml.etree.ElementTree as E
+          subprocess.run(['git','clone','--depth','1','--branch','24.2.1.5','https://github.com/mathworks/Battery-Pack-Model-Simscape.git','source-inspect'],check=True)
+          p=pathlib.Path('source-inspect/Models/Battery_Pack_Thermal_Management.slx')
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0'
+          with zipfile.ZipFile(p) as z:
+              roots={n:E.fromstring(z.read(n)) for n in z.namelist() if n.startswith('simulink/') and n.endswith('.xml')}
+              visited=set()
+              def emit(node,depth=0):
+                  print(E.tostring(node,encoding='unicode'))
+                  if depth>=4: return
+                  for sy in node.iter('System'):
+                      ref=sy.get('Ref')
+                      name='simulink/systems/'+str(ref)+'.xml'
+                      if ref and name in roots and name not in visited:
+                          visited.add(name)
+                          print('REFERENCED_SYSTEM '+name)
+                          emit(roots[name],depth+1)
+              count=0
+              for n,r in roots.items():
+                  for b in r.iter('Block'):
+                      if b.get('Name')=='Step Change':
+                          count+=1
+                          print('JTE094_PINNED_SOURCE_STEP_XML '+n)
+                          emit(b)
+              assert count==1, count
+              print('JTE094_PUBLIC_SOURCE_GRAPH_READ_PASS noSimulation=1')
