@@ -19,3 +19,5 @@ jobs:
       - uses: matlab-actions/run-command@v3
         with:
           command: addpath('jte-public'); JTE094_WORK_staticSuite
+
+# Explicit rerun after repairing MATLAB assert identifier/message diagnostics.

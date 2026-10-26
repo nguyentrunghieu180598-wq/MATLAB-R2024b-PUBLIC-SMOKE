@@ -18,9 +18,9 @@ old = max(0.25, q - mod(q, 0.25));
 proposed = 0.25 * ones(size(q));
 proposed(q >= 0.5) = 0.5;
 proposed(q >= 0.75) = 0.75;
-assert(all(old == proposed), 'JTE094:QuantizerOracleMismatch');
+assert(all(old == proposed), 'JTE094:QuantizerOracleMismatch','JTE094 assertion failed: QuantizerOracleMismatch');
 assert(all(ismember(unique(old), [0.25 0.5 0.75])), ...
-    'JTE094:UnexpectedCoreLevel');
+    'JTE094:UnexpectedCoreLevel','JTE094 assertion failed: UnexpectedCoreLevel');
 fprintf('JTE094_QUANTIZER_ALGEBRA_PASS N=%d\n', numel(q));
 
 % Static masking oracle: ONLY same physical T vector at same instant.
@@ -33,13 +33,13 @@ for j = 1:numel(T)
     other = max(T([1:j-1,j+1:end]));
     loss = max(T) - max(biased);
     oracle = max(0, min(delta, T(j) - other));
-    assert(abs(loss-oracle) < 1e-12, 'JTE094:MaskingOracleMismatch');
-    assert(loss >= 0 && loss <= delta, 'JTE094:MaskingBounds');
+    assert(abs(loss-oracle) < 1e-12, 'JTE094:MaskingOracleMismatch','JTE094 assertion failed: MaskingOracleMismatch');
+    assert(loss >= 0 && loss <= delta, 'JTE094:MaskingBounds','JTE094 assertion failed: MaskingBounds');
 end
 Ttie = [310;310;307];
 biased = Ttie; biased(1) = biased(1)-delta;
-assert(max(Ttie)==max(biased), 'JTE094:TieMaskingFailed');
-assert(max(T-delta) == max(T)-delta, 'JTE094:CommonModeFailed');
+assert(max(Ttie)==max(biased), 'JTE094:TieMaskingFailed','JTE094 assertion failed: TieMaskingFailed');
+assert(max(T-delta) == max(T)-delta, 'JTE094:CommonModeFailed','JTE094 assertion failed: CommonModeFailed');
 fprintf('JTE094_STATIC_MASKING_ORACLE_PASS\n');
 
 % Independent continuous-time transfer-function mathematical oracle:
@@ -49,8 +49,8 @@ t = linspace(0, 0.02, 1000)';
 y0 = 0.4;
 yideal = 0.25 + (y0 - 0.25)*exp(-t/tau);
 assert(all(yideal <= y0 + 1e-12) && all(yideal >= 0.25 - 1e-12));
-assert(all(diff(yideal) <= 1e-12), 'JTE094:IdealTFNonmonotone');
-assert(abs(yideal(end)-0.25) < 1e-9, 'JTE094:IdealTFNotSettled');
+assert(all(diff(yideal) <= 1e-12), 'JTE094:IdealTFNonmonotone','JTE094 assertion failed: IdealTFNonmonotone');
+assert(abs(yideal(end)-0.25) < 1e-9, 'JTE094:IdealTFNotSettled','JTE094 assertion failed: IdealTFNotSettled');
 fprintf('JTE094_IDEAL_TF_ANALYTICAL_PASS\n');
 
 fprintf(['JTE094_ALL_STATIC_ORACLES_PASS; NO MATLAB/Simulink PLANT' ...

@@ -4,6 +4,6 @@ function u=JTE094_quantizerCandidate(q)
 % Same final observable levels/ties as max(.25,q-mod(q,.25)).
 % Experimental derivative only; never edit the pinned vendor.
 assert(isa(q,'double')&&all(isfinite(q(:)))&&all(q(:)>=.001&q(:)<=.95),...
- 'JTE094:CandidateDomain');
+ 'JTE094:CandidateDomain','JTE094 assertion failed: CandidateDomain');
 u=.25+.25*double(q>=.5)+.25*double(q>=.75);
 end

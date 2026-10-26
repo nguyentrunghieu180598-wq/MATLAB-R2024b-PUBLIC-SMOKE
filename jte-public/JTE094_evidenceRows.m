@@ -1,10 +1,10 @@
 function e=JTE094_evidenceRows(rows,window,bracket)
 % Read-only callback summary. Callbacks are evaluations, not accepted steps.
 % Neither equal times nor event-bracket coincidence establish causality.
-assert(isnumeric(rows)&&size(rows,2)==6,'JTE094:RowSchema');
-assert(numel(window)==2&&all(isfinite(window))&&window(2)>=window(1),'JTE094:Window');
-assert(numel(bracket)==2&&all(isfinite(bracket))&&bracket(2)>=bracket(1),'JTE094:Bracket');
-assert(all(isfinite(rows(:,1)))&&all(ismember(rows(:,2),[1 2 3 4])),'JTE094:TimeOrPhase');
+assert(isnumeric(rows)&&size(rows,2)==6,'JTE094:RowSchema','JTE094 assertion failed: RowSchema');
+assert(numel(window)==2&&all(isfinite(window))&&window(2)>=window(1),'JTE094:Window','JTE094 assertion failed: Window');
+assert(numel(bracket)==2&&all(isfinite(bracket))&&bracket(2)>=bracket(1),'JTE094:Bracket','JTE094 assertion failed: Bracket');
+assert(all(isfinite(rows(:,1)))&&all(ismember(rows(:,2),[1 2 3 4])),'JTE094:TimeOrPhase','JTE094 assertion failed: TimeOrPhase');
 e=struct('sampleKind','CALLBACK_EVALUATIONS_NOT_CERTIFIED_ACCEPTED_STEPS',...
  'causality','NOT_ESTABLISHED','sourceRowCount',size(rows,1),...
  'sourceTimeBacktrackObserved',any(diff(rows(:,1))<0));
