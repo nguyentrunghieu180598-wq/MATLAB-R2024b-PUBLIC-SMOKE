@@ -5,7 +5,7 @@ properties
  TF; Core; Handles={}; Rows=zeros(200000,6); N=0;
  Counts=zeros(1,4); InputChanged=false(1,4);
  StateReadable=true; DerivativeReadable=true; Overflow=false;
- Window=[330 338];
+ Window=[330 338]; CoreListenerAvailable=false;
 end
 methods
  function o=JTE089Capture(tf,core,window)
@@ -15,8 +15,9 @@ methods
   o.Handles{end+1}=add_exec_event_listener(o.TF,'PreOutputs',@(r,e)o.take(r,2));
   o.Handles{end+1}=add_exec_event_listener(o.TF,'PostOutputs',@(r,e)o.take(r,3));
   o.Handles{end+1}=add_exec_event_listener(o.TF,'PostDerivatives',@(r,e)o.take(r,4));
-  if ~isempty(o.Core)
+  if ~isempty(o.Core) && ~strcmp(get_param(o.Core,'BlockType'),'SubSystem')
    o.Handles{end+1}=add_exec_event_listener(o.Core,'PostOutputs',@(r,e)o.take(r,1));
+   o.CoreListenerAvailable=true;
   end
  end
  function take(o,r,tag)
