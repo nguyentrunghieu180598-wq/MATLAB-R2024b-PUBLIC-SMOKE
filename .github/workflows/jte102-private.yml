@@ -1,4 +1,4 @@
-name: JTE102 private audit and named-signal-preserving equivalent filter
+name: JTE102 final existing-data post-audit after equivalent realization failed
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -106,3 +106,30 @@ jobs:
           if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
             echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
           fi
+  post-existing-candidate:
+    if: github.event.head_commit.message == 'JTE102_EXISTING_CANDIDATE_POST_AUDIT'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install --quiet 'numpy==2.2.6' 'h5py==3.14.0'
+      - name: Fetch existing source and actual candidate, no new simulations
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE102_private_io.py fetch-post
+      - name: Existing raw numeric post-audit
+        run: python3 jte-public/JTE102_postCandidate.py
+      - name: Private post-audit SHA readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE102_private_io.py publish
+      - name: Delete private runner scratch
+        if: always()
+        run: rm -rf jte102-private

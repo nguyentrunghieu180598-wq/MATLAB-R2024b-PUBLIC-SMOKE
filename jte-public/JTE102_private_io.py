@@ -12,7 +12,7 @@ def context():
         (e.get("repository") or {}).get("full_name")!=EXPECTED_REPO or
         os.environ.get("GITHUB_REF")!="refs/heads/codex/jte-tf-constant-input" or
         os.environ.get("GITHUB_EVENT_NAME")!="push" or
-        (e.get("head_commit") or {}).get("message") not in {"JTE102_PRIVATE_EXISTING_MAT_AUDIT","JTE102_ONE_EQUIVALENT_STATE_SPACE_340"} or
+        (e.get("head_commit") or {}).get("message") not in {"JTE102_PRIVATE_EXISTING_MAT_AUDIT","JTE102_ONE_EQUIVALENT_STATE_SPACE_340","JTE102_EXISTING_CANDIDATE_POST_AUDIT"} or
         (e.get("head_commit") or {}).get("id")!=os.environ.get("GITHUB_SHA") or
         os.environ.get("GITHUB_RUN_ATTEMPT")!="1"):raise RuntimeError("JTE102_CONTEXT_DENIED")
     token=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
@@ -69,11 +69,24 @@ def intent_b(token,folder):
       "G5_ACCEPTED":False},indent=2))
     upload_verified(token,folder,p,schema=SCHEMA)
     print("JTE102_B_ONE_SHOT_INTENT_RECORDED sourceReferenceRerun=0 noAutoRepeat=1")
+def fetch_post(token,folder):
+    ROOT.mkdir(mode=0o700,exist_ok=False)
+    names=[("JTE102_40462103051_METRICS.json","audit.json"),
+      ("JTE101_40449421507_ORIGINAL340_RAW.mat","ORIGINAL340.mat"),
+      ("JTE101_40449421507_ORIGINAL340_MODEL.slx","ORIGINAL340.slx"),
+      ("JTE102_40464385622_STATESPACE340_RAW.mat","STATESPACE340.mat"),
+      ("JTE102_40464385622_STATESPACE340_MODEL.slx","STATESPACE340.slx"),
+      ("JTE102_40464385622_STATESPACE340_RECEIPT.json","candidate_receipt.json")]
+    m={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"files":[],"physicalSimulationsInThisJob":0}
+    for name,local in names:m["files"].append(download(token,one(token,folder,"JTE063_VERIFIED_"+name),ROOT/local))
+    (ROOT/"post_manifest.json").write_text(json.dumps(m,indent=2))
+    print("JTE102_POST_FETCH_PASS existingActualCandidateAndSource=1 simulationRun=0 fullSHAandMD5=1")
 def main():
     t,f=context()
     if sys.argv[1]=="fetch":fetch(t,f)
     elif sys.argv[1]=="publish":publish(t,f)
     elif sys.argv[1]=="fetch-b":fetch_b(t,f)
+    elif sys.argv[1]=="fetch-post":fetch_post(t,f)
     elif sys.argv[1]=="publish-prepare":publish_b(t,f,"PREPARE")
     elif sys.argv[1]=="intent-b":intent_b(t,f)
     elif sys.argv[1]=="publish-full":publish_b(t,f,"STATESPACE340")
