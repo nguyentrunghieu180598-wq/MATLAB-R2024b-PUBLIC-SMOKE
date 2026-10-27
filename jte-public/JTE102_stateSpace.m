@@ -109,6 +109,27 @@ end
 verifySS(tf,X0);
 assert(isequal(edges,JTE096_signalEdges(P.ctrl)),'JTE102:Edges','Signal graph changed beyond one realization node.');
 after=JTE096_modelAudit(P.model,{tf});
+flags=struct('blocksEqual',isequal(before.blocks,after.blocks),'connectivityEqual',isequal(before.connectivity,after.connectivity),'configEqual',isequal(before.config,after.config));
+if ~flags.blocksEqual||~flags.connectivityEqual||~flags.configEqual
+ diff=struct('flags',flags,'blockRows',{{}},'connectionRows',{{}},'beforeConfig',{before.config},'afterConfig',{after.config});
+ for ii=1:size(before.blocks,1)
+  if ii>size(after.blocks,1)||~isequal(before.blocks(ii,:),after.blocks(ii,:))
+   row=struct('index',ii,'before',{before.blocks(ii,:)},'after',[]);
+   if ii<=size(after.blocks,1),row.after=after.blocks(ii,:);end
+   diff.blockRows{end+1}=row;
+  end
+ end
+ for ii=1:size(before.connectivity,1)
+  if ii>size(after.connectivity,1)||~isequal(before.connectivity(ii,:),after.connectivity(ii,:))
+   row=struct('index',ii,'before',{before.connectivity(ii,:)},'after',[]);
+   if ii<=size(after.connectivity,1),row.after=after.connectivity(ii,:);end
+   diff.connectionRows{end+1}=row;
+  end
+ end
+ prefix=fullfile(P.private,['JTE102_' P.run '_PREPARE_STATIC_FAILURE']);
+ writeJSON([prefix '.json'],diff);save([prefix '.mat'],'before','after','diff','-v7.3');
+ fprintf('JTE102_STATIC_DELTA_REJECTED blocksEqual=%d connectivityEqual=%d configEqual=%d canaryRun=0 physicalSimulationRun=0 privateDiffWritten=1\n',flags.blocksEqual,flags.connectivityEqual,flags.configEqual);
+end
 assert(isequal(before.blocks,after.blocks)&&isequal(before.connectivity,after.connectivity)&&isequal(before.config,after.config),...
  'JTE102:OutsideDelta','Retained plant/control/solver changed.');
 assert(JTE096_orphanLines(P.model)==orphan,'JTE102:Orphan','Replacement left orphan wires.');
