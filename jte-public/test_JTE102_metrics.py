@@ -1,7 +1,7 @@
 import tempfile,unittest
 from pathlib import Path
 import h5py,numpy as np
-from JTE102_metrics import read,num,event,matched,comparison
+from JTE102_metrics import read,num,event,matched,comparison,config
 class NativeAuditTests(unittest.TestCase):
     def test_matlab_reference_shape_and_char(self):
         with tempfile.TemporaryDirectory() as d:
@@ -14,6 +14,22 @@ class NativeAuditTests(unittest.TestCase):
             with h5py.File(p,"r") as f:
                 self.assertTrue(np.array_equal(num(f,"record/T"),np.arange(12).reshape(4,3)))
                 self.assertEqual(read(f,"record/schema"),"native")
+    def test_empty_matlab_callback_preserves_config_pair(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/"f.mat"
+            with h5py.File(p,"w") as f:
+                refs=f.create_group("#refs#")
+                nodes=[]
+                for k,text in enumerate(("Solver","InitFcn","ode23t","")):
+                    ar=np.array([[ord(c)] for c in text],np.uint16) if text else np.array([[0],[0]],np.uint64)
+                    n=refs.create_dataset(str(k),data=ar);n.attrs["MATLAB_class"]=np.bytes_("char")
+                    if not text:n.attrs["MATLAB_empty"]=1
+                    nodes.append(n)
+                keys=refs.create_dataset("keys",(2,1),dtype=h5py.ref_dtype)
+                vals=refs.create_dataset("vals",(2,1),dtype=h5py.ref_dtype)
+                for k in range(2):keys[k,0]=nodes[k].ref;vals[k,0]=nodes[k+2].ref
+                c=f.create_dataset("cfg",(2,1),dtype=h5py.ref_dtype);c[0,0]=keys.ref;c[1,0]=vals.ref
+            with h5py.File(p,"r") as f:self.assertEqual(config(f,"cfg"),{"Solver":"ode23t","InitFcn":""})
     def test_repeated_event_zero_time_not_extra_duration(self):
         t=np.array([330.,331.,331.,332.]);u=np.full(4,.25);y=np.array([.25,.35,.15,.25]);T=np.full((4,312),300.)
         e=event(t,y,u,T,(330.,338.))

@@ -1,4 +1,4 @@
-name: JTE102 private existing six MAT impact audit (zero simulations)
+name: JTE102 private existing six MAT impact audit (empty callback metadata fix)
 on:
   push:
     branches: ['codex/jte-tf-constant-input']

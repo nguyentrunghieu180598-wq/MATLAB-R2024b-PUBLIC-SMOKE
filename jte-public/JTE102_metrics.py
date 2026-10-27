@@ -27,10 +27,10 @@ def decode(f,n,depth=0):
     n=unwrap(f,n)
     if isinstance(n,h5py.Group):
         return {k:decode(f,n[k],depth+1) for k in n.keys() if not k.startswith("#")}
-    if n.attrs.get("MATLAB_empty",0):return []
-    a=n[()]
     cls=n.attrs.get("MATLAB_class",b"")
     if isinstance(cls,bytes):cls=cls.decode()
+    if n.attrs.get("MATLAB_empty",0):return "" if cls=="char" else []
+    a=n[()]
     if cls=="char":return "".join(chr(int(x)) for x in np.asarray(a).T.ravel(order="F") if x)
     if h5py.check_dtype(ref=n.dtype) is not None:
         ar=np.asarray(a).transpose()
