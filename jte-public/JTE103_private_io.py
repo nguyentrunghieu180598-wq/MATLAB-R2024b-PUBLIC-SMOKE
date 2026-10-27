@@ -72,6 +72,47 @@ def readback_canary(t,folder):
     item=one(t,folder,"JTE063_VERIFIED_"+local)
     d=download(t,item,ROOT/"downloaded_profile_session.mat");put_json(ROOT/"readback_manifest.json",d)
     print("JTE103_PROFILE_SESSION_CLOUD_DOWNLOAD_SHA_PASS sessionFieldsNotDecoded=1")
+def fetch_source(t,folder):
+    run=os.environ.get("JTE103_CAP_RUN","")
+    if not run.isdigit():raise RuntimeError("JTE103_CAP_RUN_UNSET")
+    ROOT.mkdir(mode=0o700,exist_ok=False)
+    names=[("JTE103_"+run+"_CAPABILITY_FLAGS.json","cap_flags.json"),
+      ("JTE103_"+run+"_READBACK_FLAGS.json","cap_readback.json"),
+      ("JTE103_"+run+"_READBACK_RECEIPT.json","cap_receipt.json"),
+      ("JTE102_40462103051_METRICS.json","accepted_audit.json"),
+      ("JTE101_40449421507_ORIGINAL340_MODEL.slx","JTE101Original.slx"),
+      ("JTE101_40449421507_PREPARE_WORKSPACE.mat","source_workspace.mat"),
+      ("JTE065_C0_original_2400_NATIVE.mat","C0_source_reference.mat")]
+    m={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"capabilityRun":run,"files":[],"quota":quota(t)}
+    if m["quota"]["availableBytes"]<2*1024**3:raise RuntimeError("JTE103_SOURCE_STORAGE_RESERVE_NOT_MET")
+    for name,local in names:m["files"].append(download(t,one(t,folder,"JTE063_VERIFIED_"+name),ROOT/local))
+    a=json.loads((ROOT/"cap_flags.json").read_text());b=json.loads((ROOT/"cap_readback.json").read_text())
+    if not (a.get("PROFILER_API_R2024B")=="PASS_ACTUAL_R2024B_CALL" and a.get("canaryCaptured") is True and
+        a.get("priorSessionPresent") is False and b.get("SOURCE_PROFILE_ELIGIBLE") is True and b.get("SESSION_SHA_READBACK")=="PASS"):
+        raise RuntimeError("JTE103_SOURCE_PROFILER_PRECONDITIONS_NOT_MET")
+    put_json(ROOT/"source_manifest.json",m)
+    ack={"ack":"JTE103_RECEIVED","executor":"GITHUB_HOSTED_ACTIONS","taskIdKind":"GITHUB_ACTIONS_WORKFLOW_RUN_NOT_CODEX_REMOTE_TASK",
+      "run":os.environ["GITHUB_RUN_ID"],"jobName":os.environ["GITHUB_JOB"],"commit":os.environ["GITHUB_SHA"],"LAST_ACCEPTED_RUN":"40465657897",
+      "capabilityRun":run,"purpose":"Exactly one newly authorized original-source340 profiling run; not a solver sweep or old diagnostic replay."}
+    put_json(ROOT/("JTE103_"+os.environ["GITHUB_RUN_ID"]+"_SOURCE_WORK_CLOUD_RECEIPT.json"),ack)
+    print("JTE103_SOURCE_PREREQUISITES_PASS actualCanaryAndPrivateRetention=1 oldSourceModelReused=1 noAccessPreflight=1")
+def intent_source(t,folder):
+    name="JTE103_SOURCE_PROFILE340_INTENT.json"
+    if query(t,folder,"name = 'JTE063_VERIFIED_"+name+"'"):raise RuntimeError("JTE103_SOURCE_ALREADY_AUTHORIZED_NO_REPEAT")
+    a=json.loads((ROOT/"cap_readback.json").read_text())
+    if not a.get("SOURCE_PROFILE_ELIGIBLE"):raise RuntimeError("JTE103_SOURCE_NOT_ELIGIBLE")
+    p=ROOT/name
+    put_json(p,{"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"capabilityRun":os.environ["JTE103_CAP_RUN"],
+      "authorization":"JTE103 owner Issue42comment6436572450 and supplied instructions; one original340 profiler only",
+      "negativeControl_s":[330,334],"firstEventInspection_s":[330,338],"closeInspection_s":[334.8,335.0],"G5_ACCEPTED":False})
+    upload_verified(t,folder,p,schema=SCHEMA)
+    print("JTE103_SOURCE_ONE_SHOT_INTENT_PRIVATE_VERIFIED noAutoRepeat=1 no2400=1")
+def source_readback(t,folder):
+    name="JTE103_"+os.environ["GITHUB_RUN_ID"]+"_SOURCE_SESSION.mat"
+    meta=one(t,folder,"JTE063_VERIFIED_"+name)
+    v=download(t,meta,ROOT/"source_session_downloaded.mat")
+    put_json(ROOT/"source_readback_manifest.json",v)
+    print("JTE103_SOURCE_SESSION_CLOUD_DOWNLOAD_SHA_PASS internalFieldsNotRead=1")
 def main():
     t,f=context();mode=sys.argv[1]
     if mode=="fetch-cap":fetch_cap(t,f)
@@ -79,6 +120,11 @@ def main():
     elif mode=="publish-cap":publish(t,f,"CAPABILITY")
     elif mode=="readback-canary":readback_canary(t,f)
     elif mode=="publish-readback":publish(t,f,"READBACK")
+    elif mode=="fetch-source":fetch_source(t,f)
+    elif mode=="intent-source":intent_source(t,f)
+    elif mode=="publish-source":publish(t,f,"SOURCE")
+    elif mode=="source-readback":source_readback(t,f)
+    elif mode=="publish-source-readback":publish(t,f,"SOURCE_READBACK")
     else:raise RuntimeError("JTE103_MODE_DENIED")
 if __name__=="__main__":
     try:main()
