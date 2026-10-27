@@ -1,4 +1,4 @@
-name: JTE103 profiler capability and read-only G6 deviation audit
+name: JTE103 actual profiler signature call (reuse completed G6 audit)
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -23,7 +23,7 @@ jobs:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
           JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
           JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
-        run: python3 jte-public/JTE103_private_io.py fetch-cap
+        run: python3 jte-public/JTE103_private_io.py fetch-cap-api
       - name: Official HTTPS dependency mirror
         run: |
           if [ -f /etc/apt/apt-mirrors.txt ]; then

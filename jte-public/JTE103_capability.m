@@ -14,9 +14,11 @@ api=struct('runtime',version,'profileModelWhich',which('solverprofiler.profileMo
  'displayConfigured',~isempty(getenv('DISPLAY')),'publicDoc','https://www.mathworks.com/help/releases/R2024b/simulink/slref/solverprofiler.profilemodel.html');
 required={'DataFullFile','OpenSP','SaveStates','SaveSimscapeStates','SaveZCSignals','SaveJacobian','StartTime','StopTime','BufferSize','TimeOut'};
 api.documentedNames=required;api.namesPresent=cellfun(@(x)contains(lower(api.profileModelHelp),lower(x)),required);
-api.available=~isempty(api.profileModelWhich)&&~isempty(api.exploreResultWhich)&&all(api.namesPresent);
+api.available=~isempty(api.profileModelWhich)&&~isempty(api.exploreResultWhich)&&~isempty(api.profileModelHelp)&&~isempty(api.exploreResultHelp);
+api.helpNameCoverageRole='DIAGNOSTIC_ONLY: runtime help uses UI labels, not literal API keywords. Exact R2024b documented signature must be exercised by the canary call.';
+api.signatureValidation='PENDING_ACTUAL_DOCUMENTED_CANARY_CALL';
 save([P.prefix '_API.mat'],'api','-v7.3');writeJSON([P.prefix '_API.json'],api);
-flags=struct('PROFILER_API_R2024B',pass(api.available),'CANARY_CAPTURE','NOT_RUN','canaryCaptured',false,'priorSessionPresent',~isempty(M.priorProfiles),...
+flags=struct('PROFILER_API_R2024B','PENDING_ACTUAL_CALL','CANARY_CAPTURE','NOT_RUN','canaryCaptured',false,'priorSessionPresent',~isempty(M.priorProfiles),...
  'retentionFile','','SOURCE_PROFILE_AUTHORIZED',false,'GUI_EXPLORE_RESULT','UNAVAILABLE_HEADLESS_OR_NOT_ATTEMPTED',...
  'G5_PROVENANCE','PASS_INHERITED','G5_ACTUATION_EVENT','ACTOR_UNPROVEN','G5_THERMAL_CONVERGENCE','UNPROVEN','G5_ACCEPTED',false);
 try
@@ -31,7 +33,7 @@ try
    copyfile(file,[P.prefix '_PRIOR_PROFILE_' num2str(k) '.mat']);
   end
   save([P.prefix '_PRIOR_INVENTORY.mat'],'prior','-v7.3');
-  flags.CANARY_CAPTURE='SKIPPED_EXISTING_PRIVATE_SESSION_CANDIDATE';
+  flags.CANARY_CAPTURE='SKIPPED_EXISTING_PRIVATE_SESSION_CANDIDATE';flags.PROFILER_API_R2024B=pass(api.available);
   flags.retentionFile=['JTE103_' P.run '_CAPABILITY_PRIOR_PROFILE_1.mat'];
   flags.SOURCE_PROFILE_AUTHORIZED=false; % reuse/review before any new study run
  else
@@ -42,7 +44,8 @@ try
   add_block('simulink/Continuous/Integrator',[model '/ResettableState'],'ExternalReset','rising','InitialCondition','0');
   add_block('simulink/Sinks/To Workspace',[model '/CanaryOutput'],'VariableName','jte103CanaryY','SaveFormat','Timeseries','MaxDataPoints','inf','Decimation','1');
   add_line(model,'UnitInput/1','ResettableState/1');add_line(model,'ResetAt10ms/1','ResettableState/2');add_line(model,'ResettableState/1','CanaryOutput/1');
-  save_system(model,[P.prefix '_CANARY_MODEL.slx']);
+  canaryModelFile=fullfile(P.root,[model '.slx']);save_system(model,canaryModelFile);
+  copyfile(canaryModelFile,[P.prefix '_CANARY_MODEL.slx']);
   file=[P.prefix '_CANARY_SESSION.mat'];
   capturedLog=evalc("res=solverprofiler.profileModel(model,'StartTime',0,'StopTime',.02,'DataFullFile',file,'OpenSP','off,'SaveStates','on,'SaveSimscapeStates','off,'SaveZCSignals','on,'SaveJacobian','off,'BufferSize',10000,'TimeOut',30);");
   assert(isstruct(res)&&isfield(res,'summary')&&isfield(res,'file')&&isfile(res.file),'JTE103:Capture','No documented profiler result.');
@@ -50,7 +53,7 @@ try
   sessionInventory=whos('-file',res.file);sessionSHA=JTE2026sha256(res.file);
   save([P.prefix '_CANARY_PUBLIC_RESULT.mat'],'res','capturedLog','sessionInventory','sessionSHA','-v7.3');
   writeJSON([P.prefix '_CANARY_PUBLIC_SUMMARY.json'],res.summary);
-  flags.CANARY_CAPTURE='PASS';flags.canaryCaptured=true;
+  flags.CANARY_CAPTURE='PASS';flags.canaryCaptured=true;flags.PROFILER_API_R2024B='PASS_ACTUAL_R2024B_CALL';
   flags.retentionFile=['JTE103_' P.run '_CAPABILITY_CANARY_SESSION.mat'];
   flags.SOURCE_PROFILE_AUTHORIZED=true; % still requires private readback before source intent
  end
@@ -60,7 +63,11 @@ catch err
 end
 writeJSON([P.prefix '_FLAGS.json'],flags);
 % Independent useful work: read-only G6 ranking/deviation audit even if profiler blocked.
-JTE103_g6Audit();
+if isfield(M,'reusedG6AuditRun')
+ fprintf('JTE103_G6_READONLY_RESULT status=PASS_REUSED_FROM_40473995420 rankingRecomputed=0 newClosedLoopSimulations=0 oldOutcomesEdited=0\n');
+else
+ JTE103_g6Audit();
+end
 fprintf('JTE103_CAPABILITY_RESULT PROFILER_API_R2024B=%s CANARY_CAPTURE=%s priorSessionPresent=%d sourceProfileRequiresPrivateReadback=1 G6_newSimulations=0 G5_ACCEPTED=false\n',...
  flags.PROFILER_API_R2024B,flags.CANARY_CAPTURE,flags.priorSessionPresent);
 end

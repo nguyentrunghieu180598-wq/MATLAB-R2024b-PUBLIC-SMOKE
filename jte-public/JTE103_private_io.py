@@ -16,7 +16,7 @@ def context():
     token=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
     return token,ensure_app_folder(token)
 def put_json(p,x):p.write_text(json.dumps(x,indent=2))
-def fetch_cap(t,folder):
+def fetch_cap(t,folder,reuse_g6=False):
     ROOT.mkdir(mode=0o700,exist_ok=False)
     m={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"files":[],"missing":[],"priorProfiles":[],"unqualifiedProfileCandidates":[],"quota":quota(t)}
     def add(name,local,kind,ref=None,mandatory=False):
@@ -26,14 +26,21 @@ def fetch_cap(t,folder):
             if mandatory:raise RuntimeError("JTE103_REQUIRED_REFERENCE_NOT_UNIQUE")
             m["missing"].append({**spec,"status":"ABSENT" if not rows else "AMBIGUOUS"});return
         item=download(t,rows[0],ROOT/local);item.update({"kind":kind,"controllerReferenceK":ref});m["files"].append(item)
-    add("JTE065_C0_original_2400_NATIVE.mat","C0_300_original.mat","C0",300,True)
-    add("JTE065_C0_fine_2400_NATIVE.mat","C0_300_fine.mat","C0",300)
-    add("JTE068_ACTIVE_C0_AMBIENT293p15_2400_NATIVE.mat","C0_293p15_original.mat","C0",293.15)
-    for site in ("hot","middle","cold"):
-        add("JTE067_C1_"+site+"_original_2400_NATIVE.mat","JTE067_"+site+".mat","C1_SINGLE",300)
-        add("JTE069_ACTIVE_C1_"+site+"_ref293p15_2400_NATIVE.mat","JTE069_"+site+".mat","C1_SINGLE",293.15)
-    for site in ("early","mid","late"):
-        add("JTE072_GROUP_C1_"+site+"_ref293p15_2400_NATIVE.mat","JTE072_"+site+".mat","C1_GROUP",293.15)
+    if reuse_g6:
+        meta=one(t,folder,"JTE063_VERIFIED_JTE103_40473995420_CAPABILITY_G6_LEDGER.json")
+        v=download(t,meta,ROOT/("JTE103_"+os.environ["GITHUB_RUN_ID"]+"_CAPABILITY_G6_INHERITED_LEDGER.json"))
+        g=json.loads((ROOT/v["local"]).read_text())
+        if g.get("status")!="PASS_READONLY_LEDGER_COMPLETE" or g.get("run")!="40473995420":raise RuntimeError("JTE103_G6_REUSE_NOT_QUALIFIED")
+        m["reusedG6AuditRun"]="40473995420";m["reusedG6Audit"]=v
+    else:
+        add("JTE065_C0_original_2400_NATIVE.mat","C0_300_original.mat","C0",300,True)
+        add("JTE065_C0_fine_2400_NATIVE.mat","C0_300_fine.mat","C0",300)
+        add("JTE068_ACTIVE_C0_AMBIENT293p15_2400_NATIVE.mat","C0_293p15_original.mat","C0",293.15)
+        for site in ("hot","middle","cold"):
+            add("JTE067_C1_"+site+"_original_2400_NATIVE.mat","JTE067_"+site+".mat","C1_SINGLE",300)
+            add("JTE069_ACTIVE_C1_"+site+"_ref293p15_2400_NATIVE.mat","JTE069_"+site+".mat","C1_SINGLE",293.15)
+        for site in ("early","mid","late"):
+            add("JTE072_GROUP_C1_"+site+"_ref293p15_2400_NATIVE.mat","JTE072_"+site+".mat","C1_GROUP",293.15)
     candidates=query(t,folder,"name contains 'JTE085' or name contains 'PROFILER' or name contains 'PROFILE_SESSION' or name contains 'solverprofiler'")
     candidates=[x for x in candidates if x["name"].lower().endswith(".mat")]
     for i,meta in enumerate(candidates):
@@ -68,6 +75,7 @@ def readback_canary(t,folder):
 def main():
     t,f=context();mode=sys.argv[1]
     if mode=="fetch-cap":fetch_cap(t,f)
+    elif mode=="fetch-cap-api":fetch_cap(t,f,True)
     elif mode=="publish-cap":publish(t,f,"CAPABILITY")
     elif mode=="readback-canary":readback_canary(t,f)
     elif mode=="publish-readback":publish(t,f,"READBACK")
