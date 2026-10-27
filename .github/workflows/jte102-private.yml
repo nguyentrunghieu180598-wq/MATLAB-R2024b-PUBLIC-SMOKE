@@ -1,0 +1,40 @@
+name: JTE102 private existing six MAT impact audit (zero simulations)
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte102-private.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte102-private
+  cancel-in-progress: false
+jobs:
+  existing-data-audit:
+    if: github.event.head_commit.message == 'JTE102_PRIVATE_EXISTING_MAT_AUDIT'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install --quiet 'numpy==2.2.6' 'h5py==3.14.0'
+      - name: Test native metrics on synthetic fixtures only
+        run: python3 -m unittest discover -s jte-public -p test_JTE102_metrics.py -v
+      - name: Fetch already accepted private assets (no preflight)
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE102_private_io.py fetch
+      - name: Audit six existing MAT and write private metrics
+        run: python3 jte-public/JTE102_metrics.py
+      - name: Private metrics full SHA readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE102_private_io.py publish
+      - name: Delete private runner scratch
+        if: always()
+        run: rm -rf jte102-private
