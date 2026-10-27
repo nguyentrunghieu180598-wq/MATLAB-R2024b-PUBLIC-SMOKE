@@ -47,13 +47,15 @@ try
   canaryModelFile=fullfile(P.root,[model '.slx']);save_system(model,canaryModelFile);
   copyfile(canaryModelFile,[P.prefix '_CANARY_MODEL.slx']);
   file=[P.prefix '_CANARY_SESSION.mat'];
-  capturedLog=evalc("res=solverprofiler.profileModel(model,'StartTime',0,'StopTime',.02,'DataFullFile',file,'OpenSP','off,'SaveStates','on,'SaveSimscapeStates','off,'SaveZCSignals','on,'SaveJacobian','off,'BufferSize',10000,'TimeOut',30);");
+  capturedLog=evalc('res=invokeCanary(model,file);');
   assert(isstruct(res)&&isfield(res,'summary')&&isfield(res,'file')&&isfile(res.file),'JTE103:Capture','No documented profiler result.');
   assert(res.summary.tStart==0&&res.summary.tStop==.02&&res.summary.steps>0&&strcmp(res.summary.solver,'ode23t'),'JTE103:CanarySummary','Wrong canary execution.');
   sessionInventory=whos('-file',res.file);sessionSHA=JTE2026sha256(res.file);
   save([P.prefix '_CANARY_PUBLIC_RESULT.mat'],'res','capturedLog','sessionInventory','sessionSHA','-v7.3');
   writeJSON([P.prefix '_CANARY_PUBLIC_SUMMARY.json'],res.summary);
   flags.CANARY_CAPTURE='PASS';flags.canaryCaptured=true;flags.PROFILER_API_R2024B='PASS_ACTUAL_R2024B_CALL';
+  api.signatureValidation='PASS_ACTUAL_DOCUMENTED_R2024B_CALL';
+  save([P.prefix '_API.mat'],'api','-v7.3');writeJSON([P.prefix '_API.json'],api);
   flags.retentionFile=['JTE103_' P.run '_CAPABILITY_CANARY_SESSION.mat'];
   flags.SOURCE_PROFILE_AUTHORIZED=true; % still requires private readback before source intent
  end
@@ -70,6 +72,12 @@ else
 end
 fprintf('JTE103_CAPABILITY_RESULT PROFILER_API_R2024B=%s CANARY_CAPTURE=%s priorSessionPresent=%d sourceProfileRequiresPrivateReadback=1 G6_newSimulations=0 G5_ACCEPTED=false\n',...
  flags.PROFILER_API_R2024B,flags.CANARY_CAPTURE,flags.priorSessionPresent);
+end
+function res=invokeCanary(model,file)
+% Ordinary parsed MATLAB source, no constructed option strings.
+res=solverprofiler.profileModel(model,'StartTime',0,'StopTime',.02,...
+ 'DataFullFile',file,'OpenSP','off','SaveStates','on','SaveSimscapeStates','off',...
+ 'SaveZCSignals','on','SaveJacobian','off','BufferSize',10000,'TimeOut',30);
 end
 function readback(P)
 flags=jsondecode(fileread([P.prefix '_FLAGS.json']));

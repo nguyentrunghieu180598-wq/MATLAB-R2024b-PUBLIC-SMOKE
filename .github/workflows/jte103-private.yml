@@ -1,4 +1,4 @@
-name: JTE103 actual profiler signature call (reuse completed G6 audit)
+name: JTE103 parsed public profiler call (reuse completed G6 audit)
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
