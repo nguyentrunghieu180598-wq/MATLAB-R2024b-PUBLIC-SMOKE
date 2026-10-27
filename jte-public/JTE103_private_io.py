@@ -5,7 +5,7 @@ from JTE101_io import one,query,download,quota
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
 ROOT=Path("jte103-private");SCHEMA="JTE103_PROFILER_PATH_NOT_G5"
-MESSAGES={"JTE103_PROFILER_CAPABILITY_AND_READONLY_G6_AUDIT","JTE103_ONE_SOURCE_PROFILER340"}
+MESSAGES={"JTE103_PROFILER_CAPABILITY_AND_READONLY_G6_AUDIT","JTE103_ONE_SOURCE_PROFILER340","JTE103_READONLY_DELIVERY_AUDIT"}
 def context():
     e=json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     if (os.environ.get("GITHUB_REPOSITORY")!=EXPECTED_REPO or (e.get("repository") or {}).get("full_name")!=EXPECTED_REPO or
@@ -113,6 +113,19 @@ def source_readback(t,folder):
     v=download(t,meta,ROOT/"source_session_downloaded.mat")
     put_json(ROOT/"source_readback_manifest.json",v)
     print("JTE103_SOURCE_SESSION_CLOUD_DOWNLOAD_SHA_PASS internalFieldsNotRead=1")
+def fetch_delivery(t,folder):
+    ROOT.mkdir(mode=0o700,exist_ok=False)
+    names=[("JTE103_40476191914_SOURCE_NATIVE.mat","native.mat"),
+      ("JTE103_40476191914_SOURCE_PUBLIC_SUMMARY.json","summary.json"),
+      ("JTE103_40476191914_SOURCE_PROVENANCE.json","provenance.json"),
+      ("JTE103_40476191914_SOURCE_FLAGS.json","source_flags.json"),
+      ("JTE103_40476191914_SOURCE_RECEIPT.json","source_receipt.json"),
+      ("JTE103_40476191914_SOURCE_READBACK_FLAGS.json","source_readback.json"),
+      ("JTE103_40473995420_CAPABILITY_G6_LEDGER.json","g6_ledger.json")]
+    m={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"files":[],"sourceProfilerRun":"40476191914","newSimulationRun":False}
+    for name,local in names:m["files"].append(download(t,one(t,folder,"JTE063_VERIFIED_"+name),ROOT/local))
+    put_json(ROOT/"delivery_manifest.json",m)
+    print("JTE103_DELIVERY_FETCH_PASS existingPrivateAssetsOnly=1 simulationRun=0")
 def main():
     t,f=context();mode=sys.argv[1]
     if mode=="fetch-cap":fetch_cap(t,f)
@@ -125,6 +138,8 @@ def main():
     elif mode=="publish-source":publish(t,f,"SOURCE")
     elif mode=="source-readback":source_readback(t,f)
     elif mode=="publish-source-readback":publish(t,f,"SOURCE_READBACK")
+    elif mode=="fetch-delivery":fetch_delivery(t,f)
+    elif mode=="publish-delivery":publish(t,f,"DELIVERY")
     else:raise RuntimeError("JTE103_MODE_DENIED")
 if __name__=="__main__":
     try:main()

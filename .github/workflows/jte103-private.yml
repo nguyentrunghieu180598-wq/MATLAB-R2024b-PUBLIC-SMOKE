@@ -1,4 +1,4 @@
-name: JTE103 one gated source profiler340 with private session retention
+name: JTE103 existing session delivery audit (no further profiling)
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -138,3 +138,30 @@ jobs:
           if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
             echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
           fi
+  delivery-audit:
+    if: github.event.head_commit.message == 'JTE103_READONLY_DELIVERY_AUDIT'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install --quiet 'numpy==2.2.6' 'h5py==3.14.0'
+      - name: Existing profile sidecars and completed G6 ledger only
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE103_private_io.py fetch-delivery
+      - name: Qualify existing primary native arrays separately from secondary logger failure
+        run: python3 jte-public/JTE103_deliveryAudit.py
+      - name: Private bounded delivery and config evidence SHA readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE103_private_io.py publish-delivery
+      - name: Remove private runner scratch
+        if: always()
+        run: rm -rf jte103-private
