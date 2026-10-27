@@ -75,12 +75,17 @@ def comparison(a,b,field="T",window=None):
     i,j,exact,amb=matched(ta,tb)
     if window is not None:
         keep=(ta[i]>=window[0])&(ta[i]<=window[1]);i=i[keep];j=j[keep]
-    require(len(i)>0,"JTE102_NO_COMMON_NATIVE_POINTS")
+    if len(i)==0:
+        return {"status":"UNAVAILABLE_NO_EXACT_COMMON_NATIVE_POINTS","clockExact":False,
+          "ambiguousDuplicateGroupsExcludedFromPairing":amb,"matchedRows":0,"matchedFractionA":0.,"matchedFractionB":0.,
+          "fullNativeVectorIdentity":False,"maxAbs":None,"sampleRMSE":None,"signedMin":None,"signedMax":None,
+          "perChannelMaxAbs":None,"perChannelSampleRMSE":None,"roundoffDiagnosticBudget":None,
+          "withinRoundoffOnMatchedPoints":False,"semantics":"No interpolation, no fabricated comparison on unmatched clocks."}
     x=a[field][i];y=b[field][j]
     diff=y-x;xx=np.asarray(diff).reshape(len(i),-1)
     scale=max(1.,float(np.max(np.abs(x))),float(np.max(np.abs(y))))
     rounding=ULPS*np.spacing(scale)
-    return {"clockExact":exact,"ambiguousDuplicateGroupsExcludedFromPairing":amb,"matchedRows":len(i),
+    return {"status":"EXACT_NATIVE_MATCHED_SUBSET","clockExact":exact,"ambiguousDuplicateGroupsExcludedFromPairing":amb,"matchedRows":len(i),
       "matchedFractionA":len(i)/len(ta),"matchedFractionB":len(j)/len(tb),"fullNativeVectorIdentity":exact and np.array_equal(a[field],b[field]),
       "maxAbs":float(np.max(np.abs(diff))),"sampleRMSE":float(np.sqrt(np.mean(diff**2))),"signedMin":float(np.min(diff)),"signedMax":float(np.max(diff)),
       "perChannelMaxAbs":np.max(np.abs(xx),axis=0),"perChannelSampleRMSE":np.sqrt(np.mean(xx**2,axis=0)),
@@ -201,9 +206,19 @@ def main():
         report.setdefault("solverProfileDeltas",{})[c]={k:{"original":so.get(k),"fine":sf.get(k)} for k in sorted(set(so)|set(sf)) if so.get(k)!=sf.get(k)}
         require(float(sf["RelTol"])==float(so["RelTol"])/2 and float(so["MaxStep"])==.05 and sf["MaxStep"]==so["MaxStep"],"JTE102_SOLVER_PROFILE")
     effect=cp["paired340_temperature_first"]["perChannelMaxAbs"];resolution=cp["solver_B0L_T_FIRST"]["perChannelMaxAbs"]
+    available=effect is not None and resolution is not None
     report["observableContrastDiagnostic"]={"paired340PerChannelContrast_K":effect,"RelTolHalfOnlyPerChannelDifference_K":resolution,
-      "channelsContrastExceedsObservedRelTolDifference":int(np.sum(effect>resolution+cp["paired340_temperature_first"]["roundoffDiagnosticBudget"])),
+      "channelsContrastExceedsObservedRelTolDifference":int(np.sum(effect>resolution+cp["paired340_temperature_first"]["roundoffDiagnosticBudget"])) if available else None,
+      "status":"EXACT_NATIVE_SUBSET_ONLY" if available else "UNAVAILABLE_EXACT_EVENT_CLOCK_ALIGNMENT",
       "qualification":"Observed contrasts only. RelTol difference is not an error bound; topology alteration confounds causal thermal attribution; no independent 1ms-filter refinement."}
+    report["nearestNativeTemperatureDiagnostics"]={}
+    for label,ka,kb in (("paired340","ORIGINAL340","CONSTANT340"),("solverB0L","B0L_original","B0L_fine"),("solverC0","C0_original","C0_fine")):
+        a=cases[ka];b=cases[kb];idx=np.searchsorted(b["t"],a["t"]);right=np.minimum(idx,len(b["t"])-1);left=np.maximum(idx-1,0)
+        j=np.where(np.abs(b["t"][right]-a["t"])<np.abs(b["t"][left]-a["t"]),right,left)
+        dt=b["t"][j]-a["t"];dv=b["T"][j]-a["T"]
+        report["nearestNativeTemperatureDiagnostics"][label]={"perChannelMaxAbsContrast_K":np.max(np.abs(dv),axis=0),
+          "maxAbsoluteTimeSeparation_s":float(np.max(np.abs(dt))),"sampleRMSE_K":float(np.sqrt(np.mean(dv**2))),
+          "semantics":"Nearest actual native temperature samples, earlier row on equal-distance tie. No interpolation. Includes real time-separation/load effects; NOT an error bound, event reconstruction, causal effect or convergence proof."}
     old_events=all(cases[c]["events"][w]["excursion"] for c in keys[2:] for w in WINDOWS)
     state_original=cases["ORIGINAL340"]["events"]["FIRST"]["excursion"]
     stable_cf=not cases["CONSTANT340"]["events"]["FIRST"]["excursion"]
@@ -220,7 +235,7 @@ def main():
     with prefix.with_name(prefix.name+"_CHANNELS.csv").open("w",newline="") as f:
         writer=csv.writer(f);writer.writerow(["channel_1based","B0L_endpoint_original_K","B0L_endpoint_fine_K","solverNativeMaxAbs_K","paired340FirstWindowNativeContrast_K","RelTolFirstWindowNativeDifference_K"])
         for i in range(312):
-            writer.writerow([i+1,cases["B0L_original"]["T"][-1,i],cases["B0L_fine"]["T"][-1,i],cp["solver_B0L_T"]["perChannelMaxAbs"][i],effect[i],resolution[i]])
+            writer.writerow([i+1,cases["B0L_original"]["T"][-1,i],cases["B0L_fine"]["T"][-1,i],cp["solver_B0L_T"]["perChannelMaxAbs"][i],effect[i] if effect is not None else "",resolution[i] if resolution is not None else ""])
     print("JTE102_A_RESULT "+" ".join(k+"="+flags[k] for k in ("G5_PROVENANCE","ZERO_BIAS_NATIVE_VECTOR","G5_THERMAL_NUMERICS","G5_ACTUATION_EVENT","B"))+" simulationRun=0 rawValuesPublished=0")
 if __name__=="__main__":
     try:main()

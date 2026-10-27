@@ -49,6 +49,12 @@ class NativeAuditTests(unittest.TestCase):
         r=comparison(a,b)
         self.assertEqual(r["matchedRows"],3);self.assertEqual(r["maxAbs"],.5)
         self.assertFalse(r["fullNativeVectorIdentity"])
+    def test_no_common_event_clock_is_unavailable_not_failure(self):
+        a={"t":np.array([0.,330.1,331.1,340.]),"T":np.full((4,2),300.)}
+        b={"t":np.array([0.,330.2,331.2,340.]),"T":np.full((4,2),300.)}
+        r=comparison(a,b,window=(330.,338.))
+        self.assertEqual(r["status"],"UNAVAILABLE_NO_EXACT_COMMON_NATIVE_POINTS")
+        self.assertIsNone(r["maxAbs"]);self.assertFalse(r["fullNativeVectorIdentity"])
     def test_localization_is_not_roundoff_acceptance(self):
         t=np.array([330.,331.,332.]);u=np.full(3,.25);T=np.full((3,312),300.)
         e=event(t,np.array([.25,.251,.25]),u,T,(330.,338.))

@@ -1,4 +1,4 @@
-name: JTE102 private existing six MAT impact audit (empty callback metadata fix)
+name: JTE102 private existing six MAT impact audit (native clock availability classification)
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
