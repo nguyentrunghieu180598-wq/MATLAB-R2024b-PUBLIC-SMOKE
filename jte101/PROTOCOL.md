@@ -39,3 +39,5 @@ Publish actual A audit and each bounded raw result privately with SHA readback
 BEFORE moving to the next simulation. Intent/ledger prevents accidental repeat.
 No public raw/private identifiers/hashes. Public vendor SHA permitted.
 No second-event derivative or full 2400s convergence, G5 PASS, merge or paper.
+
+Before Stage B: actual Stage A 40447257220 confirms schema PASS, TF state absent, original340 required. The added diagnostic Constant is SampleTime=0 (continuous, no added discrete hits) so its actual port can be logged at native output times; retain exact .25 and existing signal loggers. Port DataLogging is added observer metadata, not an extra physical edge. Old numeric calibration C was never retained; qualify the JTE089 saved-state/output methodology afresh on original pre-event records, freeze C, then test derivative. Full saved-state initial comparison may still render the result inconclusive. No old canary rerun.

@@ -81,10 +81,38 @@ def publish(token,folder,phase):
     out=DIRECTORY/("JTE101_"+run+"_"+phase+"_RECEIPT.json")
     out.write_text(json.dumps(receipt,indent=2));upload_verified(token,folder,out,schema=SCHEMA)
     print("JTE101_PRIVATE_READBACK_PASS phase="+phase+" rawResearchValuesPublished=0 G5_ACCEPTED=false")
+
+def fetch_b(token,folder):
+    run=os.environ.get("JTE101_AUDIT_RUN","")
+    if not run.isdigit():raise RuntimeError("JTE101_AUDIT_RUN_UNSET")
+    DIRECTORY.mkdir(mode=0o700,exist_ok=False)
+    meta=one(token,folder,"JTE063_VERIFIED_JTE101_"+run+"_STAGE_A_AUDIT.mat")
+    result=download(token,meta,DIRECTORY/"stage_a_audit.mat")
+    m={"stageARun":run,"audit":result,"quota":quota(token),"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"]}
+    (DIRECTORY/"stage_b_manifest.json").write_text(json.dumps(m,indent=2))
+    print("JTE101_STAGE_A_REUSED privateAuditSHA=PASS schemaAuditRerun=0 accessPreflightRerun=0")
+def intent(token,folder,role):
+    if role not in {"ORIGINAL340","CONSTANT340"}:raise RuntimeError("JTE101_ROLE_DENIED")
+    name="JTE101_"+role+"_INTENT.json"
+    if query(token,folder,"name = 'JTE063_VERIFIED_"+name+"'"):
+        raise RuntimeError("JTE101_ROLE_ALREADY_AUTHORIZED_NO_REPEAT")
+    if role=="CONSTANT340":
+        one(token,folder,"JTE063_VERIFIED_JTE101_"+os.environ["GITHUB_RUN_ID"]+"_ORIGINAL340_RECEIPT.json")
+    p=DIRECTORY/name
+    p.write_text(json.dumps({"schema":SCHEMA,"role":role,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],
+      "sourceAuditRun":os.environ["JTE101_AUDIT_RUN"],"state":"ONE_SHOT_INTENT_BEFORE_SIMULATION","G5_ACCEPTED":False},indent=2))
+    upload_verified(token,folder,p,schema=SCHEMA)
+    print("JTE101_ONE_SHOT_INTENT_PRIVATE_RECORDED role="+role+" noRepeat=1")
+
 def main():
     token,folder=context();mode=sys.argv[1]
     if mode=="fetch-a":fetch_a(token,folder)
     elif mode=="publish-a":publish(token,folder,"STAGE_A")
+    elif mode=="fetch-b":fetch_b(token,folder)
+    elif mode=="intent-original":intent(token,folder,"ORIGINAL340")
+    elif mode=="intent-constant":intent(token,folder,"CONSTANT340")
+    elif mode=="publish-original":publish(token,folder,"ORIGINAL340")
+    elif mode=="publish-constant":publish(token,folder,"CONSTANT340")
     else:raise RuntimeError("JTE101_MODE_NOT_IMPLEMENTED")
 if __name__=="__main__":
     try:main()
