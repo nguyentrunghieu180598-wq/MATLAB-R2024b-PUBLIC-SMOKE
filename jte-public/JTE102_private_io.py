@@ -1,7 +1,7 @@
 """JTE102 accepted protected-cloud I/O; no ACL/preflight or simulation."""
 import json,os,re,sys
 from pathlib import Path
-from JTE101_io import one,download,quota,context as unused_context
+from JTE101_io import one,download,quota,query
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
 ROOT=Path("jte102-private")
@@ -35,10 +35,48 @@ def publish(token,folder):
     p=ROOT/("JTE102_"+os.environ["GITHUB_RUN_ID"]+"_RECEIPT.json")
     p.write_text(json.dumps(receipt,indent=2));upload_verified(token,folder,p,schema=SCHEMA)
     print("JTE102_PRIVATE_READBACK_PASS rawValuesPublished=0 simulationRun=0")
+def fetch_b(token,folder):
+    ROOT.mkdir(mode=0o700,exist_ok=False)
+    names=[("JTE102_40462103051_METRICS.json","audit.json"),
+      ("JTE102_40462103051_RECEIPT.json","audit_receipt.json"),
+      ("JTE101_40449421507_ORIGINAL340_RAW.mat","original_raw.mat"),
+      ("JTE101_40449421507_ORIGINAL340_MODEL.slx","JTE101Original.slx"),
+      ("JTE101_40449421507_PREPARE_WORKSPACE.mat","source_workspace.mat")]
+    m={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"files":[],"quota":quota(token)}
+    for name,local in names:m["files"].append(download(token,one(token,folder,"JTE063_VERIFIED_"+name),ROOT/local))
+    a=json.loads((ROOT/"audit.json").read_text())
+    if a.get("run")!="40462103051" or a.get("commit")!="fba0a1072da00216c7e8910ecc372ee74cd40ff5" or a.get("flags",{}).get("B")!="NEEDS_RUN":
+        raise RuntimeError("JTE102_B_NOT_JUSTIFIED")
+    (ROOT/"b_manifest.json").write_text(json.dumps(m,indent=2))
+    print("JTE102_B_INPUTS_PASS stageAJustifiesOneCandidate=1 existingOriginalReused=1 originalSimulationRerun=0")
+def publish_b(token,folder,phase):
+    names=sorted(ROOT.glob("JTE102_"+os.environ["GITHUB_RUN_ID"]+"_"+phase+"*"))
+    if not names:raise RuntimeError("JTE102_B_OUTPUT_ABSENT")
+    r={"schema":SCHEMA,"phase":phase,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],"files":[],"G5_ACCEPTED":False}
+    for p in names:r["files"].append({"name":p.name,**upload_verified(token,folder,p,schema=SCHEMA)})
+    p=ROOT/("JTE102_"+os.environ["GITHUB_RUN_ID"]+"_"+phase+"_RECEIPT.json")
+    p.write_text(json.dumps(r,indent=2));upload_verified(token,folder,p,schema=SCHEMA)
+    print("JTE102_B_PRIVATE_READBACK_PASS phase="+phase+" rawValuesPublished=0 G5_ACCEPTED=false")
+def intent_b(token,folder):
+    name="JTE102_STATESPACE340_INTENT.json"
+    if query(token,folder,"name = 'JTE063_VERIFIED_"+name+"'"):raise RuntimeError("JTE102_B_ALREADY_ATTEMPTED_NO_REPEAT")
+    one(token,folder,"JTE063_VERIFIED_JTE102_"+os.environ["GITHUB_RUN_ID"]+"_PREPARE_RECEIPT.json")
+    a=json.loads((ROOT/"audit.json").read_text())
+    if a["flags"]["B"]!="NEEDS_RUN":raise RuntimeError("JTE102_B_NOT_JUSTIFIED")
+    p=ROOT/name
+    p.write_text(json.dumps({"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],
+      "phase":"ONE_NEW_SS340_AFTER_CANARY_AND_PRIVATE_PREPARE","stageARun":"40462103051","sourceReferenceRun":"40449421507",
+      "G5_ACCEPTED":False},indent=2))
+    upload_verified(token,folder,p,schema=SCHEMA)
+    print("JTE102_B_ONE_SHOT_INTENT_RECORDED sourceReferenceRerun=0 noAutoRepeat=1")
 def main():
     t,f=context()
     if sys.argv[1]=="fetch":fetch(t,f)
     elif sys.argv[1]=="publish":publish(t,f)
+    elif sys.argv[1]=="fetch-b":fetch_b(t,f)
+    elif sys.argv[1]=="publish-prepare":publish_b(t,f,"PREPARE")
+    elif sys.argv[1]=="intent-b":intent_b(t,f)
+    elif sys.argv[1]=="publish-full":publish_b(t,f,"STATESPACE340")
     else:raise RuntimeError("JTE102_MODE_DENIED")
 if __name__=="__main__":
     try:main()
