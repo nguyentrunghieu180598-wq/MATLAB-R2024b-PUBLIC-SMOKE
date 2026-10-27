@@ -1,4 +1,4 @@
-name: JTE102 private existing six MAT impact audit (native clock availability classification)
+name: JTE102 private audit and named-signal-preserving equivalent filter
 on:
   push:
     branches: ['codex/jte-tf-constant-input']

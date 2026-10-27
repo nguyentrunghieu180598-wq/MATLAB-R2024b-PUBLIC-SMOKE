@@ -87,7 +87,9 @@ verifyConfig('JTE101Original',A.cases.B0L_original.metadata.solver);
 copyfile(original,P.modelFile);load_system(P.modelFile);cg=onCleanup(@()quietModel(P.model)); %#ok<NASGU>
 tf=P.tf;h=get_param(tf,'PortHandles');src=source(h.Inport(1));core=get_param(P.core,'PortHandles');
 assert(src==core.Outport(1),'JTE102:Core','Authentic source core not feeding original filter.');
-line=get_param(h.Outport(1),'Line');dest=get_param(line,'DstPortHandle');dest=dest(dest~=-1);
+line=get_param(h.Outport(1),'Line');outputSignalName=get_param(line,'Name');
+inputSignalName=get_param(get_param(src,'Line'),'Name');
+dest=get_param(line,'DstPortHandle');dest=dest(dest~=-1);
 assert(~isempty(dest),'JTE102:OutputWire','No filter output sinks.');
 edges=JTE096_signalEdges(P.ctrl);
 before=JTE096_modelAudit(P.model,{tf});orphan=JTE096_orphanLines(P.model);
@@ -101,6 +103,11 @@ add_block('simulink/Continuous/State-Space',tf,'A','-1000','B','1000','C','1','D
  'InitialCondition',mat2str(X0,17),'Position',pos,'Orientation',orientation);
 nh=get_param(tf,'PortHandles');add_line(P.ctrl,src,nh.Inport(1),'autorouting','on');
 for k=1:numel(dest),add_line(P.ctrl,nh.Outport(1),dest(k),'autorouting','on');end
+% Named-bus semantics are part of the source graph, not cosmetic annotations.
+set_param(get_param(nh.Outport(1),'Line'),'Name',outputSignalName);
+set_param(get_param(src,'Line'),'Name',inputSignalName);
+assert(strcmp(get_param(get_param(nh.Outport(1),'Line'),'Name'),outputSignalName)&&...
+ strcmp(get_param(get_param(src,'Line'),'Name'),inputSignalName),'JTE102:SignalNames','Source signal names not preserved.');
 % Preserve a declared block absolute tolerance when exposed by both realizations.
 newDP=get_param(tf,'DialogParameters');
 if any(strcmp(sourceDeclaration.keys,'AbsoluteTolerance'))&&isfield(newDP,'AbsoluteTolerance')
@@ -156,6 +163,7 @@ prepared=struct('schema','JTE102_ONE_EQUIVALENT_REALIZATION','modelSHA',JTE2026s
  'stateSpaceDocs','https://www.mathworks.com/help/releases/R2024b/simulink/slref/statespace.html',...
  'stateCoordinateRelation','xSS=yTF=Ctf*xCanonicalTF; C=1,D=0. Common zero initial physical output; no steady-state .25 initialization.',...
  'canary',canary,'outsideStaticProof',before,'signalEdges',{edges},'soleRealizationNodeDelta',true,...
+ 'preservedInputSignalName',inputSignalName,'preservedOutputSignalName',outputSignalName,...
  'modelDeclaredSolverUnchanged',true,'sourceWorkspaceSHA',JTE2026sha256(fullfile(P.private,'source_workspace.mat')),...
  'eventTopologyEquivalence','NOT_PROVEN','acceptedStepCertification','UNAVAILABLE','G5_ACCEPTED',false);
 save(fullfile(P.private,'candidate_prepared.mat'),'prepared','-v7.3');
@@ -204,7 +212,10 @@ for k=1:11
  add_line(m,[get_param([base 'TF'],'Name') '/1'],[get_param([base 'TFY'],'Name') '/1']);
  add_line(m,[get_param([base 'SS'],'Name') '/1'],[get_param([base 'SSY'],'Name') '/1']);
 end
-out=sim(m);errors=zeros(11,3);
+out=sim(m);
+% Preserve a failed new canary too, before checking its verdict.
+save(fullfile(P.private,['JTE102_' P.run '_PREPARE_SYNTHETIC_CANARY_CAPTURE.mat']),'out','X0','qvals','-v7.3');
+errors=zeros(11,3);
 for k=1:11
  [t,u]=JTE2026timeseries(out,['c' num2str(k) 'U']);[ty,y]=JTE2026timeseries(out,['c' num2str(k) 'TFY']);[tz,z]=JTE2026timeseries(out,['c' num2str(k) 'SSY']);
  assert(isequal(t,ty)&&isequal(t,tz),'JTE102:CanaryClock','Synthetic clocks differ.');
