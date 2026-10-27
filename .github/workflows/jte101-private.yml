@@ -43,6 +43,16 @@ jobs:
         uses: matlab-actions/run-command@v3
         with:
           command: addpath('jte-public'); JTE101_stageB('prepare')
+      - name: Verify frozen workspace restoration and compile both roles in a separate process
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE101_stageB('workspacecheck')
+      - name: Preserve exact source workspace and compile receipt privately
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py publish-prepare
       - name: Private one-shot original intent
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}

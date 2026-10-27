@@ -10,6 +10,21 @@ assert(strcmp(JTE2026sha256(P.source),P.pin),'JTE101:Pin','Wrong source bytes.')
 project=openProject(fullfile(P.vendor,'batteryExamplesProjectSetup.prj'));
 cg=onCleanup(@()quietProject(project)); %#ok<NASGU>
 if strcmp(mode,'prepare'),prepare(P,A);return;end
+restoreWorkspace(P);
+if strcmp(mode,'workspacecheck')
+ for roleName={'original','constant'}
+  label=roleName{1};model=['JTE101' upper(label(1)) label(2:end)];
+  load_system(fullfile(P.generated,[model '.slx']));
+  verifyConfig(model,A.primary.solver);
+  set_param(model,'SimulationCommand','update');
+  quietModel(model);
+ end
+ copyfile(fullfile(P.private,'prepared.mat'),fullfile(P.private,['JTE101_' P.run '_PREPARE_STATE.mat']));
+ writeJSON(fullfile(P.private,['JTE101_' P.run '_PREPARE_FLAGS.json']),...
+  struct('snapshotRestored',true,'bothRolesCompiled',true,'simulationRun',false,'G5_ACCEPTED',false));
+ fprintf('JTE101_WORKSPACE_RESTORE_COMPILE_PASS bothRoles=1 originalFrozenValuesPreserved=1 simulationRun=0\n');
+ return;
+end
 assert(any(strcmp(mode,{'original','constant'})),'JTE101:Role','Unknown role.');
 role=upper([mode '340']);model=['JTE101' upper(mode(1)) mode(2:end)];
 file=fullfile(P.generated,[model '.slx']);
@@ -30,14 +45,15 @@ command=get_param([ctrl '/JTE Command'],'PortHandles');
 assert(source(command.Inport(1))==ch.Outport(1),'JTE101:CoreLogger','Authentic controller logger changed.');
 startMarker=fullfile(P.private,[role '_MATLAB_ENTERED.json']);
 assert(~isfile(startMarker),'JTE101:RepeatDenied','Role was already attempted in this run.');
-writeJSON(startMarker,struct('role',role,'phase','SIMULATION_ENTERED','run',P.run,'commit',P.commit));
+writeJSON(startMarker,struct('role',role,'phase','SIM_CALL_ENTERED','run',P.run,'commit',P.commit));
 input=Simulink.SimulationInput(model);
 input=input.setModelParameter('StartTime','0','StopTime','340','SimulationMode','normal',...
  'SaveState','on','StateSaveName','jte101XStates','SaveFormat','Dataset',...
  'SaveTime','on','TimeSaveName','tout','SignalLogging','on','SignalLoggingName','jte101InputLogs');
 before=JTE096_modelAudit(model);
-fprintf('JTE101_BOUNDED_SIMULATION_START role=%s horizon340=1 sourcePinned=1 solverUnchanged=1 privacyRetentionRequired=1\n',role);
+fprintf('JTE101_BOUNDED_SIM_CALL_START role=%s horizon340=1 sourcePinned=1 solverUnchanged=1 privacyRetentionRequired=1\n',role);
 out=sim(input);
+fprintf('JTE101_BOUNDED_SIM_RETURNED role=%s resultCaptured=1\n',role);
 % Persist every captured field BEFORE any scientific/instrumentation qualification.
 record=struct('schema','JTE101_TF_340_RAW_NOT_G5','role',role,'simulationOutput',out,...
  'sourceSHA256',P.pin,'modelSHA256',JTE2026sha256(file),'run',P.run,'commit',P.commit,...
@@ -129,8 +145,34 @@ prepared=struct('schema','JTE101_PREPARED_V1','sourceSHA256',P.pin,'baselineFile
  'constantValue',.25,'constantSampleTime',0,'eventTopologyEquivalence','NOT_PROVEN',...
  'solvedSimscapeICEquivalence','NOT_ESTABLISHED_BY_STATIC_AUDIT',...
  'calibrationPriorRun','40289697124','calibrationMethod','JTE089 aligned saved-state/output ratio method; old numeric gain not archived; no canary rerun');
+% Preserve exact used base values from the source preload before ending this process.
+workspaceSnapshot=struct();
+for vi=1:numel(A.primary.resolvedVariables)
+ entry=A.primary.resolvedVariables(vi);
+ if strcmp(entry.sourceType,'base workspace')
+  assert(isvarname(entry.name),'JTE101:WorkspaceName','Invalid recorded variable.');
+  value=evalin('base',entry.name);
+  assert(isequaln(value,entry.value),'JTE101:WorkspaceValue','Source workspace differs from the archived native run.');
+  workspaceSnapshot.(entry.name)=value;
+ end
+end
+assert(~isempty(fieldnames(workspaceSnapshot)),'JTE101:WorkspaceEmpty','No used source base values.');
+prepared.workspaceFile=fullfile(P.private,['JTE101_' P.run '_PREPARE_WORKSPACE.mat']);
+save(prepared.workspaceFile,'workspaceSnapshot','-v7.3');
+prepared.workspaceSHA256=JTE2026sha256(prepared.workspaceFile);
+prepared.workspaceProof='Exact source-preload values equal archived resolvedVariables; no defaults or tuning.';
 save(fullfile(P.private,'prepared.mat'),'prepared','-v7.3');
 fprintf('JTE101_PREPARE_PASS onePhysicalEdgeSubstitution=1 authenticCoreLoggerRetained=1 TF_SID197Unchanged=1 solverLoadDeclaredICUnchanged=1 simulationRun=0 eventTopologyEquivalence=NOT_PROVEN\n');
+end
+function restoreWorkspace(P)
+S=load(fullfile(P.private,'prepared.mat'),'prepared');p=S.prepared;
+assert(strcmp(JTE2026sha256(p.workspaceFile),p.workspaceSHA256),'JTE101:WorkspaceSHA','Frozen workspace changed.');
+S=load(p.workspaceFile,'workspaceSnapshot');names=fieldnames(S.workspaceSnapshot);
+for k=1:numel(names)
+ name=names{k};value=S.workspaceSnapshot.(name);
+ assignin('base',name,value);
+ assert(isequaln(evalin('base',name),value),'JTE101:WorkspaceRestore','Exact workspace restoration failed.');
+end
 end
 function d=extract(out,m)
 [t,u]=JTE2026timeseries(out,'jteUcore');[ty,y]=JTE2026timeseries(out,'jteFlwR');

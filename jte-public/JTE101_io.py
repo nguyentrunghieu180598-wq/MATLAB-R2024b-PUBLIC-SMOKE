@@ -94,8 +94,27 @@ def fetch_b(token,folder):
 def intent(token,folder,role):
     if role not in {"ORIGINAL340","CONSTANT340"}:raise RuntimeError("JTE101_ROLE_DENIED")
     name="JTE101_"+role+"_INTENT.json"
-    if query(token,folder,"name = 'JTE063_VERIFIED_"+name+"'"):
-        raise RuntimeError("JTE101_ROLE_ALREADY_AUTHORIZED_NO_REPEAT")
+    prior=query(token,folder,"name = 'JTE063_VERIFIED_"+name+"'")
+    if prior:
+        if role!="ORIGINAL340" or len(prior)!=1:raise RuntimeError("JTE101_ROLE_ALREADY_AUTHORIZED_NO_REPEAT")
+        old_path=DIRECTORY/"prior_original_intent.json"
+        download(token,prior[0],old_path);old=json.loads(old_path.read_text())
+        if old.get("run")!="40448269062" or old.get("commit")!="1e943934405a465ce158297d1ea27d5ddbe286fc":
+            raise RuntimeError("JTE101_RECOVERY_PRIOR_MISMATCH")
+        if query(token,folder,"name = 'JTE063_VERIFIED_JTE101_40448269062_ORIGINAL340_RECEIPT.json'"):
+            raise RuntimeError("JTE101_PRIOR_RAW_EXISTS_NO_RECOVERY")
+        name="JTE101_ORIGINAL340_RESUME_AFTER_40448269062_COMPILE_FAILURE_INTENT.json"
+        if query(token,folder,"name = 'JTE063_VERIFIED_"+name+"'"):
+            raise RuntimeError("JTE101_COMPILE_RECOVERY_ALREADY_AUTHORIZED")
+        one(token,folder,"JTE063_VERIFIED_JTE101_"+os.environ["GITHUB_RUN_ID"]+"_PREPARE_RECEIPT.json")
+        p=DIRECTORY/"JTE101_40448269062_COMPILE_FAILURE_RECEIPT.json"
+        p.write_text(json.dumps({"schema":SCHEMA,"failedRun":"40448269062","failedCommit":"1e943934405a465ce158297d1ea27d5ddbe286fc",
+          "job":"122004630243","evidence":"Compile-time unresolved source base variables ambient/T_vec/AH; no SimulationOutput; constant step skipped",
+          "integrationStarted":False,"successful340":False,"priorIntentPreserved":True,
+          "repair":"Restore SHA-verified exact source-preload workspace equal to archived resolvedVariables; compile both roles first",
+          "recoveryRun":os.environ["GITHUB_RUN_ID"],"recoveryCommit":os.environ["GITHUB_SHA"],"G5_ACCEPTED":False},indent=2))
+        upload_verified(token,folder,p,schema=SCHEMA)
+        print("JTE101_COMPILE_FAILURE_RECOVERY oldIntegrationStarted=0 priorIntentPreserved=1 successfulSimulationRepeat=0")
     if role=="CONSTANT340":
         one(token,folder,"JTE063_VERIFIED_JTE101_"+os.environ["GITHUB_RUN_ID"]+"_ORIGINAL340_RECEIPT.json")
     p=DIRECTORY/name
@@ -111,6 +130,7 @@ def main():
     elif mode=="fetch-b":fetch_b(token,folder)
     elif mode=="intent-original":intent(token,folder,"ORIGINAL340")
     elif mode=="intent-constant":intent(token,folder,"CONSTANT340")
+    elif mode=="publish-prepare":publish(token,folder,"PREPARE")
     elif mode=="publish-original":publish(token,folder,"ORIGINAL340")
     elif mode=="publish-constant":publish(token,folder,"CONSTANT340")
     else:raise RuntimeError("JTE101_MODE_NOT_IMPLEMENTED")
