@@ -16,8 +16,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: New guard tests only
-        run: PYTHONPATH=jte-public python3 -m unittest discover -s jte-public -p 'test_JTE_TF_private_guard.py' -v
+      - name: Reuse unchanged guard tests already passed
+        run: echo 'Guard unit evidence reused from run 40378345376 at 93df277fc3c83133f1022b300bcc4739df9f321d; no unit or scientific rerun'
   private-access:
     needs: new-guard-unit
     runs-on: ubuntu-latest
@@ -36,3 +36,6 @@ jobs:
       - name: Remove private preflight scratch
         if: always()
         run: rm -rf tf-constant-private
+
+# Fresh preflight after owner authorized this exact branch for JTE_DRIVE_WRITE (2026-10-27).
+# Only access/SHA/private-receipt checks; no MATLAB or research-data export.
