@@ -20,7 +20,7 @@ def context():
       (e.get("repository") or {}).get("full_name")==EXPECTED_REPO and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="JTE107_EXISTING_NATIVE_MECHANISM_ONLY" and
+      (e.get("head_commit") or {}).get("message")=="JTE107_SELECTOR_BOUNDARY_FLAG_COMPLETION" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA"),"JTE107_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
     return t,ensure_app_folder(t)
@@ -79,7 +79,8 @@ def classify(path,c,law):
     # Effective output-level thresholds of this verified controller are ref+5/ref+7.5.
     # q=.25 is also included as a conservative floor/quantizer interface marker,
     # although it is NOT a discontinuity of u=max(.25,q-mod(q,.25)).
-    reasons={}
+    reasons={"SELECTOR_SMALL_POSITIVE_LOSS_WITHIN_PRIOR_NATIVE_K_BUDGET":
+      (L>0)&(L<=c["source"]["sourceNativeFpBudget_K"])}
     for label,arr in (("TRUE",d["mxTrue"]),("MEAS",d["mxMeas"])):
         for delta in (5.0,7.5):
             reasons[label+"_T_REF_PLUS_"+str(delta)]=ulp_near(arr,ref+delta)
@@ -111,6 +112,7 @@ def classify(path,c,law):
       "sameFrame":c["sameFrame"],"priorSelector":c["selector"],
       "priorNativeSourceLaw":c["sameStateDecision"],"priorCrossTrajectory":c["crossTrajectoryCore"],
       "mechanismCategories":counts,"numericThresholdAmbiguous":runs(ambiguous,t),
+      "selectorSmallPositiveLossBudget_K":c["source"]["sourceNativeFpBudget_K"],
       "ambiguityReasons":{k:runs(v,t) for k,v in reasons.items()},
       "rawDWithinAmbiguity":runs(D&ambiguous,t),
       "caseDesignEstimandStratum":design,
@@ -171,7 +173,7 @@ def main():
       "B":"L>0 and stored u_true==u_fault==.25: floor masking.",
       "C":"L>0 and stored u_true==u_fault>.25: quantizer masking.",
       "D":"Exact raw inequality of STORED MATLAB source-native u_true/u_fault. Takes precedence, never rounded or removed.",
-      "ambiguous":"Separate overlay: within8 double spacings of Tref+5/Tref+7.5 or stored saturated q=.25/.5/.75, at max(1,abs(value),abs(boundary)) scale. q=.25 is a conservative interface marker, not an output jump.",
+      "ambiguous":"Separate overlay also includes 0<L<=the prior JTE106 temperature-operation8ULP budget (near selector L=0). Existing source-control flags remain: within8 double spacings of Tref+5/Tref+7.5 or stored saturated q=.25/.5/.75, at max(1,abs(value),abs(boundary)) scale. q=.25 is a conservative interface marker, not an output jump.",
       "counts":"Raw native recorded rows, no time fractions/durations/statistical replicate interpretation. Counts excluding ambiguity are also reported; raw D always remains visible.",
       "presenceRuns":"Contiguous row-index runs with first/last recorded timestamps, not accepted-event brackets or durations.",
       "idealOrNativeFlag":"Uses stored native MATLAB outputs ONLY; ideal/static tests were not repeated.",
@@ -180,7 +182,9 @@ def main():
       "thermal":"No causal temperature/actuation/convergence claim."}
     ledger={"schema":SCHEMA,"run":os.environ["GITHUB_RUN_ID"],"commit":os.environ["GITHUB_SHA"],
       "executor":"GITHUB_HOSTED_ACTIONS","job":os.environ["GITHUB_JOB"],
-      "sourceRun":SOURCE_RUN,"sourceCommit":SOURCE_COMMIT,"inputs":inputs,"cases":cases,"publicMetadata":flags,
+      "sourceRun":SOURCE_RUN,"sourceCommit":SOURCE_COMMIT,
+      "numericAmbiguityCoverageCompletion":{"initialRun":"40523566508","reason":"Initial mechanism ledger localized control thresholds but did not separately flag selector small-positive-loss rows. Raw A/B/C/D definitions and data remain unchanged; initial ledger retained."},
+      "inputs":inputs,"cases":cases,"publicMetadata":flags,
       "sourceReferenceAudit":{"mode":"REUSE_SHA_VERIFIED_JTE106_CERTIFICATES_NO_T312_OR_MATLAB_RERUN",
         "source300OriginalAndFine":"B0L_C0_FULL_NATIVE_CLOCK_T312_EXACT_CERTIFICATES_PASS",
         "active293p15":"C0_REFERENCE_QUALIFIED_WITHIN_FRAME; NO_ARCHIVED_B0L_COUNTERPART_FABRICATED",

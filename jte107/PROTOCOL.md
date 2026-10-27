@@ -12,7 +12,7 @@ Use stored MATLAB double arrays, preserving every raw inequality:
 
 Require exhaustive disjoint A/B/C/D coverage of finite qualified rows. No command rounding, resampling, clipping or replacement. ANY_IDEAL_OR_NATIVE_CORE_CHANGE uses actual stored native values only; no new ideal-source predictions or Python/Decimal tests.
 
-NUMERIC_THRESHOLD_AMBIGUOUS is a separate conservative overlay: within eight double spacings at max(1, absolute input, absolute boundary) for saved true/measured Max near reference+5/reference+7.5 and saved saturated q near .25/.5/.75. q=.25 is a floor/quantizer interface marker, not an output jump. This localizes proximity, not a certified floating-error bound. Report raw categories, their ambiguous subset and counts excluding ambiguity separately. D is never silently reclassified or removed.
+NUMERIC_THRESHOLD_AMBIGUOUS is a separate conservative overlay: positive stored Max loss at or below the prior JTE106 temperature-operation8ULP budget (near selector L=0), or within eight double spacings at max(1, absolute input, absolute boundary) for saved true/measured Max near reference+5/reference+7.5 and saved saturated q near .25/.5/.75. q=.25 is a floor/quantizer interface marker, not an output jump. This localizes proximity, not a certified floating-error bound. Report raw categories, their ambiguous subset and counts excluding ambiguity separately. D is never silently reclassified or removed.
 
 Counts and contiguous row-presence runs describe recorded native rows only. Their timestamp endpoints are neither certified accepted-event brackets nor duration/exposure estimates; no row proportions, time fractions, p-values or independent-replicate claims.
 
@@ -27,3 +27,6 @@ Private ledger contains counts, row-presence runs, threshold criteria, source fr
 ## Stop
 
 No recorded D -> NO_NEW_PHYSICAL_RUN. Recorded D -> independent Chat review only, never automatic experiment. Accepted bias-caused actuator events and causal physical/solver-resolved thermal effects stay UNPROVEN; G5 numerical acceptance and G6 temperature-claim authorization remain false. JTE058 remains. No merge, paid service, automation or manuscript/report export. Stop after the mechanism explanation.
+
+## Numeric-ambiguity coverage correction
+The initial JTE107 run retained exact raw categories but localized control boundaries only. The completion run adds the missing selector small-positive-loss boundary flag using the already declared JTE106 native-K operation budget. This can change ambiguity flags/counts, never raw A/B/C/D labels or raw D visibility. Both ledgers/receipts remain private for traceability. No MATLAB/native-core/ideal tests or physical runs are repeated.

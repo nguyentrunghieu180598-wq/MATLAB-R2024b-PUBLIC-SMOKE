@@ -1,3 +1,4 @@
+# W107-01 completion: selector near-zero numeric ambiguity; no prior MATLAB/oracle rerun.
 name: JTE107 private stored-native mechanism breakdown
 on:
   push:
@@ -10,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   stored-native-mechanism:
-    if: github.event.head_commit.message == 'JTE107_EXISTING_NATIVE_MECHANISM_ONLY'
+    if: github.event.head_commit.message == 'JTE107_SELECTOR_BOUNDARY_FLAG_COMPLETION'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
