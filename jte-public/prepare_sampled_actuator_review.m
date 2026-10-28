@@ -121,16 +121,16 @@ try
  end
  stage='RESOURCE_SCREEN';
  % Lower bounds at mandated periodic sample hits only; extra solver/event rows add cost.
- H=[340 2400];screen=struct([]);
+ H=[340 2400];screen=cell(2,2);
  for hi=1:2,for ri=1:2
   Ts=r.TsReviewPair_s(ri);rows=ceil(H(hi)/Ts)+1;
   numeric=rows*8*(benchmark.savedStateWidth+2*312+32);
-  screen(end+1)=struct('horizon_s',H(hi),'Ts_s',Ts,'minimumScheduledRows',rows,... %#ok<AGROW>
+  screen{hi,ri}=struct('horizon_s',H(hi),'Ts_s',Ts,'minimumScheduledRows',rows,... %#ok<AGROW>
    'T312_singleCopy_bytes',rows*312*8,'legacyThreeCopyLogging_bytes',3*numeric,...
    'oldRuntimeLinearScreen_s',benchmark.wallMeasured_s*rows/benchmark.nativeRows,...
    'runtimeScope','Not a benchmark/guarantee for amended dynamics. Old rejected-source timing includes stepping/logger costs.');
  end;end
- r.results=results;r.resourceScreen=struct('benchmark',benchmark,'scenarios',screen,'currentResource',M.resource,...
+ r.results=results;r.resourceScreen=struct('benchmark',benchmark,'scenarios',[screen{:}],'currentResource',M.resource,...
   'currentFullStateLoggerFullThermalStatus','NO_GO_UNQUALIFIED_FOR_FULL_THERMAL_CLAIMS',...
   'essentialSignalBoundedStatePlan','PROPOSED_NOT_IMPLEMENTED_NOT_QUALIFIED',...
   'scope','No full2400 approval or affordability guarantee. Need measured amended-case peak and valid storage/runtime plan; otherwise full thermal claim unavailable under current infrastructure. No automatic trial or paper narrowing.');
@@ -139,7 +139,7 @@ try
   'ActReview:OriginalBytes','Immutable original bytes changed.');
  flags.PHYSICAL_GRAPH_PARITY=true;flags.CONTROLLER_BIAS_PRESERVED=true;flags.IC_PARAMETERS_PRESERVED=true;
  flags.ARCHIVED_Y0_USED=true;flags.COMPILE_ALL=true;flags.UNIT_METADATA_PARITY=allUnits;flags.UNIT_METADATA_EXPLICIT=allExplicit;
- if allUnits,flags.DECISION='STATIC_COMPILE_REVIEW_READY_OWNER_METHOD_APPROVAL_REQUIRED';
+ if allUnits&&allExplicit,flags.DECISION='STATIC_COMPILE_REVIEW_READY_OWNER_METHOD_APPROVAL_REQUIRED';
  else,flags.DECISION='STATIC_COMPILE_REVIEW_WITH_UNIT_LIMITATIONS';end
 catch ME
  r.failure=struct('stage',stage,'identifier',ME.identifier,'message',ME.message,'stack',{ME.stack});

@@ -1,4 +1,4 @@
-name: BTMS saved audit vector metadata ONLY
+name: BTMS consolidate saved compile proofs READ ONLY
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   read-saved-diff:
-    if: github.event.head_commit.message == 'BTMS_READ_SAVED_STATIC_AUDIT_VECTORS'
+    if: github.event.head_commit.message == 'BTMS_CONSOLIDATE_SAVED_STATIC_PROOFS'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
@@ -25,7 +25,7 @@ jobs:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
           JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
           JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
-        run: python jte-public/read_saved_actuator_audit.py
+        run: python jte-public/consolidate_sampled_actuator_review.py
       - name: Remove private scratch
         if: always()
         run: rm -rf actuator-review-private
