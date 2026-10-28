@@ -162,7 +162,7 @@ try
   fprintf('JTE115_ONE_GUARDED_SIM_RETURNED qualificationComplete=1 G5_ACCEPTED=false\n');
  end
 catch ME
- rec.failure=struct('stage',stage,'identifier',ME.identifier,'message',ME.message,'simulationStarted',started);
+ rec.failure=struct('stage',stage,'identifier',ME.identifier,'message',ME.message,'simulationStarted',started,'stack',{ME.stack});
  if strcmp(stage,'RESOURCE')||startsWith(ME.identifier,'JTE115:Resource')||contains(lower(ME.message),'license')
   flags.DECISION='UNQUALIFIED_RESOURCE';
  else

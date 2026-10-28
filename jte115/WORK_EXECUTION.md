@@ -29,3 +29,9 @@ The .005 command-gap localization and32ULP conditional envelope are not thermal 
 - UNQUALIFIED_RESOURCE: runtime/license/free resource/private sink qualification unavailable.
 
 Public outputs are code, execution metadata and safe flags only. All console, converter details, scalar research metrics, native MAT and model derivatives remain owner-private with full SHA readback. No merge, additional solver run, G6, paid service or manuscript/export.
+
+## Harness-only recovery after run40631027346
+
+The first prepare aborted at CANARY with MATLAB:error:missingMessageArgument. It did not establish equivalence/mismatch, reserve the plant intent, build a guarded model, or simulate. All error-ID-only assert calls inherited from the Chat canary/builder/converter audit are corrected to documented assert(condition,identifier,message) syntax. No condition, RNG input, exact equality or bit-pattern comparison changes. This is a code/harness recovery, not a rerun of a successful canary or a second physical attempt. Its prior summary/receipt and absence of the plant intent are enforced in transport. MATLAB error stacks are retained privately for precise diagnostics.
+
+The assertion failure location cannot be assumed benign: the release precondition had already passed in the outer runner. Therefore the recovery workflow is reduced to PURE MATLAB CANARY ONLY, with model loading/compile/plant intent/simulation entirely absent. It saves the unchanged synthetic q/original/guarded vectors and bit mismatch mask privately before asserting with a valid error-message signature. This preserves fail-closed behavior even if the first error masked actual MATLAB floating-point non-equivalence. No conditional plant gate is reachable in the corrected diagnostic workflow.
