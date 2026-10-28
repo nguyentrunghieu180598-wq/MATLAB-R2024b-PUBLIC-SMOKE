@@ -26,7 +26,7 @@ try
  W=load(fullfile(priv,'source_workspace.mat'),'workspaceSnapshot');names=fieldnames(W.workspaceSnapshot);
  for k=1:numel(names),assignin('base',names{k},W.workspaceSnapshot.(names{k}));end
  h=load_system(src);sm=get_param(h,'Name');models{end+1}=sm;
- sa=JTE096_modelAudit(sm);sw=workspace(sm);sc=chartScripts(sm);sn=wireNames(sm);
+ sa=BTMS_M2340_nominalAudit(sm);sw=workspace(sm);sc=chartScripts(sm);sn=wireNames(sm);
  commentsBefore=comments(sm);sourceInventory=loggingInventory(sm);
  loadFile=get_param([sm '/Current demand'],'FileName');resolved=which(loadFile);
  pinned=dir(fullfile(vendor,'**',loadFile));assert(numel(pinned)==1&&~isempty(resolved),'M2340:Load','Pinned current input missing/ambiguous.');
@@ -34,7 +34,7 @@ try
  r.stage='PREPARE_ONE_LOGGING_ONLY_CLONE';
  proof=BTMS_M2_prepare340NoRun(src,target,M.privateDir,M.sourceModel.sha256);copyfile(target,[pre '_MODEL.slx']);r.stage='ALLOWED_DIFF_AUDIT';tm='M2340Prepared';models{end+1}=tm;load_system(target);
  assert(numel(proof.disabledRedundantObservers)==3&&proof.retainedOtherObservers==3,'M2340:ObserverCount','Expected exact archived B0L observer inventory.');
- ta=JTE096_modelAudit(tm);expected=sa;
+ ta=BTMS_M2340_nominalAudit(tm);expected=sa;
  for k=1:4
   path=rel(proof.fourLoggerPaths{k},tm);si=find(strcmp(expected.blocks(:,1),path));ti=find(strcmp(ta.blocks(:,1),path));
   assert(numel(si)==1&&numel(ti)==1&&strcmp(expected.blocks{si,2},'ToFile'),'M2340:Sink','Unknown file sink.');
@@ -45,6 +45,11 @@ try
  end
  ci=find(strcmp(expected.config{1},'StopTime'));assert(numel(ci)==1&&strcmp(expected.config{2}{ci},'2400'),'M2340:StopSource','Source not2400.');
  expected.config{2}{ci}='340';
+ auditDiff=struct('blocksExact',isequaln(expected.blocks,ta.blocks),'configExact',isequaln(expected.config,ta.config),...
+ 'connectivityExact',isequaln(sa.connectivity,ta.connectivity),'sourceBlocks',size(sa.blocks,1),'targetBlocks',size(ta.blocks,1),...
+ 'IncludeCommented','on');
+ save([pre '_PRECOMPILE_AUDIT.mat'],'sa','ta','expected','proof','sw','sc','auditDiff','-v7.3');
+ writeJSON([pre '_PRECOMPILE_DIFF.json'],auditDiff);
  assert(isequaln(expected.blocks,ta.blocks)&&isequaln(expected.config,ta.config)&&isequaln(sa.connectivity,ta.connectivity),...
   'M2340:FullGraph','Unapproved block/config/signal/physical graph change.');
  afterComments=comments(tm);expectedComments=commentsBefore;
@@ -108,7 +113,7 @@ a.sampleTime=get_param(b,'CompiledSampleTime');a.units='UNAVAILABLE';
 try,a.units=get_param(b,'CompiledPortUnits');catch,end
 end
 function c=comments(m)
-bs=sort(find_system(m,'LookUnderMasks','all','FollowLinks','off','Type','Block'));c=cell(numel(bs),2);
+bs=sort(find_system(m,'LookUnderMasks','all','FollowLinks','off','IncludeCommented','on','Type','Block'));c=cell(numel(bs),2);
 for k=1:numel(bs),c(k,:)={rel(bs{k},m),get_param(bs{k},'Commented')};end
 end
 function v=workspace(m)
@@ -121,7 +126,7 @@ for k=1:numel(all),p=char(all(k).Path);if startsWith(p,[m '/']),c(end+1,:)={rel(
 if ~isempty(c),c=sortrows(c,1);end
 end
 function c=wireNames(m)
-bs=find_system(m,'LookUnderMasks','all','FollowLinks','off','Type','Block');c=cell(0,3);
+bs=find_system(m,'LookUnderMasks','all','FollowLinks','off','IncludeCommented','on','Type','Block');c=cell(0,3);
 for k=1:numel(bs)
  ph=get_param(bs{k},'PortHandles');
  for j=1:numel(ph.Outport)
@@ -132,7 +137,7 @@ end
 if ~isempty(c),c=sortrows(c,[1 2]);end
 end
 function i=loggingInventory(m)
-bs=find_system(m,'LookUnderMasks','all','FollowLinks','off','BlockType','ToWorkspace');i.toWorkspace=cell(numel(bs),2);
+bs=find_system(m,'LookUnderMasks','all','FollowLinks','off','IncludeCommented','on','BlockType','ToWorkspace');i.toWorkspace=cell(numel(bs),2);
 for k=1:numel(bs),i.toWorkspace(k,:)={rel(bs{k},m),struct('variable',get_param(bs{k},'VariableName'),'Commented',get_param(bs{k},'Commented'))};end
 keys={'SaveState','SaveFinalState','SaveOperatingPoint','SignalLogging','DSMLogging','SaveOutput','LoggingIntervals','Decimation','Refine'};
 i.config=cell(numel(keys),2);for k=1:numel(keys),i.config(k,:)={keys{k},get_param(m,keys{k})};end

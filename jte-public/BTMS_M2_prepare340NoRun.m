@@ -32,7 +32,7 @@ assert(isequal(str2double(get_param(act,'A')),exp(-10)) && ...
  isequal(str2double(get_param(act,'B')),1-exp(-10)) && ...
  str2double(get_param(act,'C'))==1 && str2double(get_param(act,'D'))==0,...
  'M2Ops:ActuatorChanged','M2 validation failed: ActuatorChanged.');
-fileSinks=find_system(m,'LookUnderMasks','all','FollowLinks','off','BlockType','ToFile');
+fileSinks=find_system(m,'LookUnderMasks','all','FollowLinks','off','IncludeCommented','on','BlockType','ToFile');
 roles={'uCore','uSampled','actuatorY','Ttrue312'};
 assert(numel(fileSinks)==4,'M2Ops:ToFileCount','M2 validation failed: ToFileCount.');
 newFiles=cell(1,4);sinkPaths=cell(1,4);
@@ -47,7 +47,7 @@ for k=1:4
  sinkPaths{k}=s;newFiles{k}=f;
 end
 % Disable ONLY redundant observer sinks. Retain unrecognized data sources.
-ws=find_system(m,'LookUnderMasks','all','FollowLinks','off','BlockType','ToWorkspace');
+ws=find_system(m,'LookUnderMasks','all','FollowLinks','off','IncludeCommented','on','BlockType','ToWorkspace');
 redundant={'jteTtrue','jteUcore','jteFlwR'};roleForVariable={'Ttrue312','uCore','actuatorY'};
 disabled={};sameSourceProof=cell(0,1);seen={};
 for k=1:numel(ws)

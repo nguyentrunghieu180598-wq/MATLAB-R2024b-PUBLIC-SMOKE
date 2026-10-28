@@ -7,10 +7,10 @@ permissions:
   contents: read
 concurrency:
   group: btms-m2-340-one-static
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_340_SINK_SCHEMA_FIX'
+    if: github.event.head_commit.message == 'BTMS_M2_340_INCLUDE_COMMENTED_AUDIT'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
@@ -67,3 +67,5 @@ jobs:
 # Pin has StartTime=0.0: require numeric zero, preserve exact source configuration text.
 
 # Preserve raw evidence before deep audit; normalize only actual Filename spelling.
+
+# Nominal graph inventory must explicitly include commented observers; cancel superseded own setup.
