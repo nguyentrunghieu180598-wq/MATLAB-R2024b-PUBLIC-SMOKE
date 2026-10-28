@@ -1,0 +1,49 @@
+name: M3 watchdog software qualification (NO BATTERY)
+on:
+  push:
+    branches: [codex/jte-tf-constant-input]
+    paths: [.github/workflows/m3-guards.yml]
+permissions:
+  contents: read
+concurrency:
+  group: m3-watchdog-software-only
+  cancel-in-progress: false
+jobs:
+  guards:
+    if: github.event.head_commit.message == 'M3_QUALIFY_EXTERNAL_GUARDS_NO_BATTERY' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: JTE_DRIVE_WRITE
+    env:
+      JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+      JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+      JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax and real tiny process-tree kill test (private log)
+        shell: bash
+        run: |
+          umask 077
+          python -m py_compile jte-public/BTMS_M3_oneShotWatchdog.py jte-public/BTMS_M3_guardTests.py
+          python jte-public/BTMS_M3_guardTests.py > m3-guard-console.txt 2>&1
+      - name: Preserve qualification log privately even on failure
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os,sys,json
+          from pathlib import Path
+          sys.path.insert(0,"jte-public")
+          from JTE062_google_drive_synthetic import access_token,ensure_app_folder
+          from JTE063_streaming_drive import upload_verified
+          p=Path("m3-guard-console.txt")
+          if not p.exists(): p.write_text("M3_GUARD_DID_NOT_ENTER\n")
+          t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
+          f=ensure_app_folder(t)
+          q=p.with_name("M3_GUARDS_"+os.environ["GITHUB_RUN_ID"]+"_CONSOLE.txt");p.rename(q)
+          r=upload_verified(t,f,q,schema="BTMS_M1_M2_STATIC_ONLY_NOT_G5")
+          print("M3_GUARD_CONSOLE_PRIVATE_READBACK=PASS physicalRun=0")
+          PY
+      - name: Clean private scratch
+        if: always()
+        run: rm -rf actuator-review-private m3-guard-console.txt M3_GUARDS_*
