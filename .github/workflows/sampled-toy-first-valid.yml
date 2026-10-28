@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review-only:
-    if: github.event.head_commit.message == 'BTMS_FIRST_VALID_TOY_WITH_COMPILE_GUARD'
+    if: ${{ false }} # Closed delivery; fresh explicit owner authorization required for another execution.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 12
