@@ -5,7 +5,7 @@ from xml.etree import ElementTree as E
 import m1_m2_static as base
 from sampled_actuator_review_io import ROOT,get,need
 from JTE063_streaming_drive import upload_verified
-base.MSG="BTMS_M1_M2_STATIC_CERTIFICATE"
+base.MSG="BTMS_M1_M2_STATIC_CERTIFICATE_SID_SCOPE_FIX"
 SCHEMA=base.SCHEMA
 SOURCE="BTMS_M1M2_40692041954_"
 def main(t,folder):
@@ -44,7 +44,8 @@ def main(t,folder):
         return result
     def edges(g):return {(e["src"],e["dst"]) for e in g["edges"]}
     def require_edges(es,rows):
-        need(all(tuple(q) in es for q in rows),"M1_CERT_SIGNAL_PATH")
+        missing=[q for q in rows if tuple(q) not in es]
+        need(not missing,"M1_CERT_SIGNAL_PATH:"+json.dumps(missing))
     def block(g,sid):
         q=[b for b in g["blocks"] if b["SID"]==str(sid)]
         need(len(q)==1,"M1_CERT_SID");return q[0]
@@ -69,10 +70,15 @@ def main(t,folder):
         need(netKeys(nn)==netKeys(originalNets),"M1_CERT_PHYSICAL_GRAPH_PARITY")
         need(all(any(set(n["ports"])==exp for n in nn if n["document"].endswith("system_root.xml")) for exp in electricalExpected),"M1_CERT_PUMP_ELECTRICAL_NET")
         require_edges(es,fixedSignals)
-        act="197" if key=="PINNED_VENDOR" else "341"
+        actName="sensor dynamics 1" if key=="PINNED_VENDOR" else "Amended sampled actuator"
+        actRows=[b for b in g["blocks"] if b["parent"]=="$ROOT/Battery Control" and b["name"]==actName]
+        need(len(actRows)==1,"M1_CERT_ACTUATOR_PATH");act=actRows[0]["SID"]
         require_edges(es,[(act+"#out:1","267#in:1"),(act+"#out:1","274#in:3")])
         if key=="PINNED_VENDOR":require_edges(es,[("270#out:1","197#in:1")])
-        else:require_edges(es,[("270#out:1","340#in:1"),("340#out:1","341#in:1")])
+        else:
+            holdRows=[b for b in g["blocks"] if b["parent"]=="$ROOT/Battery Control" and b["name"]=="Amended command sample hold"]
+            need(len(holdRows)==1,"M1_CERT_HOLD_PATH");hold=holdRows[0]["SID"]
+            require_edges(es,[("270#out:1",hold+"#in:1"),(hold+"#out:1",act+"#in:1")])
         for sid in (253,255,317,135,254,172):
             a=block(g,sid);b=block(original,sid)
             need(a["instance"]==b["instance"] and

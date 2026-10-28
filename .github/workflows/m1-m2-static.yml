@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   static-certificate:
-    if: github.event.head_commit.message == 'BTMS_M1_M2_STATIC_CERTIFICATE'
+    if: github.event.head_commit.message == 'BTMS_M1_M2_STATIC_CERTIFICATE_SID_SCOPE_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 8
@@ -27,3 +27,5 @@ jobs:
       - name: Remove private scratch
         if: always()
         run: rm -rf actuator-review-private
+
+# Case-local SIDs resolved by verified unique block path; never reused across model files.
