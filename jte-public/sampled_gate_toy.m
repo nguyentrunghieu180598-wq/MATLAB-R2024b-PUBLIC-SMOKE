@@ -10,7 +10,7 @@ try
  A=jsondecode(fileread(fullfile(P,'toy_Ref.json')));B=jsondecode(fileread(fullfile(P,'toy_Fine.json')));proofs={A,B};
  new_system(m);set_param(m,'SolverType','Fixed-step','Solver','FixedStepDiscrete','FixedStep',mat2str(dt,17),...
   'StartTime','0','StopTime',mat2str(stop,17),'SimulationMode','normal','ReturnWorkspaceOutputs','on',...
-  'BlockReduction','off','SignalStorageReuse','off','SaveState','on','StateSaveName','toyStates','SaveFormat','Dataset');
+  'BlockReduction','off','OptimizeBlockIOStorage','off','SaveState','on','StateSaveName','toyStates','SaveFormat','Dataset');
  t=(0:round(stop/dt))'*dt;mw=get_param(m,'ModelWorkspace');j=0;
  for ri=1:2
   q=proofs{ri};p=q.proof;Ts=p.Ts_s;frozen=[.01 .005];assert(Ts==frozen(ri),'Gate:Period','Frozen Ts differs.'); %#ok<NBRAK>

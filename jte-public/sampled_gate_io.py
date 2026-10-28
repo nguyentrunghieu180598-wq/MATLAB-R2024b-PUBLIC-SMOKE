@@ -6,7 +6,7 @@ from JTE101_io import quota
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
 SCHEMA="BTMS_TOY_AND_BASELINE_FEASIBILITY_NOT_G5"
-MSG="BTMS_TOY_AND_BASELINE_READONLY_ONCE"
+MSG="BTMS_FIRST_TOY_AFTER_ZERO_SIM_API_FIX"
 R106="40485742742";C106="ceeb8a5590f9361016ad4c69004ffdc9e9223c94"
 def context():
     e=json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
@@ -19,49 +19,33 @@ def context():
     return t,ensure_app_folder(t)
 def fetch(t,f):
     ROOT.mkdir(mode=0o700,exist_ok=False);run=os.environ["GITHUB_RUN_ID"];pre="BTMS_FEASIBILITY_"+run+"_";files=[]
-    probe=ROOT/(pre+"SINK.json");probe.write_text(json.dumps({"scope":"ONE_NON_BATTERY_TOY_AND_BASELINE_READ_ONLY","physicalSimulationAuthorized":False}))
-    upload_verified(t,f,probe,schema=SCHEMA)
-    p106="JTE106_"+R106+"_AUDIT_"
     def item(name,local):
         m=get(t,f,name,local);files.append(m);return m
-    cr=item(p106+"RECEIPT.json","source_receipt.json");rc=json.loads((ROOT/"source_receipt.json").read_text())
-    need(rc["run"]==R106 and rc["commit"]==C106,"FEASIBILITY_PRIOR_CERTIFICATE")
-    def certified(name,local,receipt):
-        m=item(name,local);rows=[x for x in receipt["files"] if x["name"]==name]
-        need(len(rows)==1 and rows[0]["sha256"]==m["sha256"] and rows[0]["integrity"]=="FULL_REMOTE_READBACK_VERIFIED","FEASIBILITY_PRIOR_RECEIPT_LINK")
+    def certified(name,local,rc):
+        m=item(name,local);rows=[v for v in rc["files"] if v["name"]==name]
+        need(len(rows)==1 and rows[0]["sha256"]==m["sha256"] and rows[0]["integrity"]=="FULL_REMOTE_READBACK_VERIFIED","TOY_CONT_RECEIPT_LINK")
         return m
-    certified(p106+"RESULTS.json","source_audit.json",rc)
-    certified(p106+"SOURCE_LAW.json","source_law.json",rc)
-    audit=json.loads((ROOT/"source_audit.json").read_text());law=json.loads((ROOT/"source_law.json").read_text())
-    need(audit["run"]==R106 and audit["commit"]==C106 and law["verified"] and
-      law["gain"]==.1 and law["lower"]==.001 and law["upper"]==.95 and law["step"]==.25,"FEASIBILITY_SOURCE_LAW")
-    refs=[]
-    for case,profile,frame in (("B0L","original",300),("C0","original",300),("B0L","fine",300),("C0","fine",300),("ACTIVE_C0","original",293.15)):
-        name="JTE068_ACTIVE_C0_AMBIENT293p15_2400_NATIVE.mat" if case=="ACTIVE_C0" else "JTE065_"+case+"_"+profile+"_2400_NATIVE.mat"
-        local=case+"_"+profile+".mat";m=item(name,local)
-        old=[v for v in audit["manifest"]["references"] if v["name"]==m["name"]]
-        need(len(old)==1 and old[0]["sha256"]==m["sha256"],"FEASIBILITY_IMMUTABLE_BASELINE")
-        m.update({"caseLabel":case,"profile":profile,"frameK":frame});refs.append(m)
-    pr="ACTUATOR_REVIEW_40659584085_"
-    item(pr+"PRIVATE_RECEIPT.json","compile_receipt.json");rc=json.loads((ROOT/"compile_receipt.json").read_text())
-    need(rc["run"]=="40659584085" and rc["commit"]=="5ebb693c5109fe79c0b32374613637f4beecccd5","FEASIBILITY_COMPILE_RECEIPT")
-    for role in ("Ref","Fine"):certified(pr+"B0L_"+role+"_PROOF.json","toy_"+role+".json",rc)
-    mem={}
-    for line in Path("/proc/meminfo").read_text().splitlines():
-        k,v=line.split(":",1)
-        if k in ("MemTotal","MemAvailable"):mem[k+"_bytes"]=int(v.split()[0])*1024
-    disk=shutil.disk_usage(".")
-    need(mem["MemAvailable_bytes"]>6*1024**3 and disk.free>6*1024**3,"FEASIBILITY_RESOURCE_NOT_QUALIFIED")
-    m={"schema":SCHEMA,"run":run,"commit":os.environ["GITHUB_SHA"],"files":files,"references":refs,
-      "resource":{"RAM":mem,"diskFree_bytes":disk.free,"drive":quota(t),"paidServices":False},
-      "toyAuthorization":"ONE synthetic non-battery Simulink trajectory containing both frozen Ts, no retry",
-      "physicalSimulationAuthorized":False,"sourceG5ThermalAccepted":False,"baselineMap":"EXPLORATORY_FIXED_STORED_STATES",
-      "selection":"JTE042 B0L 1800-2400 time integral, descending mean, exact-tie ascending index; duplicate semantics explicit"}
+    old="BTMS_FEASIBILITY_40668084392_"
+    item(old+"PRIVATE_RECEIPT.json","prior_receipt.json");rc=json.loads((ROOT/"prior_receipt.json").read_text())
+    need(rc["run"]=="40668084392" and rc["commit"]=="05d64995fe857bfd6af9012c4922b67c63c7c0ed","TOY_CONT_SOURCE_RUN")
+    certified(old+"TOY_SUMMARY.json","prior_toy_summary.json",rc)
+    s=json.loads((ROOT/"prior_toy_summary.json").read_text())
+    need(s["simCount"]==0 and not s["flags"]["MATLAB_TOY_COMPLETE"] and
+      s["failure"]["identifier"]=="Simulink:Commands:ParamUnknown" and "SignalStorageReuse" in s["failure"]["message"],"TOY_CONT_ZERO_TRAJECTORY_GATE")
+    certified(old+"BASELINE_LEDGER.json","prior_baseline_ledger.json",rc)
+    q=json.loads((ROOT/"prior_baseline_ledger.json").read_text())
+    need(q["decision"]=="NO_ELIGIBLE_SMALL_GROUP_IN_CURRENT_BASELINE" and not q["failures"],"TOY_CONT_BASELINE_REUSE")
+    old="ACTUATOR_REVIEW_40659584085_"
+    item(old+"PRIVATE_RECEIPT.json","compile_receipt.json");rc=json.loads((ROOT/"compile_receipt.json").read_text())
+    need(rc["run"]=="40659584085" and rc["commit"]=="5ebb693c5109fe79c0b32374613637f4beecccd5","TOY_CONT_COMPILE_SOURCE")
+    for role in ("Ref","Fine"):certified(old+"B0L_"+role+"_PROOF.json","toy_"+role+".json",rc)
+    m={"schema":SCHEMA,"run":run,"commit":os.environ["GITHUB_SHA"],"files":files,"priorToyTrajectories":0,
+      "toyAttemptAllowed":1,"baselineAuditRepeated":False,"physicalSimulationAuthorized":False,"resource":{"drive":quota(t),"paidServices":False}}
     (ROOT/"gate_manifest.json").write_text(json.dumps(m,indent=2))
     (ROOT/(pre+"INPUT_MANIFEST.json")).write_text(json.dumps(m,indent=2))
     for p in list(Path("jte-public").glob("sampled_gate*"))+[Path(".github/workflows/sampled-gates.yml"),Path("actuator-amendment/TOY_AND_BASELINE_FEASIBILITY_PROTOCOL.md")]:
         if p.is_file():shutil.copyfile(p,ROOT/(pre+"CODE_"+p.name))
-    print("BTMS_FEASIBILITY_RECEIVED executor=GITHUB_HOSTED_ACTIONS run="+run+" oneToyAuthorized=1 batterySimulationAuthorized=0 sourceG5Accepted=0")
+    print("BTMS_TOY_ZERO_SIM_GATE_PASS executor=GITHUB_HOSTED_ACTIONS run="+run+" priorTrajectories=0 baselineReused=1 batterySimulationAuthorized=0")
 def publish(t,f):
     run=os.environ["GITHUB_RUN_ID"];pre="BTMS_FEASIBILITY_"+run+"_";out=[]
     for p in sorted(ROOT.glob(pre+"*")):

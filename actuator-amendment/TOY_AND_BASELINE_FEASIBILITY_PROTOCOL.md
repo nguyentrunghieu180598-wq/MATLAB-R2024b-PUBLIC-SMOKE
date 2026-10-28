@@ -29,3 +29,7 @@ Discrete equations: https://www.mathworks.com/help/simulink/slref/discretestates
 ZOH: https://www.mathworks.com/help/simulink/slref/zeroorderhold.html
 Sampled matching: https://www.mathworks.com/help/control/ug/continuous-discrete-conversion-methods.html
 Normalized-flow analogy (not pinned-model runtime/hardware certification): https://www.mathworks.com/help/simscape-electrical/ug/lithium-pack-cooling.html
+
+## Zero-trajectory API correction
+First package40668084392/commit05d64995fe857bfd6af9012c4922b67c63c7c0ed completed the baseline map, but toy setup rejected an invalid SignalStorageReuse parameter before simCount incremented (simCount0). Private receipt and summary are immutable. Continuation requires that exact SHA-linked zero-trajectory evidence, uses documented OptimizeBlockIOStorage instead, and does NOT rerun any baseline/cardinality audit. Frozen Ts, input patterns, coefficients, toy horizon, oracle criteria and single-trajectory limit are unchanged. A separate read-only inspection of the pinned PUBLIC input MAT can resolve its explicit time/current encoding for the one already frozen source-segment proposal; no study MAT, selection or model is rerun. No new physical authorization.
+Official parameter: https://www.mathworks.com/help/rtw/ref/signalstoragereuse.html
