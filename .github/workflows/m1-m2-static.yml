@@ -1,0 +1,33 @@
+name: BTMS M1 M2 exact pinned graph STATIC ONLY
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/m1-m2-static.yml']
+permissions:
+  contents: read
+jobs:
+  static-graph:
+    if: github.event.head_commit.message == 'BTMS_M1_M2_PINNED_GRAPH_READONLY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pinned read-only public source no project startup or library build
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+      - name: Static XML and prior receipts only no MATLAB
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 -m pip install --quiet h5py==3.14.0
+          python3 -m py_compile jte-public/m1_m2_static.py
+          python3 jte-public/m1_m2_static.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf actuator-review-private
