@@ -32,7 +32,7 @@ try
  pinned=dir(fullfile(vendor,'**',loadFile));assert(numel(pinned)==1&&~isempty(resolved),'M2340:Load','Pinned current input missing/ambiguous.');
  loadSHA=JTE2026sha256(fullfile(pinned.folder,pinned.name));assert(strcmp(JTE2026sha256(resolved),loadSHA),'M2340:Load','Resolved current load differs from vendor pin.');
  r.stage='PREPARE_ONE_LOGGING_ONLY_CLONE';
- proof=BTMS_M2_prepare340NoRun(src,target,M.privateDir);tm='M2340Prepared';models{end+1}=tm;load_system(target);
+ proof=BTMS_M2_prepare340NoRun(src,target,M.privateDir,M.sourceModel.sha256);tm='M2340Prepared';models{end+1}=tm;load_system(target);
  assert(numel(proof.disabledRedundantObservers)==3&&proof.retainedOtherObservers==3,'M2340:ObserverCount','Expected exact archived B0L observer inventory.');
  ta=JTE096_modelAudit(tm);expected=sa;
  for k=1:4
