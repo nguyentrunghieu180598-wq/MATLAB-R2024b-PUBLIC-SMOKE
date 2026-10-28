@@ -11,7 +11,7 @@ def main():
       (e.get("repository") or {}).get("full_name")==EXPECTED_REPO and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="BTMS_READ_SAVED_STATIC_AUDIT" and
+      (e.get("head_commit") or {}).get("message")=="BTMS_READ_SAVED_STATIC_AUDIT_FAST" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA"),"ACT_DIFF_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
     folder=ensure_app_folder(t);ROOT.mkdir(mode=0o700,exist_ok=False)
@@ -24,9 +24,10 @@ def main():
     with h5py.File(ROOT/"audit.mat","r") as f:
         cache={};active=set()
         def read(x):
-            if x.name in cache:return cache[x.name]
-            if x.name in active:return {"cycleReference":x.name}
-            active.add(x.name)
+            addr=h5py.h5o.get_info(x.id).addr
+            if addr in cache:return cache[addr]
+            if addr in active:return {"cycleObjectAddress":addr}
+            active.add(addr)
             if isinstance(x,h5py.Group):
                 out={k:read(v) for k,v in x.items() if not k.startswith("#")}
             else:
@@ -48,8 +49,15 @@ def main():
                     vals=np.asarray(a).T
                     if vals.size==1:out=vals.reshape(-1)[0].item()
                     else:out=vals.tolist()
-            active.remove(x.name);cache[x.name]=out;return out
-        data={k:read(f[k]) for k in ("before","after","initialDifference","solverRestored")}
+            active.remove(addr);cache[addr]=out;return out
+        initial=read(f["initialDifference"]);restored=read(f["solverRestored"])
+        stage=ROOT/("ACTUATOR_REVIEW_"+os.environ["GITHUB_RUN_ID"]+"_DIFF_HEADER.json")
+        stage.write_text(json.dumps({"sourceRun":"40656346517","initialDifference":initial,"solverRestored":restored,"physicalRun":False},indent=2))
+        upload_verified(t,folder,stage,schema=SCHEMA)
+        print("ACTUATOR_AUDIT_HEADER_READBACK_PASS modelRun=0",flush=True)
+        data={"initialDifference":initial,"solverRestored":restored}
+        for k in ("before","after"):
+            data[k]=read(f[k]);print("ACTUATOR_AUDIT_SECTION_READ name="+k,flush=True)
     before={r[0]:r for r in data["before"]["blocks"]}
     after={r[0]:r for r in data["after"]["blocks"]}
     changes=[]
