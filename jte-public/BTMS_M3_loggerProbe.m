@@ -26,8 +26,13 @@ try
  stage='OBSERVATION_METADATA';BTMS_M3_instrument(m,ports,[m '/state'],root);
  stage='SYNTHETIC_INITIALIZE';s=simulation(m);initialize(s);
  stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;step(s);q0=BTMS_M3_completed(s,processed);
- stage='T0_OPERATING_POINT';op0=get_param(m,'CurrentOperatingPoint');save(fullfile(root,'PROBE_T0_OPERATING_POINT.mat'),'op0','q0','-v7.3');
- assert(isa(op0,'Simulink.op.ModelOperatingPoint')&&op0.snapshotTime==0,'M3:OP','t0 operating point unavailable.');
+ stage='FIRST_PAUSED_OPERATING_POINT_NOT_T0';
+ firstPausedTop=s.Time;
+ op0=get_param(m,'CurrentOperatingPoint');
+ assert(isa(op0,'Simulink.op.ModelOperatingPoint') && isfinite(op0.snapshotTime) && ...
+   abs(op0.snapshotTime-firstPausedTop)<=32*eps(max(1,abs(firstPausedTop))), ...
+   'M3:PausedOP','Operating point snapshot does not match actual paused top-of-step.');
+ save(fullfile(root,'PROBE_FIRST_PAUSED_OPERATING_POINT.mat'),'op0','q0','firstPausedTop','-v7.3');
  stage='SYNTHETIC_NATIVE_HORIZON';checkpoints={q0};
  while strcmp(s.Status,'paused')
   processed=s.Time;step(s);
@@ -40,9 +45,10 @@ try
    'M3:Native','ToFile full stream was truncated or horizon missing.');
  end
  save(fullfile(root,'PROBE_CHECKPOINTS.mat'),'checkpoints','-v7.3');
- flags.status='M3_LOGGER_CLOCK_STATE_OP_QUALIFIED';
+ flags.status='M3_LOGGER_CLOCK_STATE_FIRST_PAUSED_OP_ONLY';
  flags.unboundedToFileWithBoundedDataset=true;flags.actualCompletedMajor=true;
- flags.discreteRoleClocks=true;flags.actualPhaseDState=true;flags.fullT0OperatingPoint=true;
+ flags.discreteRoleClocks=true;flags.actualPhaseDState=true;
+ flags.firstPausedOperatingPoint=true;flags.fullT0OperatingPoint=false;
 catch err
  flags.stage=stage;
  flags.identifier=err.identifier;
