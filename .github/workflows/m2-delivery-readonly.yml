@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   delivery:
-    if: github.event.head_commit.message == 'BTMS_M2_FINAL_READONLY_DELIVERY'
+    if: ${{ false }} # Closed after complete private readback; no additional execution authorized.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 8

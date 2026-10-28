@@ -58,3 +58,5 @@ Owner-private Drive retains the four new SLX models, code provenance, JSON/MAT p
 No physical simulation, G1-G4 replay, baseline/fault rerun, source modification, paid service, automatic retry, merge or paper export follows. The compile workflow is closed after delivery.
 
 Primary API references: [R2024b ToFile](https://www.mathworks.com/help/releases/R2024b/simulink/slref/tofile.html), [R2024b getSimulinkBlockHandle](https://www.mathworks.com/help/releases/R2024b/simulink/slref/getsimulinkblockhandle.html), [Logging version history](https://www.mathworks.com/help/simulink/gui/logdatatofile.html).
+
+Final read-only packaging completed at [40703751211](https://github.com/nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE/actions/runs/40703751211), job122870198416, executed commitb4f0818c6af5d43d5e7b13608e025c3b46da8774. Six private delivery files and their receipt have full SHA/readback. Final decision remains NO_GO_IC_CLOCK_OR_RESOURCE. Both new execution gates are closed after delivery; no MATLAB/physical execution followed the four static compiles.
