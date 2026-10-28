@@ -1,0 +1,90 @@
+name: JTE116 owner approved ONE guarded025 major-step diagnostic
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte116-one-approved.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte116-owner-approved-one-plant
+  cancel-in-progress: false
+jobs:
+  one-approved-guard025:
+    if: github.event.head_commit.message == 'JTE116_OWNER_APPROVED_ONE_GUARD025_340'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax check transport only
+        run: python3 -m py_compile jte-public/JTE116_approvedIO.py
+      - name: Reuse private source and canary/static receipts, current free resource check
+        id: fetch
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE116_approvedIO.py fetch
+      - name: Pinned untouched vendor source
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - name: Official HTTPS dependency mirror
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+      - uses: matlab-actions/setup-matlab@v3
+        id: setup
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: NEW non-plant toy qualifies documented completed-major clock semantics
+        id: toy
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE116_approvedEntry('toy')
+      - name: Private toy proof full SHA readback before any plant intent
+        id: deliver_toy
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+          JTE116ONE_STEP_OUTCOME: ${{ steps.toy.outcome }}
+        run: python3 jte-public/JTE116_approvedIO.py publish-toy
+      - name: Reserve ONE signed runtime intent only after qualified toy and delivery
+        id: gate
+        if: ${{ success() && steps.toy.outcome == 'success' && steps.deliver_toy.outcome == 'success' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE116_approvedIO.py gate
+      - name: ONE original ode23t guarded025 B0L 0-340 trajectory no retry
+        id: plant
+        if: ${{ success() && steps.gate.outputs.may_run == 'true' }}
+        timeout-minutes: 22
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE116_approvedEntry('plant')
+      - name: Full owner-private native MAT completed-major checkpoints model and log readback
+        if: ${{ always() && steps.gate.outputs.may_run == 'true' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+          JTE116ONE_STEP_OUTCOME: ${{ steps.plant.outcome }}
+        run: python3 jte-public/JTE116_approvedIO.py publish-plant
+      - name: Preserve vendor source pin
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
+      - name: Remove private runner scratch
+        if: always()
+        run: rm -rf jte116-one-private
