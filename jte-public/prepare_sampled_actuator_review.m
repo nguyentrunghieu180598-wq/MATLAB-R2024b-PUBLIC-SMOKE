@@ -75,7 +75,13 @@ try
    Ts=r.TsReviewPair_s(ri);role={'Ref','Fine'};
    name=['BTMS_Amended_' caseNames{ci} '_' role{ri}];dest=fullfile(priv,[name '.slx']);models{end+1}=name; %#ok<AGROW>
    stage=['BUILD_' caseNames{ci} '_' role{ri}];
-   proof=build_sampled_actuator_review(srcFile,dest,Ts,initial{ci}.y0);
+   try
+    proof=build_sampled_actuator_review(srcFile,dest,Ts,initial{ci}.y0);
+   catch ME
+    if isfile([dest '.AUDIT_DIFF.mat']),copyfile([dest '.AUDIT_DIFF.mat'],[prefix '_' caseNames{ci} '_' role{ri} '_AUDIT_DIFF.mat']);end
+    rethrow(ME);
+   end
+   copyfile([dest '.AUDIT_DIFF.mat'],[prefix '_' caseNames{ci} '_' role{ri} '_AUDIT_DIFF.mat']);
    load_system(dest);
    act=[name '/Battery Control/Amended sampled actuator'];hold=[name '/Battery Control/Amended command sample hold'];
    targetAudit=JTE096_modelAudit(name,{act,hold});

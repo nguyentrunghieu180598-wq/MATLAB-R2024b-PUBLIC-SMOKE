@@ -1,4 +1,4 @@
-name: BTMS static metadata fix reuse C0 template NO DYNAMICS
+name: BTMS exact source diff STATIC ONLY NO DYNAMICS
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review-only:
-    if: github.event.head_commit.message == 'BTMS_ACTUATOR_STATIC_METADATA_FIX'
+    if: github.event.head_commit.message == 'BTMS_ACTUATOR_STATIC_EXACT_DIFF'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 35

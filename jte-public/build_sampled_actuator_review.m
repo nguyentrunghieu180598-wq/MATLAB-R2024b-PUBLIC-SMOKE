@@ -47,6 +47,19 @@ expected=sort([setdiff(oldEdges,deleted);newEdges]);
 assert(isequal(sort(string(JTE096_signalEdges(parent))),expected),'ActReview:Graph','Unexpected local signal edge change.');
 assert(JTE096_orphanLines(parent)==0,'ActReview:Orphans','Created an orphan line.');
 after=JTE096_modelAudit(m,{hold,act});
+initialDifference=struct('blockRowsEqual',isequal(before.blocks,after.blocks),'configEqual',isequal(before.config,after.config),...
+ 'configurationChanges',{configDiff(before.config,after.config)});
+save([destFile '.AUDIT_DIFF.mat'],'before','after','initialDifference','-v7.3');
+solverRestored=false;
+if ~isequal(before.config,after.config)
+ changes=initialDifference.configurationChanges;
+ if ~isempty(changes)&&all(ismember(changes(:,1),{'Solver','SolverType'}))
+  keys=before.config{1};vals=before.config{2};
+  set_param(m,'SolverType',vals{strcmp(keys,'SolverType')},'Solver',vals{strcmp(keys,'Solver')});
+  solverRestored=true;after=JTE096_modelAudit(m,{hold,act});
+ end
+end
+save([destFile '.AUDIT_DIFF.mat'],'before','after','initialDifference','solverRestored','-v7.3');
 assert(isequal(before.blocks,after.blocks)&&isequal(before.config,after.config),...
  'ActReview:Parameters','Retained controller/physical/IC parameters or source solver changed.');
 a=before.connectivity;b=after.connectivity;allowed=unique(allowed);
@@ -55,7 +68,7 @@ assert(isequal(a,b),'ActReview:Connectivity','Connectivity changed outside the e
 save_system(m,destFile);
 assert(strcmp(JTE2026sha256(sourceFile),sourceSHA),'ActReview:SourceBytes','Original source bytes changed.');
 proof=struct('sourceModelSHA',sourceSHA,'amendedModelSHA',JTE2026sha256(destFile),...
- 'methodAmendment',true,'sourceBitwiseEquivalenceClaimed',false,'physicalParameterParity',true,...
+ 'methodAmendment',true,'originalSolverPolicyRestoredAfterEditorAutoChange',solverRestored,'initialEditorConfigurationChanges',{initialDifference.configurationChanges},'sourceBitwiseEquivalenceClaimed',false,'physicalParameterParity',true,...
  'retainedControllerParameterParity',true,'retainedInitializationParameterParity',true,...
  'outsideExactEndpointsConnectivityParity',true,'localEdgesExact',true,...
  'removedContinuousFilterCount',1,'newDiscreteActuatorCount',1,'newInputSampleHoldCount',1,...
@@ -64,6 +77,11 @@ proof=struct('sourceModelSHA',sourceSHA,'amendedModelSHA',JTE2026sha256(destFile
  'Ts_s',Ts,'tau_s',.001,'A',alpha,'B',beta,'C',1,'D',0,'initialStateFromActualArchivedOutput',y0,...
  'samplingOffset_s',0,'outputHold',true,'solvedICParity','UNPROVEN_STATIC_ONLY',...
  'physicalSimulation',false,'toySimulation',false,'originalG5Accepted',false);
+end
+function rows=configDiff(a,b)
+rows=cell(0,3);keys=a{1};va=a{2};vb=b{2};
+assert(isequal(keys,b{1}),'ActReview:ConfigKeys','Configuration audit key set differs.');
+for k=1:numel(keys),if ~isequaln(va{k},vb{k}),rows(end+1,:)={keys{k},va{k},vb{k}};end;end
 end
 function d=destinations(sys,p)
 lines=find_system(sys,'FindAll','on','SearchDepth',1,'Type','line');d=[];
