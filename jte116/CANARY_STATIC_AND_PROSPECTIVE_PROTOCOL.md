@@ -39,3 +39,11 @@ Actual run40633425452/job122634837594 at a188cd969da0b72e289b051eb2e3333b7ce0d38
 The inherited converter detector used a literal display-name substring; it cannot certify absence of converters when library names contain formatting differences. The corrected read-only detector normalizes mask/reference name formatting and accepts the documented derivative-parameter contract as another discovery predicate. Nonempty discovery and readable FilteringAndDerivatives/UdotUserProvided remain required; no converter setting changes.
 
 The static-only continuation reuses the exact SHA-linked passed canary MAT, code SHA, prior summary/receipt and range ledger. It does not call the canary or recompute the prior range classification, reserve another canary, run old suites or start a plant. No approval is required for this code/static preparation fix; new physical simulation remains separately gated by owner approval.
+
+## Static metadata and delivery fixes
+
+Static run40633941887 reached a source audit error but its publisher used an inadvertently altered schema; that attempt's private failure details were not preserved. No physical result existed. The schema was restored and a live private upload/readback probe was added before MATLAB.
+
+Run40634498001 then preserved the actual source-stage exception JTE115:InputPortUnavailable. A matched converter-related object had no Simulink Inport. The final read-only audit uses canonical mask/reference LEAF names plus documented parameter contracts, records no-input/unreadable/unresolved objects explicitly and reports discoveryComplete=false rather than converting UNAVAILABLE into FAIL/PASS. Full source/guard audit reports must match after root normalization; independent exact retained-block parameter/config and outside-guard connectivity assertions remain mandatory. Therefore a partial converter topology report cannot conceal a converter parameter edit. It does not certify derivative correctness or missing event semantics.
+
+The static-only continuation still reuses the one passed canary and range ledger with verified SHA; neither is re-executed. New physical authorization is absent.

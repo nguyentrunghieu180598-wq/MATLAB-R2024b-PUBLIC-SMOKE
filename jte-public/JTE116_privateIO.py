@@ -14,7 +14,7 @@ def context():
       (e.get("repository") or {}).get("private") is False and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="JTE116_STATIC_PRIVATE_DELIVERY_FIX" and
+      (e.get("head_commit") or {}).get("message")=="JTE116_STATIC_CONVERTER_TOPOLOGY_CAPTURE" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA") and
       os.environ.get("RUNNER_ENVIRONMENT")=="github-hosted","JTE116_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
