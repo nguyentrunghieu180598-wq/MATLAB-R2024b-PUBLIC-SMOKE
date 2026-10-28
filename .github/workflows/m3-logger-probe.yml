@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   logger-probe:
-    if: github.event.head_commit.message == 'M3_QUALIFY_TINY_LOGGER_API_NO_BATTERY' && github.run_attempt == 1
+    if: ${{ false }} # UNQUALIFIED probe; private publisher token exchange HTTP401. No battery dispatch.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25

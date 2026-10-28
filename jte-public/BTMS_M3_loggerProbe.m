@@ -1,7 +1,7 @@
 function BTMS_M3_loggerProbe()
 % ONE tiny synthetic logging/API qualification, never the battery model.
 root=fullfile(pwd,'actuator-review-private');diary(fullfile(root,'PROBE_CONSOLE.txt'));
-m='M3InfrastructureProbe';s=[];flags=struct('physicalRun',false,'G5Accepted',false,'status','UNQUALIFIED');
+m='M3InfrastructureProbe';s=[];stage='BUILD_SYNTHETIC';flags=struct('physicalRun',false,'G5Accepted',false,'status','UNQUALIFIED');
 try
  assert(strcmp(version('-release'),'2024b')&&strcmp(version,'24.2.0.3361896 (R2024b) Update 10'),...
  'M3:Runtime','Exact R2024b U10 required.');
@@ -23,12 +23,12 @@ try
  end
  % Core probe must have continuous clock, use Clock port for observational core.
  ph=get_param([m '/time'],'PortHandles');ports(1)=ph.Outport(1);
- BTMS_M3_instrument(m,ports,[m '/state'],root);
- s=simulation(m);initialize(s);
- processed=s.Time;step(s);q0=BTMS_M3_completed(s,processed);
- op0=get_param(m,'CurrentOperatingPoint');save(fullfile(root,'PROBE_T0_OPERATING_POINT.mat'),'op0','q0','-v7.3');
+ stage='OBSERVATION_METADATA';BTMS_M3_instrument(m,ports,[m '/state'],root);
+ stage='SYNTHETIC_INITIALIZE';s=simulation(m);initialize(s);
+ stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;step(s);q0=BTMS_M3_completed(s,processed);
+ stage='T0_OPERATING_POINT';op0=get_param(m,'CurrentOperatingPoint');save(fullfile(root,'PROBE_T0_OPERATING_POINT.mat'),'op0','q0','-v7.3');
  assert(isa(op0,'Simulink.op.ModelOperatingPoint')&&op0.snapshotTime==0,'M3:OP','t0 operating point unavailable.');
- checkpoints={q0};
+ stage='SYNTHETIC_NATIVE_HORIZON';checkpoints={q0};
  while strcmp(s.Status,'paused')
   processed=s.Time;step(s);
   if strcmp(s.Status,'paused'),checkpoints{end+1}=BTMS_M3_completed(s,processed);end %#ok<AGROW>
@@ -44,7 +44,19 @@ try
  flags.unboundedToFileWithBoundedDataset=true;flags.actualCompletedMajor=true;
  flags.discreteRoleClocks=true;flags.actualPhaseDState=true;flags.fullT0OperatingPoint=true;
 catch err
- flags.identifier=err.identifier;flags.reason=err.message;
+ flags.stage=stage;flags.identifier=err.identifier;flags.reason=err.message;
+ % Synthetic fixture only: an allowlisted identifier is safe if private delivery fails.
+ if ~isempty(regexp(err.identifier,'^[A-Za-z][A-Za-z0-9_:]*
+ if ~isempty(s),try,stop(s);catch,end,end
+ try,BTMS_M3_events('close');catch,end
+end
+fid=fopen(fullfile(root,'PROBE_FLAGS.json'),'w');fprintf(fid,'%s',jsonencode(flags));fclose(fid);
+diary off;
+fprintf('M3_LOGGER_PROBE status=%s physicalRun=0 G5_ACCEPTED=false\n',flags.status);
+end
+,'once'))
+  fprintf('M3_SYNTHETIC_INFRA_UNQUALIFIED stage=%s identifier=%s\n',stage,err.identifier);
+ end
  if ~isempty(s),try,stop(s);catch,end,end
  try,BTMS_M3_events('close');catch,end
 end

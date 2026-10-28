@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   guards:
-    if: github.event.head_commit.message == 'M3_QUALIFY_EXTERNAL_GUARDS_NO_BATTERY' && github.run_attempt == 1
+    if: ${{ false }} # Software qualification complete; no automatic repeat.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: JTE_DRIVE_WRITE
