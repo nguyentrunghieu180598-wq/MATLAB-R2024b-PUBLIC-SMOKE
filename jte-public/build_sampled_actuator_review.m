@@ -12,6 +12,8 @@ assert(strcmp(get_param(old,'BlockType'),'TransferFcn')&&strcmp(get_param(old,'S
 oldh=get_param(old,'PortHandles');ch=get_param(ctrl,'PortHandles');
 assert(numel(oldh.Inport)==1&&numel(oldh.Outport)==1&&src(oldh.Inport(1))==ch.Outport(1),...
  'ActReview:Source','Controller/filter source edge differs.');
+inputSignalName=get_param(get_param(oldh.Inport(1),'Line'),'Name');
+outputSignalName=get_param(get_param(oldh.Outport(1),'Line'),'Name');
 dests=destinations(parent,oldh.Outport(1));
 assert(~isempty(dests)&&all(dests~=-1),'ActReview:Source','No intact source filter destinations.');
 before=JTE096_modelAudit(m,{old});
@@ -43,6 +45,12 @@ for k=1:numel(dests)
  add_line(parent,ah.Outport(1),dests(k),'autorouting','on');
  newEdges(end+1,1)=label(ah.Outport(1),parent)+">"+label(dests(k),parent); %#ok<AGROW>
 end
+% Preserve inferred bus element identities by preserving source wire names.
+% Never edit BusSelector parameters to hide an inferred-name mismatch.
+set_param(get_param(hh.Inport(1),'Line'),'Name',inputSignalName);
+set_param(get_param(ah.Outport(1),'Line'),'Name',outputSignalName);
+assert(strcmp(get_param(get_param(hh.Inport(1),'Line'),'Name'),inputSignalName)&&...
+ strcmp(get_param(get_param(ah.Outport(1),'Line'),'Name'),outputSignalName),'ActReview:SignalName','Original wire identity not preserved.');
 expected=sort([setdiff(oldEdges,deleted);newEdges]);
 assert(isequal(sort(string(JTE096_signalEdges(parent))),expected),'ActReview:Graph','Unexpected local signal edge change.');
 assert(JTE096_orphanLines(parent)==0,'ActReview:Orphans','Created an orphan line.');
@@ -75,6 +83,7 @@ proof=struct('sourceModelSHA',sourceSHA,'amendedModelSHA',JTE2026sha256(destFile
  'removedBlock',relative(old,m),'newActuator',relative(act,m),'newHold',relative(hold,m),...
  'removedEdges',{cellstr(deleted)},'newEdges',{cellstr(newEdges)},'changedConnectivityRows',{allowed},...
  'Ts_s',Ts,'tau_s',.001,'A',alpha,'B',beta,'C',1,'D',0,'initialStateFromActualArchivedOutput',y0,...
+ 'sourceInputSignalName',inputSignalName,'sourceOutputSignalName',outputSignalName,'sourceWireNamesPreserved',true,...
  'samplingOffset_s',0,'outputHold',true,'solvedICParity','UNPROVEN_STATIC_ONLY',...
  'physicalSimulation',false,'toySimulation',false,'originalG5Accepted',false);
 end
