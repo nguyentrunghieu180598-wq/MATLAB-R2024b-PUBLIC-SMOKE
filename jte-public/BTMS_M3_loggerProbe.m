@@ -44,23 +44,20 @@ try
  flags.unboundedToFileWithBoundedDataset=true;flags.actualCompletedMajor=true;
  flags.discreteRoleClocks=true;flags.actualPhaseDState=true;flags.fullT0OperatingPoint=true;
 catch err
- flags.stage=stage;flags.identifier=err.identifier;flags.reason=err.message;
- % Synthetic fixture only: an allowlisted identifier is safe if private delivery fails.
- if ~isempty(regexp(err.identifier,'^[A-Za-z][A-Za-z0-9_:]*
+ flags.stage=stage;
+ flags.identifier=err.identifier;
+ flags.reason=err.message; % Full diagnostic remains PRIVATE only.
+ safeStage=regexprep(stage,'[^A-Za-z0-9_]','_');
+ safeID=regexprep(err.identifier,'[^A-Za-z0-9_:]','_');
+ if isempty(safeID),safeID='EMPTY_ERROR_IDENTIFIER';end
+ fprintf('M3_SYNTHETIC_INFRA_UNQUALIFIED stage=%s identifier=%s\n',safeStage,safeID);
  if ~isempty(s),try,stop(s);catch,end,end
  try,BTMS_M3_events('close');catch,end
 end
-fid=fopen(fullfile(root,'PROBE_FLAGS.json'),'w');fprintf(fid,'%s',jsonencode(flags));fclose(fid);
-diary off;
-fprintf('M3_LOGGER_PROBE status=%s physicalRun=0 G5_ACCEPTED=false\n',flags.status);
-end
-,'once'))
-  fprintf('M3_SYNTHETIC_INFRA_UNQUALIFIED stage=%s identifier=%s\n',stage,err.identifier);
- end
- if ~isempty(s),try,stop(s);catch,end,end
- try,BTMS_M3_events('close');catch,end
-end
-fid=fopen(fullfile(root,'PROBE_FLAGS.json'),'w');fprintf(fid,'%s',jsonencode(flags));fclose(fid);
+fid=fopen(fullfile(root,'PROBE_FLAGS.json'),'w');
+assert(fid>=0,'M3:PrivateFlags','Cannot preserve private diagnostic.');
+fprintf(fid,'%s',jsonencode(flags));
+fclose(fid);
 diary off;
 fprintf('M3_LOGGER_PROBE status=%s physicalRun=0 G5_ACCEPTED=false\n',flags.status);
 end
