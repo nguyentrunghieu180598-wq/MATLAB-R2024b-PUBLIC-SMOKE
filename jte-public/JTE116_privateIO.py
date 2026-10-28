@@ -4,7 +4,7 @@ from pathlib import Path
 from JTE101_io import one,query,download,quota
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
-ROOT=Path("jte116-private");SCHEMA="JTE116_STATIC_FIX_REUSE_PASSED_CANARY_NOT_G5"
+ROOT=Path("jte116-private");SCHEMA="JTE116_GUARD025_CANARY_STATIC_ONLY_NOT_G5"
 def need(v,c):
     if not v:raise RuntimeError(c)
 def context():
@@ -14,7 +14,7 @@ def context():
       (e.get("repository") or {}).get("private") is False and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="JTE116_STATIC_FIX_REUSE_PASSED_CANARY" and
+      (e.get("head_commit") or {}).get("message")=="JTE116_STATIC_PRIVATE_DELIVERY_FIX" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA") and
       os.environ.get("RUNNER_ENVIRONMENT")=="github-hosted","JTE116_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
@@ -23,6 +23,11 @@ def get(t,f,name,local):
     return download(t,one(t,f,"JTE063_VERIFIED_"+name),ROOT/local)
 def fetch(t,f):
     ROOT.mkdir(mode=0o700,exist_ok=False);run=os.environ["GITHUB_RUN_ID"];files=[]
+    # Prove exact uploader schema/private readback before MATLAB/static work.
+    need(SCHEMA=="JTE116_GUARD025_CANARY_STATIC_ONLY_NOT_G5","JTE116_SCHEMA_CHANGED")
+    probe=ROOT/("JTE116_"+run+"_SINK_PROBE.json")
+    probe.write_text(json.dumps({"schema":SCHEMA,"run":run,"physicalSimulation":False}))
+    upload_verified(t,f,probe,schema=SCHEMA)
     for name,local in (
       ("JTE115_40631662726_CANARY_PROOF.mat","j115_canary.mat"),
       ("JTE115_40631662726_PREPARE_RECEIPT.json","j115_receipt.json"),
@@ -81,7 +86,7 @@ def publish(t,f):
         flag.write_text(json.dumps({"DECISION":"UNQUALIFIED_RESOURCE","CANARY_BITWISE_PASS":False,
           "PHYSICAL_SIMULATION_STARTED":False,"G5_ACCEPTED":False,
           "setupOutcome":os.environ.get("JTE116_SETUP_OUTCOME"),"executionOutcome":os.environ.get("JTE116_EXECUTION_OUTCOME")}))
-    paths=sorted(ROOT.glob(prefix+"*"));need(bool(paths),"JTE116_NO_PRIVATE_ARTIFACTS")
+    paths=sorted(p for p in ROOT.glob(prefix+"*") if p.name!=prefix+"SINK_PROBE.json");need(bool(paths),"JTE116_NO_PRIVATE_ARTIFACTS")
     rc={"schema":SCHEMA,"run":run,"commit":os.environ["GITHUB_SHA"],"files":[],"physicalSimulation":False,"G5_ACCEPTED":False}
     for p in paths:
         need(not query(t,f,"name = 'JTE063_VERIFIED_"+p.name+"'"),"JTE116_DUPLICATE_OUTPUT_DENIED")

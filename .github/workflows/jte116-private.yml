@@ -1,4 +1,4 @@
-name: JTE116 static converter-discovery fix REUSE CANARY NO PLANT
+name: JTE116 private delivery fix static only REUSE CANARY
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   static-fix-reuse-canary:
-    if: github.event.head_commit.message == 'JTE116_STATIC_FIX_REUSE_PASSED_CANARY'
+    if: github.event.head_commit.message == 'JTE116_STATIC_PRIVATE_DELIVERY_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
