@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   logger-probe:
-    if: ${{ false }} # UNQUALIFIED probe; private publisher token exchange HTTP401. No battery dispatch.
+    if: github.event.head_commit.message == 'M3_REQUALIFY_ONE_TINY_LOGGER_20261029' && github.run_attempt == 1 && github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
@@ -36,7 +36,7 @@ jobs:
       - name: ONE tiny synthetic infrastructure trajectory
         uses: matlab-actions/run-command@v3
         with:
-          command: addpath('jte-public'); BTMS_M3_loggerProbe()
+          command: addpath('jte-public'); BTMS_M3_requalifyEntry()
       - name: Preserve all private infrastructure evidence
         if: always()
         env:
