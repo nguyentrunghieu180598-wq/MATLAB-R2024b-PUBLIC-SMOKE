@@ -6,7 +6,7 @@ import m2_logger_io as parent
 from sampled_actuator_review_io import ROOT,get,need
 from JTE063_streaming_drive import upload_verified
 from JTE101_io import quota
-parent.MSG="BTMS_M2_340_SOURCE_SHA_ARGUMENT_FIX"
+parent.MSG="BTMS_M2_340_ZERO_TIME_REPRESENTATION_FIX"
 SCHEMA=parent.SCHEMA;SRC="BTMS_M2_40701917441_"
 def host(t):
  ram={}

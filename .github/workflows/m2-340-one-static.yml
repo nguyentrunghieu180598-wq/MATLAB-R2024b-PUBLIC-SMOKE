@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_340_SOURCE_SHA_ARGUMENT_FIX'
+    if: github.event.head_commit.message == 'BTMS_M2_340_ZERO_TIME_REPRESENTATION_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
@@ -63,3 +63,5 @@ jobs:
         run: rm -rf actuator-review-private
 
 # Prior invocation stopped before copy/compile: supply mandatory receipt SHA argument.
+
+# Pin has StartTime=0.0: require numeric zero, preserve exact source configuration text.

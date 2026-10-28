@@ -9,7 +9,7 @@ else,fprintf('BTMS_M2_340_STATIC_RESULT status=M2_340_STATIC_GRAPH_REJECTED comp
 end
 function review(priv,pre)
 r=struct('status','M2_340_STATIC_GRAPH_REJECTED','staticCompilePass',false,'physicalRun',false,'G5Accepted',false,...
- 'stage','INPUT','runtimePeakKnown',false,'ownerPhysicalApproval',false);project=[];models={};timer=tic;
+ 'stage','INPUT','compileCalls',0,'runtimePeakKnown',false,'ownerPhysicalApproval',false);project=[];models={};timer=tic;
 try
  assert(strcmp(version('-release'),'2024b')&&contains(version,'24.2.0.3361896'),'M2340:Runtime','Pinned runtime required.');
  M=jsondecode(fileread(fullfile(priv,'m2340_manifest.json')));r.runtime=version;
@@ -32,7 +32,7 @@ try
  pinned=dir(fullfile(vendor,'**',loadFile));assert(numel(pinned)==1&&~isempty(resolved),'M2340:Load','Pinned current input missing/ambiguous.');
  loadSHA=JTE2026sha256(fullfile(pinned.folder,pinned.name));assert(strcmp(JTE2026sha256(resolved),loadSHA),'M2340:Load','Resolved current load differs from vendor pin.');
  r.stage='PREPARE_ONE_LOGGING_ONLY_CLONE';
- proof=BTMS_M2_prepare340NoRun(src,target,M.privateDir,M.sourceModel.sha256);tm='M2340Prepared';models{end+1}=tm;load_system(target);
+ proof=BTMS_M2_prepare340NoRun(src,target,M.privateDir,M.sourceModel.sha256);copyfile(target,[pre '_MODEL.slx']);r.stage='ALLOWED_DIFF_AUDIT';tm='M2340Prepared';models{end+1}=tm;load_system(target);
  assert(numel(proof.disabledRedundantObservers)==3&&proof.retainedOtherObservers==3,'M2340:ObserverCount','Expected exact archived B0L observer inventory.');
  ta=JTE096_modelAudit(tm);expected=sa;
  for k=1:4
@@ -59,7 +59,7 @@ try
  assert(getSimulinkBlockHandle([tm '/Battery Control/JTE local bias'])==-1,'M2340:Bias','Unexpected fault chart.');
  for k=1:4,assert(~isfile(proof.privateTargets{k}),'M2340:Overwrite','Target MAT exists.');end
  copyfile(target,[pre '_MODEL.slx']);
- r.stage='COMPILE_TARGET_ONCE';ct=tic;feval(tm,[],[],[],'compile');finish=onCleanup(@()quietTerm(tm));
+ r.stage='COMPILE_TARGET_ONCE';r.compileCalls=1;ct=tic;feval(tm,[],[],[],'compile');finish=onCleanup(@()quietTerm(tm));
  taps=cell(1,4);
  for k=1:4
   sink=proof.fourLoggerPaths{k};ph=get_param(sink,'PortHandles');l=get_param(ph.Inport(1),'Line');
@@ -79,7 +79,7 @@ try
  end
  feval(tm,[],[],[],'term');clear finish
  assert(strcmp(JTE2026sha256(src),M.sourceModel.sha256)&&strcmp(JTE2026sha256(original),pin),'M2340:Immutable','Source/vendor bytes changed.');
- assert(strcmp(get_param(tm,'StopTime'),'340')&&strcmp(get_param(tm,'StartTime'),'0'),'M2340:EffectiveCap','Saved horizon differs.');
+ assert(strcmp(get_param(tm,'StopTime'),'340')&&str2double(get_param(tm,'StartTime'))==0,'M2340:EffectiveCap','Saved horizon differs.');
  proof.status='M2_340_PREPARED_STATIC_PASS_OWNER_PHYSICAL_APPROVAL_NEEDED';
  proof.staticCompilePass=true;proof.fullGraphOnlyAllowedChanges=true;proof.physicalGraphRevalidated=true;
  proof.compiledTaps=taps;proof.inactiveObservers=inactive;proof.sourceInventory=sourceInventory;
