@@ -11,7 +11,7 @@ def main():
       (e.get("repository") or {}).get("full_name")==EXPECTED_REPO and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="BTMS_READ_SAVED_STATIC_AUDIT_FAST" and
+      (e.get("head_commit") or {}).get("message")=="BTMS_READ_SAVED_STATIC_AUDIT_VECTORS" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA"),"ACT_DIFF_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
     folder=ensure_app_folder(t);ROOT.mkdir(mode=0o700,exist_ok=False)
@@ -33,12 +33,15 @@ def main():
             else:
                 a=x[()];kind=x.attrs.get("MATLAB_class",b"")
                 if isinstance(kind,bytes):kind=kind.decode()
-                if h5py.check_dtype(ref=x.dtype) is not None:
+                if bool(np.asarray(x.attrs.get("MATLAB_empty",False)).reshape(-1)[0]):
+                    out=[]
+                elif h5py.check_dtype(ref=x.dtype) is not None:
                     vals=np.asarray(a).T
                     if vals.size==0:out=[]
                     else:
                         out=[[read(f[r]) if r else None for r in row] for row in vals.reshape(vals.shape[0],-1)]
                         if vals.shape[0]==1:out=out[0]
+                        elif vals.ndim==2 and vals.shape[1]==1:out=[row[0] for row in out]
                 elif kind=="char":
                     vals=np.asarray(a).T
                     if vals.size==0:out=""

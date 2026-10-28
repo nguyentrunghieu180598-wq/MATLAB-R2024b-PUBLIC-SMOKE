@@ -1,4 +1,4 @@
-name: BTMS saved audit fast metadata read ONLY
+name: BTMS saved audit vector metadata ONLY
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   read-saved-diff:
-    if: github.event.head_commit.message == 'BTMS_READ_SAVED_STATIC_AUDIT_FAST'
+    if: github.event.head_commit.message == 'BTMS_READ_SAVED_STATIC_AUDIT_VECTORS'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
