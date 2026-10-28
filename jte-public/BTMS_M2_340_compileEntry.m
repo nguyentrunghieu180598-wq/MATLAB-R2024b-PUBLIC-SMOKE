@@ -38,7 +38,7 @@ try
  for k=1:4
   path=rel(proof.fourLoggerPaths{k},tm);si=find(strcmp(expected.blocks(:,1),path));ti=find(strcmp(ta.blocks(:,1),path));
   assert(numel(si)==1&&numel(ti)==1&&strcmp(expected.blocks{si,2},'ToFile'),'M2340:Sink','Unknown file sink.');
-  params=expected.blocks{si,3};other=ta.blocks{ti,3};fi=find(strcmp(params{1},'FileName'));
+  params=expected.blocks{si,3};other=ta.blocks{ti,3};fi=find(strcmpi(params{1},'FileName'));
   assert(numel(fi)==1&&isequal(params{1},other{1}),'M2340:SinkParameters','File sink parameter set changed.');
   assert(strcmp(other{2}{fi},proof.privateTargets{k})&&~strcmp(params{2}{fi},other{2}{fi}),'M2340:PrivatePath','Fresh private file path not bound.');
   params{2}{fi}=other{2}{fi};expected.blocks{si,3}=params;

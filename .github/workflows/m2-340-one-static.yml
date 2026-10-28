@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_340_ZERO_TIME_REPRESENTATION_FIX'
+    if: github.event.head_commit.message == 'BTMS_M2_340_SINK_SCHEMA_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
@@ -65,3 +65,5 @@ jobs:
 # Prior invocation stopped before copy/compile: supply mandatory receipt SHA argument.
 
 # Pin has StartTime=0.0: require numeric zero, preserve exact source configuration text.
+
+# Preserve raw evidence before deep audit; normalize only actual Filename spelling.

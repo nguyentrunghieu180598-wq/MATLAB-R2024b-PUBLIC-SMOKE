@@ -6,7 +6,7 @@ import m2_logger_io as parent
 from sampled_actuator_review_io import ROOT,get,need
 from JTE063_streaming_drive import upload_verified
 from JTE101_io import quota
-parent.MSG="BTMS_M2_340_ZERO_TIME_REPRESENTATION_FIX"
+parent.MSG="BTMS_M2_340_SINK_SCHEMA_FIX"
 SCHEMA=parent.SCHEMA;SRC="BTMS_M2_40701917441_"
 def host(t):
  ram={}
@@ -89,33 +89,58 @@ def saved(file,stop):
     sid=b.attrib.get("SID");pp=prop(b)
     if sid:
      commented[sid]=pp.get("Commented","off")
-     if b.attrib.get("BlockType")=="ToFile":files[sid]=pp.get("FileName")
+     if b.attrib.get("BlockType")=="ToFile":
+      kk=[k for k in pp if k.casefold()=="filename"]
+      need(len(kk)==1 and isinstance(pp[kk[0]],str) and pp[kk[0]],"M2340_SAVED_FILENAME")
+      files[sid]=pp[kk[0]]
   return {"config":config,"nets":sorted(nets),"commented":commented,"fileTargets":files}
 def publish(t,f):
- run=os.environ["GITHUB_RUN_ID"];pre="BTMS_M2340_"+run+"_";result={"status":"M2_340_STATIC_GRAPH_REJECTED","staticCompilePass":False,"physicalRun":False,"G5Accepted":False}
- p=ROOT/(pre+"FLAGS.json")
- if p.is_file():result=json.load(open(p))
- src=ROOT/"M2340Source.slx";dst=ROOT/(pre+"MODEL.slx")
- m=json.load(open(ROOT/"m2340_manifest.json"))
- need(hashlib.sha256(src.read_bytes()).hexdigest()==m["sourceModel"]["sha256"],"M2340_SOURCE_BYTES_CHANGED")
+ run=os.environ["GITHUB_RUN_ID"];pre="BTMS_M2340_"+run+"_";outs=[];uploaded=set()
+ def stash():
+  for p in sorted(ROOT.glob(pre+"*")):
+   if p.is_file() and p.name not in uploaded and not p.name.endswith("PRIVATE_RECEIPT.json"):
+    outs.append({"name":p.name,**upload_verified(t,f,p,schema=SCHEMA)});uploaded.add(p.name)
+ result={"status":"M2_340_STATIC_GRAPH_REJECTED","staticCompilePass":False,"physicalRun":False,"G5Accepted":False}
+ flags=ROOT/(pre+"FLAGS.json")
+ if flags.is_file():result=json.load(open(flags))
+ # Preserve raw MATLAB evidence BEFORE attempting interpretation. An audit bug
+ # must never prevent publication of existing console/flags/model/proof files.
+ target=ROOT/"M2340Prepared.slx"
+ if target.is_file() and not (ROOT/(pre+"MODEL.slx")).exists():
+  shutil.copyfile(target,ROOT/(pre+"MODEL_UNQUALIFIED.slx"))
+ stash()
  xml={"available":False,"onlyAllowedConfigDelta":False,"sameCompletePhysicalNets":False}
- if dst.is_file():
-  a=saved(src,"2400");b=saved(dst,"340")
-  changes=[{"SID":sid,"source":v,"target":b["commented"].get(sid)} for sid,v in a["commented"].items() if b["commented"].get(sid)!=v]
-  xml={"available":True,"onlyAllowedConfigDelta":a["config"]==b["config"],"sameCompletePhysicalNets":a["nets"]==b["nets"],
-   "allSameBlockSIDs":a["commented"].keys()==b["commented"].keys(),"commentChanges":changes,
-   "changedFileTargets":len([sid for sid,v in a["fileTargets"].items() if b["fileTargets"].get(sid)!=v]),
-   "allFileTargetsAbsent":all(not Path(p).exists() for p in b["fileTargets"].values())}
-  good=(xml["onlyAllowedConfigDelta"] and xml["sameCompletePhysicalNets"] and xml["allSameBlockSIDs"] and
-   len(changes)==3 and all(c["source"]=="off" and c["target"]=="on" for c in changes) and
-   xml["changedFileTargets"]==4 and xml["allFileTargetsAbsent"])
-  if not good:result["status"]="M2_340_STATIC_GRAPH_REJECTED";result["staticCompilePass"]=False
- resource=host(t)
- if resource["cgroup"]["status"]=="UNAVAILABLE" or resource["effectiveAvailable_bytes"]<=2*1024**3 or resource["diskFree_bytes"]<=4*1024**3 or resource["Drive"]["availableBytes"]<=int(2.5*1024**3):
-  result["status"]="M2_340_NO_GO_RESOURCE_OR_IC"
+ resource={"status":"UNAVAILABLE"}
+ try:
+  m=json.load(open(ROOT/"m2340_manifest.json"));src=ROOT/"M2340Source.slx";dst=ROOT/(pre+"MODEL.slx")
+  need(hashlib.sha256(src.read_bytes()).hexdigest()==m["sourceModel"]["sha256"],"M2340_SOURCE_BYTES_CHANGED")
+  if dst.is_file():
+   a=saved(src,"2400");b=saved(dst,"340")
+   changes=[{"SID":sid,"source":v,"target":b["commented"].get(sid)} for sid,v in a["commented"].items() if b["commented"].get(sid)!=v]
+   targets=list(b["fileTargets"].values());parentDir=Path(m["privateDir"]).resolve()
+   pathsOK=(len(targets)==4 and len(set(targets))==4 and
+    all(isinstance(p,str) and p and Path(p).resolve().parent==parentDir for p in targets))
+   xml={"available":True,"onlyAllowedConfigDelta":a["config"]==b["config"],"sameCompletePhysicalNets":a["nets"]==b["nets"],
+    "allSameBlockSIDs":a["commented"].keys()==b["commented"].keys(),"commentChanges":changes,
+    "changedFileTargets":len([sid for sid,v in a["fileTargets"].items() if b["fileTargets"].get(sid)!=v]),
+    "allFileTargetsPrivateAndDistinct":pathsOK,
+    "allFileTargetsAbsent":pathsOK and all(not Path(p).exists() for p in targets)}
+   good=(xml["onlyAllowedConfigDelta"] and xml["sameCompletePhysicalNets"] and xml["allSameBlockSIDs"] and
+    len(changes)==3 and all(c["source"]=="off" and c["target"]=="on" for c in changes) and
+    xml["changedFileTargets"]==4 and xml["allFileTargetsAbsent"])
+   if not good:result["status"]="M2_340_STATIC_GRAPH_REJECTED";result["staticCompilePass"]=False
+  else:result["status"]="M2_340_STATIC_GRAPH_REJECTED";result["staticCompilePass"]=False
+  resource=host(t)
+  readyResource=(resource["cgroup"]["status"]!="UNAVAILABLE" and resource["effectiveAvailable_bytes"]>2*1024**3 and
+   resource["diskFree_bytes"]>4*1024**3 and resource["Drive"]["availableBytes"]>int(2.5*1024**3))
+  if not readyResource and result.get("staticCompilePass"):result["status"]="M2_340_NO_GO_RESOURCE_OR_IC"
+ except Exception as e:
+  result["status"]="M2_340_STATIC_GRAPH_REJECTED";result["staticCompilePass"]=False
+  result["publicationAuditFailure"]={"type":type(e).__name__,"message":str(e)}
+  m=json.load(open(ROOT/"m2340_manifest.json")) if (ROOT/"m2340_manifest.json").is_file() else {}
  (ROOT/(pre+"XML_PARITY.json")).write_text(json.dumps(xml,indent=2))
  (ROOT/(pre+"HOST_AND_STOP_POLICY.json")).write_text(json.dumps({"currentHost":resource,
-  "beforeSetup":m["resource"],"staticHostScreenPass":m["staticCompileResourceScreen"],
+  "beforeSetup":m.get("resource"),"staticHostScreenPass":m.get("staticCompileResourceScreen"),
   "runtimeMemoryPeak":"UNMEASURED_UNTIL_OWNER_APPROVED_OBSERVATION",
   "RAMReserve_bytes":2*1024**3,"diskReserve_bytes":2*1024**3,
   "maxOneFile_bytes":1024**3,"maxTotalNativeFiles_bytes":2*1024**3,
@@ -124,12 +149,10 @@ def publish(t,f):
   "watchdog":"External live cgroup/process + disk/file growth; must be active before any approved initialize; NOT STARTED IN_STATIC_JOB",
   "futureOwnerApprovalRequired":True,"full2400HistoryBudgetRequired":False},indent=2))
  (ROOT/(pre+"FINAL_QUALIFICATION.json")).write_text(json.dumps(result,indent=2))
- shutil.copyfile(ROOT/"m2340_manifest.json",ROOT/(pre+"INPUT_MANIFEST.json"))
+ if (ROOT/"m2340_manifest.json").is_file():shutil.copyfile(ROOT/"m2340_manifest.json",ROOT/(pre+"INPUT_MANIFEST.json"))
  for file in ("actuator-amendment/M2_340_WITNESS_AND_STOP_PLAN.md",):
   shutil.copyfile(file,ROOT/(pre+Path(file).name))
- outs=[]
- for p in sorted(ROOT.glob(pre+"*")):
-  if p.is_file():outs.append({"name":p.name,**upload_verified(t,f,p,schema=SCHEMA)})
+ stash()
  p=ROOT/(pre+"PRIVATE_RECEIPT.json");p.write_text(json.dumps({"schema":SCHEMA,"run":run,"commit":os.environ["GITHUB_SHA"],
   "files":outs,"physicalRun":False,"G5Accepted":False},indent=2));upload_verified(t,f,p,schema=SCHEMA)
  print("BTMS_M2_340_PRIVATE_READBACK_PASS status="+result["status"]+" physicalRun=0 G5_ACCEPTED=false")

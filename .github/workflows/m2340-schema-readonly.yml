@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   schema:
-    if: github.event.head_commit.message == 'BTMS_M2_340_INSPECT_SAVED_SINK_SCHEMA'
+    if: ${{ false }} # Saved schema verified; no further inspection authorized.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 6
