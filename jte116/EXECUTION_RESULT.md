@@ -1,3 +1,5 @@
+> Superseded by the owner-approved actual trajectory result: [OWNER_APPROVED_ONE_EXECUTION_RESULT.md](OWNER_APPROVED_ONE_EXECUTION_RESULT.md). Canary/static PASS below remains valid; the new plant result is GUARD025_EVENT_PERSISTS, G5 not accepted.
+
 # JTE116 actual execution — canary and static scope only
 
 **GUARD025_CANARY_STATIC_PASS_AWAIT_OWNER_SIM_AUTHORIZATION**. **G5 remains BLOCKED / NOT ACCEPTED.**
