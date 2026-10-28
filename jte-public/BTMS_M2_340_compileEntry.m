@@ -40,7 +40,10 @@ try
   assert(numel(si)==1&&numel(ti)==1&&strcmp(expected.blocks{si,2},'ToFile'),'M2340:Sink','Unknown file sink.');
   params=expected.blocks{si,3};other=ta.blocks{ti,3};fi=find(strcmpi(params{1},'FileName'));
   assert(numel(fi)==1&&isequal(params{1},other{1}),'M2340:SinkParameters','File sink parameter set changed.');
-  assert(strcmp(other{2}{fi},proof.privateTargets{k})&&~strcmp(params{2}{fi},other{2}{fi}),'M2340:PrivatePath','Fresh private file path not bound.');
+  canonicalPrivate=strrep(proof.privateTargets{k},tm,'$ROOT');
+  assert(strcmp(get_param(proof.fourLoggerPaths{k},'FileName'),proof.privateTargets{k})&&...
+   strcmp(other{2}{fi},canonicalPrivate)&&~strcmp(params{2}{fi},other{2}{fi}),...
+   'M2340:PrivatePath','Raw private target or model-token canonical form differs.');
   params{2}{fi}=other{2}{fi};expected.blocks{si,3}=params;
  end
  ci=find(strcmp(expected.config{1},'StopTime'));assert(numel(ci)==1&&strcmp(expected.config{2}{ci},'2400'),'M2340:StopSource','Source not2400.');

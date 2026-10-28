@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_340_INCLUDE_COMMENTED_AUDIT'
+    if: github.event.head_commit.message == 'BTMS_M2_340_CANONICAL_PRIVATE_PATH_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
@@ -69,3 +69,5 @@ jobs:
 # Preserve raw evidence before deep audit; normalize only actual Filename spelling.
 
 # Nominal graph inventory must explicitly include commented observers; cancel superseded own setup.
+
+# Compare canonical audit string against equally normalized expected path; raw get_param path is also exact.
