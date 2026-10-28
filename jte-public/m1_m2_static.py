@@ -7,7 +7,7 @@ from sampled_actuator_review_io import ROOT,get,need
 from JTE101_io import quota
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
-SCHEMA="BTMS_M1_M2_STATIC_ONLY_NOT_G5";MSG="BTMS_M1_M2_PINNED_GRAPH_READONLY"
+SCHEMA="BTMS_M1_M2_STATIC_ONLY_NOT_G5";MSG="BTMS_M1_M2_COMPLETE_MISSING_STATIC_FIELDS"
 PIN="0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0"
 VENDOR="f98d21929a3a269dacd1ee38999cd9773760c6db"
 def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
@@ -105,18 +105,41 @@ def main(t,folder):
     source=vendor/"Models/Battery_Pack_Thermal_Management.slx"
     need(rev==VENDOR and sha(source)==PIN,"M1_VENDOR_PIN")
     print("BTMS_M1_M2_RECEIVED executor=GITHUB_HOSTED_ACTIONS run="+run+" mode=STATIC_NO_MATLAB noCompile=1 noSimulation=1",flush=True)
-    base=parse_slx(source,"PINNED_VENDOR")
+
+    def graph_reuse(file,label):
+        asset("BTMS_M1M2_40691093123_"+label+"_GRAPH.json",label+"_graph.json")
+        g=json.load(open(ROOT/(label+"_graph.json")))
+        need(g["modelSHA"]==sha(file) and not g["unresolved"],"M1_REUSED_GRAPH_MODEL_LINK")
+        # Supplement only missing XML representation. Do not recompile or re-run models.
+        extra={"blockAttributes":[],"connectionLines":[],"defaultsXML":{}}
+        with zipfile.ZipFile(file) as z:
+            for n in z.namelist():
+                if not n.startswith("simulink/") or not n.endswith(".xml"):continue
+                d=E.fromstring(z.read(n))
+                if "default" in n.lower():extra["defaultsXML"][n]=E.tostring(d,encoding="unicode")
+                for b in d.iter("Block"):
+                    extra["blockAttributes"].append(dict(b.attrib))
+                for tag in ("Line","Connector","Connection"):
+                    for q in d.iter(tag):
+                        extra["connectionLines"].append({"file":n,"tag":tag,"xml":E.tostring(q,encoding="unicode")})
+        g["staticSupplement"]=extra
+        g["reusedGraphRun"]="40691093123"
+        return g
+
+    base=graph_reuse(source,"PINNED_VENDOR")
     emit("PINNED_VENDOR_GRAPH.json",base)
     graphMeta=[]
     for c in cases:
-        g=parse_slx(ROOT/c["local"],c["label"])
+        g=graph_reuse(ROOT/c["local"],c["label"])
         need(g["modelSHA"]==c["model"]["sha256"],"M1_AMENDED_GRAPH_SHA")
         emit(c["label"]+"_GRAPH.json",g)
         emit(c["label"]+"_REUSED_COMPILE.json",c["proof"])
         graphMeta.append({"label":c["label"],"modelSHA":g["modelSHA"],"blocks":len(g["blocks"]),"edges":len(g["edges"]),"unresolved":g["unresolved"]})
     vals={}
     with h5py.File(ROOT/"source_workspace.mat","r") as f:
-        for k in ("ambient","coolantTemp","initialPackSOC","Flowrate_vec"):
+        for k in ("ambient","coolantTemp","initialPackSOC","Flowrate_vec")+tuple("iniSOC"+str(i) for i in range(1,9)):
+            if "workspaceSnapshot/"+k not in f:
+                vals[k]={"status":"UNAVAILABLE_IN_SAVED_WORKSPACE"};continue
             x=f["workspaceSnapshot/"+k];need(x.dtype.kind=="f","M1_WORKSPACE_NUMERIC_TYPE");a=x[()]
             need(np.isfinite(a).all(),"M1_WORKSPACE_NONFINITE");vals[k]=a.T.tolist()
     ssc={}

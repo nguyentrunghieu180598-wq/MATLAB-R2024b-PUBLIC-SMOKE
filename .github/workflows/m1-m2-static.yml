@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   static-graph:
-    if: github.event.head_commit.message == 'BTMS_M1_M2_PINNED_GRAPH_READONLY'
+    if: github.event.head_commit.message == 'BTMS_M1_M2_COMPLETE_MISSING_STATIC_FIELDS'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 12
@@ -31,3 +31,5 @@ jobs:
       - name: Remove private scratch
         if: always()
         run: rm -rf actuator-review-private
+
+# Static continuation: reuse SHA-validated graphs; missing-field handling only.
