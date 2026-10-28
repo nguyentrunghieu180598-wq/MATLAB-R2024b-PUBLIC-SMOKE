@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_TOFILE_METADATA_SCALAR_FIX'
+    if: ${{ false }} # Closed after actual four-model compile; no new execution authorized.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30

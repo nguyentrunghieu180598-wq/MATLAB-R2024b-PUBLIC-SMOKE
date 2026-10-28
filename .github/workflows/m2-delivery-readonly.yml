@@ -1,0 +1,28 @@
+name: BTMS M2 final READ ONLY engineering delivery NO MATLAB
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/m2-delivery-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  delivery:
+    if: github.event.head_commit.message == 'BTMS_M2_FINAL_READONLY_DELIVERY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reuse static receipts and calculate 340s payload envelope only
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 -m py_compile jte-public/m2_delivery_readonly.py
+          python3 jte-public/m2_delivery_readonly.py
+      - name: Remove private Cloud scratch
+        if: always()
+        run: rm -rf actuator-review-private
