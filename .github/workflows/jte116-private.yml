@@ -1,4 +1,4 @@
-name: JTE116 one guard025 canary and static clone NO PLANT
+name: JTE116 static converter-discovery fix REUSE CANARY NO PLANT
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -9,8 +9,8 @@ concurrency:
   group: jte116-canary-once
   cancel-in-progress: false
 jobs:
-  one-canary-static-only:
-    if: github.event.head_commit.message == 'JTE116_GUARD025_CANARY_STATIC_ONLY'
+  static-fix-reuse-canary:
+    if: github.event.head_commit.message == 'JTE116_STATIC_FIX_REUSE_PASSED_CANARY'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
@@ -42,13 +42,7 @@ jobs:
         with:
           release: R2024b
           products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
-      - name: Reserve exactly one new pure MATLAB canary not a plant attempt
-        env:
-          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
-          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
-          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
-        run: python3 jte-public/JTE116_privateIO.py reserve
-      - name: Read archived mismatch then one canary then conditional static preparation only
+      - name: Reuse archived canary PASS then static converter and clone proof only
         id: execute
         uses: matlab-actions/run-command@v3
         with:

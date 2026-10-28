@@ -31,3 +31,11 @@ Normal-driver native records do NOT certify accepted-major steps. An accepted-ma
 Plan current free public GitHub hosted/included MATLAB execution and private sink only, one bounded job with no retry. Recheck current RAM/disk/private capacity, restore frozen initial workspace and consume an explicit one-shot plant intent after approval. Full file upload/readback limit4GiB; initial private original raw is reused, not regenerated. Resource exhaustion returns UNQUALIFIED and never triggers another solver.
 
 Outcomes: event persists -> STOP Mod/solver manipulation and numerical-suitability review; event absent with parity intact -> CONDITIONAL first-window result only, not G5, not second-window/thermal/independent convergence. No physical run is enabled by this document.
+
+## Actual first execution and static-only discovery fix
+
+Actual run40633425452/job122634837594 at a188cd969da0b72e289b051eb2e3333b7ce0d385: ARCHIVE_CLASSIFIED=1, CANARY_BITWISE_PASS=1, PHYSICAL_SIMULATION_STARTED=0. The unchanged committed JTE116 canary passed in real R2024bU10; saved subfloor and unchanged-above-floor gates passed. Private full SHA readback succeeded. Static preparation stopped before the builder at JTE115:NoConvertsFound.
+
+The inherited converter detector used a literal display-name substring; it cannot certify absence of converters when library names contain formatting differences. The corrected read-only detector normalizes mask/reference name formatting and accepts the documented derivative-parameter contract as another discovery predicate. Nonempty discovery and readable FilteringAndDerivatives/UdotUserProvided remain required; no converter setting changes.
+
+The static-only continuation reuses the exact SHA-linked passed canary MAT, code SHA, prior summary/receipt and range ledger. It does not call the canary or recompute the prior range classification, reserve another canary, run old suites or start a plant. No approval is required for this code/static preparation fix; new physical simulation remains separately gated by owner approval.

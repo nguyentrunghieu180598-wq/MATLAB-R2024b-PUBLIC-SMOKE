@@ -1,5 +1,5 @@
 function JTE116_prepare()
-% One new canary plus read-only archived diagnosis/static clone. NO sim call.
+% Reuse passed canary and range ledger; static discovery/clone only. NO sim call.
 root=pwd;priv=fullfile(root,'jte116-private');run=getenv('GITHUB_RUN_ID');
 prefix=fullfile(priv,['JTE116_' run]);vendor=fullfile(root,'vendor-pack');
 original=fullfile(priv,'JTE101Original.slx');guardFile=fullfile(priv,'JTE116Guarded.slx');
@@ -19,26 +19,22 @@ try
  assert(strcmp(version('-release'),'2024b')&&contains(version,'24.2.0.3361896'),'JTE116:Runtime','Pinned R2024bU10 required.');
  rec.runtime=version;
  stage='ARCHIVED_DIAGNOSTIC';
- D=load(fullfile(priv,'j115_canary.mat'),'diagnostic');d=D.diagnostic;
- assert(isfield(d,'syntheticOnly')&&d.syntheticOnly&&contains(d.runtime,'24.2.0.3361896'),...
-  'JTE116:Archive','Wrong archived canary diagnostic.');
- q=d.q;bits=typecast(d.original(:),'uint64')~=typecast(d.guarded(:),'uint64');
- assert(isequal(bits,d.bitMismatch)&&any(bits),'JTE116:Archive','Archived bit mismatch mask inconsistent.');
- ranges=struct('below025',nnz(bits&q<.25),'from025Below0375',nnz(bits&q>=.25&q<.375),'atOrAbove0375',nnz(bits&q>=.375));
- first=find(bits,1);
- ledger=struct('archivedOnly',true,'priorRun','40631662726','inputSHA',M.files(1).sha256,...
-  'mismatchCount',nnz(bits),'ranges',ranges,'allMismatchInSourceDomain',all(q(bits)>=.001&q(bits)<=.95),...
-  'firstMismatchQHex',num2hex(q(first)),'firstOriginalHex',num2hex(d.original(first)),...
-  'firstGuardedHex',num2hex(d.guarded(first)),...
-  'scope','Only exact saved JTE115 diagnostic read; no q counterexamples inferred or old canary re-executed.');
+ ledger=jsondecode(fileread(fullfile(priv,'j116_prior_range.json')));
+ assert(ledger.archivedOnly&&strcmp(ledger.priorRun,'40631662726')&&strcmp(ledger.inputSHA,M.files(1).sha256),...
+  'JTE116:Archive','Verified prior range ledger/source link differs.');
+ ledger.classificationReusedFromRun='40633425452';ledger.classificationRerun=false;
  writeJSON([prefix '_JTE115_RANGE_LEDGER.json'],ledger);
- save([prefix '_JTE115_RANGE_LEDGER.mat'],'ledger','-v7.3');
- flags.ARCHIVED_MISMATCH_CLASSIFICATION_COMPLETE=true;clear D d bits q
- stage='CANARY';
- JTE116_guard025Canary([prefix '_CANARY_PROOF.mat']); % ONLY invocation of this new MATLAB canary.
+ flags.ARCHIVED_MISMATCH_CLASSIFICATION_COMPLETE=true;
+ stage='REUSE_CANARY';
+ C=load(fullfile(priv,'j116_prior_canary.mat'),'diagnostic');
+ prior=jsondecode(fileread(fullfile(priv,'j116_prior_summary.json')));
+ assert(prior.flags.CANARY_BITWISE_PASS&&prior.canary.strictBitwisePass&&...
+  strcmp(prior.canary.codeSHA,JTE2026sha256(which('JTE116_guard025Canary')))&&...
+  C.diagnostic.underfloorOK&&C.diagnostic.untouchedOK&&~any(C.diagnostic.bitMismatch),...
+  'JTE116:PriorCanary','Exact saved source canary PASS unavailable.');
+ copyfile(fullfile(priv,'j116_prior_canary.mat'),[prefix '_CANARY_PROOF_REUSED.mat']);
  flags.CANARY_BITWISE_PASS=true;
- C=load([prefix '_CANARY_PROOF.mat'],'diagnostic');
- rec.canary=struct('codeSHA',JTE2026sha256(which('JTE116_guard025Canary')),'underfloorOK',C.diagnostic.underfloorOK,...
+ rec.canary=struct('reusedRun','40633425452','rerun',false,'codeSHA',JTE2026sha256(which('JTE116_guard025Canary')),'underfloorOK',C.diagnostic.underfloorOK,...
   'untouchedOK',C.diagnostic.untouchedOK,'strictBitwisePass',~any(C.diagnostic.bitMismatch),'syntheticOnly',true);clear C
  stage='RESOURCE';[ok,~]=license('checkout','Simulink');
  assert(ok,'JTE116:Resource','Included Simulink license unavailable for static preparation.');
@@ -60,7 +56,7 @@ try
   assert(isequaln(evalin('base',names{k}),value),'JTE116:Source','Source workspace variable differs.');
  end
  load_system(original);om='JTE101Original';verifySource(om,ref);
- before=JTE096_modelAudit(om);converter=JTE115_converterAudit(om);
+ before=JTE096_modelAudit(om);converter=JTE116_converterAudit(om);
  writeJSON([prefix '_CONVERTER_AUDIT.json'],converter);
  stage='BUILD';
  proof=JTE116_buildGuardedDiagnostic(original,guardFile);
@@ -73,7 +69,7 @@ try
  a=a(~startsWith(a(:,1),key),:);b=b(~startsWith(b(:,1),key),:);
  assert(isequal(a,b),'JTE116:ModelParity','Outside-local-guard graph differs.');
  verifySource(gm,ref);
- guardConverter=JTE115_converterAudit(gm);
+ guardConverter=JTE116_converterAudit(gm);
  assert(isequal(normal(converter.entries,om),normal(guardConverter.entries,gm)),...
   'JTE116:ModelParity','Converter configuration/upstream changed.');
  constant=[step '/JTE115 guard constant'];
