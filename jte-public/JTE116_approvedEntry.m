@@ -3,7 +3,7 @@ root=pwd;prefix=fullfile(root,'jte116-one-private',['JTE116ONE_' getenv('GITHUB_
 try
  if strcmp(phase,'toy')
   assert(nargin('JTE116_oneApprovedPlant')==0,'JTE116:Code','Plant driver parse/signature unavailable; no toy/plant run.');
-  console=evalc('JTE116_majorStepToy();');
+  console=evalc('JTE116_qualifySavedToy();');
  elseif strcmp(phase,'plant'),console=evalc('JTE116_oneApprovedPlant();');
  else,error('JTE116:Mode','Unrecognized phase.');end
 catch ME

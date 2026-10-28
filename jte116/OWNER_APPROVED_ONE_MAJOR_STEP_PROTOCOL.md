@@ -34,3 +34,11 @@ SECOND_EVENT_NOT_COVERED_340 is mandatory. G5_ACCEPTED=false in every outcome. S
 All actual MAT, model, checkpoint vectors/times, research scalars and console are owner-private, with full SHA remote readback before completion. Public only execution and safe gate flags. A CI SUCCESS alone is not scientific PASS.
 
 The archived Original340 used a normal batch driver; the approved candidate uses the documented stepping driver to qualify completed-major records. This execution-method difference is explicitly recorded as a causal limitation. Even a clean first window cannot uniquely attribute improvement to guard025 or establish source-equivalent numerical convergence. No extra original stepped run is authorized.
+
+## Actual toy gate and terminal-time correction
+
+Run40644248712/job122669254355 atce4079477393f3cacbdb744b861d7b42a94af9f2 stopped before any plant intent/initialization. Its actual toy passed the per-output/state processed-time equality checks but hit an extra next-Time monotonicity assertion at the terminal major (toy line38 -> helper line18). Original overall result remains FAIL; no physical trajectory or intent existed.
+
+The continuation reads ONLY that SHA-verified toy RAW/summary/receipt. It validates every archived nonterminal completed-major record (including finite next-top semantics), initial0 and the target interval, full native final horizon/independent observer equality and the precise original failure site. It performs no toy simulation or canary rerun. If any saved criterion is unavailable, stop before the plant.
+
+The battery driver preserves the exact completed-major first-window checks. After the final terminal step it checks completion and the native final horizon, rather than demanding a nonexistent future-top checkpoint. No first-window clock criterion is relaxed. A read-only saved-toy qualification and full private delivery must pass before the still-unconsumed ONE plant intent. Main scientific terminal decisions and no-retry restriction remain unchanged.

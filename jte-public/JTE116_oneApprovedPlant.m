@@ -19,7 +19,7 @@ try
  [ok,~]=license('checkout','Simulink');assert(ok,'JTE116:Resource','Included Simulink license unavailable.');
  toy=jsondecode(fileread(fullfile(priv,['JTE116ONE_' getenv('GITHUB_RUN_ID') '_TOY_FLAGS.json'])));
  assert(toy.LOGGER_QUALIFIED,'JTE116:Logging','Same-run documented logger toy not qualified.');
- r.runtime=version;r.resourceEntitlement=M.resource;
+ r.runtime=version;r.resourceEntitlement=M.resource;r.loggerScope='Completed-major window verified from archived actual toy run40644248712, no toy rerun. Terminal hit has native final-horizon validation; no next-top claim.';
  stage='SOURCE';
  P=load(fullfile(priv,'prepared.mat'),'rec','before','after','proof');p=P.rec.prepared;
  f=jsondecode(fileread(fullfile(priv,'static_flags.json')));
@@ -123,7 +123,7 @@ try
  assert(any([trace.time]>=330&[trace.time]<=334)&&any([trace.time]>334&[trace.time]<=338),...
   'JTE116:Logging','Completed major checkpoints do not cover both first-window/control intervals.');
  if ~finished,finished=step(S,PauseTime=340);end
- if ~finished,expected=S.Time;finished=step(S);q=JTE116_completedMajor(S,expected,tf);q.phase='COMPLETED_FINAL_MAJOR';checkLaw(q);trace(end+1)=q;end
+ if ~finished,finished=step(S);end % Final native horizon checked below; no fictional next-top checkpoint after terminal step.
  assert(finished,'JTE116:Logging','No completed final step.');
  out=stop(S);r.elapsedWall_s=toc(timer);r.simulationOutput=out;r.checkpoints=trace;save([prefix '_RAW.mat'],'r','-v7.3');
  stage='QUALIFICATION';d=JTE116_nativeData(out,tf,gm);

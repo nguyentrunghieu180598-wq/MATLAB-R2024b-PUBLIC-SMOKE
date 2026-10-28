@@ -16,7 +16,7 @@ def context():
       (e.get("repository") or {}).get("private") is False and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="JTE116_OWNER_APPROVED_ONE_GUARD025_340" and
+      (e.get("head_commit") or {}).get("message")=="JTE116_APPROVED_SAVED_TOY_GATE_ONE_PLANT" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA") and
       os.environ.get("RUNNER_ENVIRONMENT")=="github-hosted","JTE116ONE_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
@@ -39,7 +39,10 @@ def fetch(t,f):
       ("JTE111_40620218579_PRIVATE_READBACK_RECEIPT.json","j111_receipt.json"),
       ("JTE101_40449421507_ORIGINAL340_RAW.mat","original_raw.mat"),
       ("JTE101_40449421507_ORIGINAL340_MODEL.slx","JTE101Original.slx"),
-      ("JTE101_40449421507_PREPARE_WORKSPACE.mat","source_workspace.mat")]
+      ("JTE101_40449421507_PREPARE_WORKSPACE.mat","source_workspace.mat"),
+      ("JTE116ONE_40644248712_TOY_RAW.mat","archived_toy_raw.mat"),
+      ("JTE116ONE_40644248712_TOY_SUMMARY.json","archived_toy_summary.json"),
+      ("JTE116ONE_40644248712_TOY_RECEIPT.json","archived_toy_receipt.json")]
     got={local:get(t,f,name,local) for name,local in pairs}
     rc=json.loads((ROOT/"static_receipt.json").read_text())
     need(rc["run"]=="40635052627" and rc["commit"]=="26069fa77e5f2089ab0d103538eb271901521361","JTE116ONE_STATIC_RECEIPT_CONTEXT")
@@ -53,6 +56,12 @@ def fetch(t,f):
     for local in ("original_raw.mat","JTE101Original.slx","source_workspace.mat"):
         a=got[local];rows=[x for x in old["inputs"] if x["name"]==a["name"]]
         if rows:need(len(rows)==1 and rows[0]["sha256"]==a["sha256"],"JTE116ONE_OLD_SOURCE_HASH_LINK")
+    trc=json.loads((ROOT/"archived_toy_receipt.json").read_text())
+    need(trc["run"]=="40644248712" and trc["commit"]=="ce4079477393f3cacbdb744b861d7b42a94af9f2","JTE116ONE_ARCHIVED_TOY_CONTEXT")
+    for local in ("archived_toy_raw.mat","archived_toy_summary.json"):
+        a=got[local];rows=[x for x in trc["files"] if x["name"]==a["name"].removeprefix("JTE063_VERIFIED_")]
+        need(len(rows)==1 and rows[0]["sha256"]==a["sha256"] and rows[0]["integrity"]=="FULL_REMOTE_READBACK_VERIFIED",
+          "JTE116ONE_ARCHIVED_TOY_RECEIPT_LINK")
     mem={}
     for line in Path("/proc/meminfo").read_text().splitlines():
         k,v=line.split(":",1)

@@ -1,4 +1,4 @@
-name: JTE116 owner approved ONE guarded025 major-step diagnostic
+name: JTE116 saved-toy gate and owner approved ONE guard025 trajectory
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   one-approved-guard025:
-    if: github.event.head_commit.message == 'JTE116_OWNER_APPROVED_ONE_GUARD025_340'
+    if: github.event.head_commit.message == 'JTE116_APPROVED_SAVED_TOY_GATE_ONE_PLANT'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 40
@@ -42,7 +42,7 @@ jobs:
         with:
           release: R2024b
           products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
-      - name: NEW non-plant toy qualifies documented completed-major clock semantics
+      - name: READ ONLY qualify actual archived toy window clocks no toy rerun
         id: toy
         uses: matlab-actions/run-command@v3
         with:
