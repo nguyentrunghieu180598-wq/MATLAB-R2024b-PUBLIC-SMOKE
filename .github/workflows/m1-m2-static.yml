@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   static-certificate:
-    if: github.event.head_commit.message == 'BTMS_M1_M2_STATIC_CERTIFICATE_SID_SCOPE_FIX'
+    if: ${{ false }} # Closed after validated static delivery; no further execution authorized.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 8
