@@ -105,7 +105,8 @@ def main():
     if os.environ.get("BTMS_M3_OWNER_APPROVAL", "") != APPROVAL:
         raise RuntimeError("OWNER_PHYSICAL_APPROVAL_REQUIRED")
     if os.environ.get("GITHUB_REPOSITORY") != REPO or \
-       os.environ.get("GITHUB_REF") != "refs/heads/codex/jte-tf-constant-input":
+       os.environ.get("GITHUB_REF") != "refs/heads/codex/jte-tf-constant-input" or \
+       os.environ.get("GITHUB_RUN_ATTEMPT") != "1":
         raise RuntimeError("PRIVATE_OWNER_RUNNER_CONTEXT_UNQUALIFIED")
     if len(files) != 4 or len(set(files)) != 4 or not cmd:
         raise RuntimeError("ONE_SHOT_FOUR_FILE_CONTRACT")
@@ -125,7 +126,7 @@ def main():
     if issue:
         raise RuntimeError("PREFLIGHT_" + issue)
     t0 = time.monotonic()
-    reason = "CHILD_EXITED_NEEDS_INDEPENDENT_DATA_REVIEW"
+    reason = "UNQUALIFIED_PROCESS_NOT_LAUNCHED"
     proc = None
     max_bytes = 0
     try:
@@ -134,6 +135,7 @@ def main():
             # not use shell=True; child has its own killable process group.
             proc = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT,
                                     start_new_session=True, cwd=os.getcwd())
+            reason = "CHILD_EXITED_NEEDS_INDEPENDENT_DATA_REVIEW"
             while proc.poll() is None:
                 if time.monotonic() - t0 >= a.wall_ceiling_s:
                     reason = "UNQUALIFIED_WALL_CEILING"
@@ -145,6 +147,8 @@ def main():
                 total = sum(p.stat().st_size for p in files if p.exists())
                 max_bytes = max(max_bytes, total)
                 time.sleep(1)
+            if reason == "CHILD_EXITED_NEEDS_INDEPENDENT_DATA_REVIEW" and proc.returncode != 0:
+                reason = "UNQUALIFIED_CHILD_NONZERO_EXIT"
             if reason.startswith("UNQUALIFIED"):
                 terminate_group(proc)
     finally:
