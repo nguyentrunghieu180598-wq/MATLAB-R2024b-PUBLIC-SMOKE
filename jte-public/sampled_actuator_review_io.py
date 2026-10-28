@@ -14,7 +14,7 @@ def context():
       (e.get("repository") or {}).get("private") is False and
       os.environ.get("GITHUB_REF")=="refs/heads/codex/jte-tf-constant-input" and
       os.environ.get("GITHUB_EVENT_NAME")=="push" and os.environ.get("GITHUB_RUN_ATTEMPT")=="1" and
-      (e.get("head_commit") or {}).get("message")=="BTMS_ACTUATOR_AMENDMENT_STATIC_REVIEW_ONLY" and
+      (e.get("head_commit") or {}).get("message")=="BTMS_ACTUATOR_STATIC_METADATA_FIX" and
       (e.get("head_commit") or {}).get("id")==os.environ.get("GITHUB_SHA") and
       os.environ.get("RUNNER_ENVIRONMENT")=="github-hosted","ACT_REVIEW_CONTEXT_DENIED")
     t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")])
@@ -45,7 +45,9 @@ def fetch(t,f):
       ("JTE116ONE_40645118578_PLANT_RAW.mat","negative_raw.mat"),
       ("JTE116ONE_40645118578_PLANT_RECEIPT.json","negative_receipt.json"),
       ("JTE111_40620218579_PRIVATE_FINDINGS.json","j111_findings.json"),
-      ("JTE111_40620218579_PRIVATE_READBACK_RECEIPT.json","j111_receipt.json")]
+      ("JTE111_40620218579_PRIVATE_READBACK_RECEIPT.json","j111_receipt.json"),
+      ("ACTUATOR_REVIEW_40653849248_SOURCE_C0_TEMPLATE.slx","JTE2026LocalBias.slx"),
+      ("ACTUATOR_REVIEW_40653849248_PRIVATE_RECEIPT.json","template_receipt.json")]
     got={local:get(t,f,name,local) for name,local in pairs}
     rc=json.loads((ROOT/"negative_receipt.json").read_text());a=got["negative_raw.mat"]
     rows=[x for x in rc["files"] if x["name"]==a["name"].removeprefix("JTE063_VERIFIED_")]
@@ -58,6 +60,11 @@ def fetch(t,f):
     for local in ("original_raw.mat","JTE101Original.slx","source_workspace.mat","c0_original.mat"):
         a=got[local];rows=[x for x in refs if x["name"]==a["name"]]
         if rows:need(len(rows)==1 and rows[0]["sha256"]==a["sha256"],"ACT_REVIEW_SOURCE_PROVENANCE_LINK")
+    trc=json.loads((ROOT/"template_receipt.json").read_text());a=got["JTE2026LocalBias.slx"]
+    rows=[x for x in trc["files"] if x["name"]==a["name"].removeprefix("JTE063_VERIFIED_")]
+    need(trc["run"]=="40653849248" and trc["commit"]=="9112846e2492599e01f6e25621563f5fda798e4c" and
+      len(rows)==1 and rows[0]["sha256"]==a["sha256"] and rows[0]["integrity"]=="FULL_REMOTE_READBACK_VERIFIED",
+      "ACT_REVIEW_C0_TEMPLATE_RECEIPT_LINK")
     mem={}
     for line in Path("/proc/meminfo").read_text().splitlines():
         k,v=line.split(":",1)

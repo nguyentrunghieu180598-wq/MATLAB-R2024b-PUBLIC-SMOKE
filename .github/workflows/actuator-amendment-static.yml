@@ -1,4 +1,4 @@
-name: BTMS actuator amendment STATIC COMPILE REVIEW ONLY
+name: BTMS static metadata fix reuse C0 template NO DYNAMICS
 on:
   push:
     branches: ['codex/jte-tf-constant-input']
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review-only:
-    if: github.event.head_commit.message == 'BTMS_ACTUATOR_AMENDMENT_STATIC_REVIEW_ONLY'
+    if: github.event.head_commit.message == 'BTMS_ACTUATOR_STATIC_METADATA_FIX'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 35

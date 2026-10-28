@@ -70,3 +70,7 @@ Proposed essential-signal logging/bounded physical-state snapshots would need it
 - Compiled port types/width/units: https://www.mathworks.com/help/simulink/ug/determine-port-signal-attributes-programmatically.html
 
 No toy/physical automatic run, source solver/tolerance/Mod retry, new JTE-numbered trial, paid tool, merge, public private MAT or JTE058 manuscript/export. Static/compile evidence is software preparation only.
+
+## Software metadata repair provenance
+
+First static run40653849248/job122700036661 at9112846e2492599e01f6e25621563f5fda798e4c stopped while collecting source compile attributes with MATLAB:scalarStrucRequired. The struct constructor expanded a multi-rate cell into a struct array; it is replaced by explicit scalar field assignments preserving every returned rate. No unit, graph or compile acceptance criterion is relaxed and the10/5ms pair is unchanged. Source/IC frame checks and the legacy C0 template were already recorded privately. The continuation reuses that exact SHA-verified C0 template and receipt; no legacy builder, toy or physical simulation is rerun.

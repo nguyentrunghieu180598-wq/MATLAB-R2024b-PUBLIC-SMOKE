@@ -48,8 +48,7 @@ try
  clear N n
  project=openProject(fullfile(vendor,'batteryExamplesProjectSetup.prj'));
  restoreB(priv,B.workspaceSHA);
- files=JTE056build(vendor,fullfile(priv,'legacy-source-rebuild'));
- sourceC=files.study;copyfile(sourceC,[prefix '_SOURCE_C0_TEMPLATE.slx']);models={'JTE101Original','JTE2026B0L','JTE2026LocalBias'};
+ sourceC=fullfile(priv,'JTE2026LocalBias.slx');copyfile(sourceC,[prefix '_SOURCE_C0_TEMPLATE.slx']);models={'JTE101Original','JTE2026LocalBias'};
  load_system(sourceB);load_system(sourceC);
  verifySource('JTE101Original',B.loadSHA);verifySource('JTE2026LocalBias',C.loadSHA);
  bAudit=JTE096_modelAudit('JTE101Original');cAudit=JTE096_modelAudit('JTE2026LocalBias');
@@ -210,8 +209,8 @@ a.converter=normalize(a.converter,m);
 feval(m,[],[],[],'term');clear finish
 end
 function a=attributes(p)
-a=struct('types',get_param(p,'CompiledPortDataTypes'),'widths',get_param(p,'CompiledPortWidths'),...
- 'sampleTime',get_param(p,'CompiledSampleTime'),'units',[],'unitsAvailable',false);
+a=struct();a.types=get_param(p,'CompiledPortDataTypes');a.widths=get_param(p,'CompiledPortWidths');
+a.sampleTime=get_param(p,'CompiledSampleTime');a.units=[];a.unitsAvailable=false;
 try,a.units=get_param(p,'CompiledPortUnits');a.unitsAvailable=true;catch,a.units='UNAVAILABLE';end
 if iscell(a.sampleTime)&&numel(a.sampleTime)==1,a.sampleTime=a.sampleTime{1};end
 end
