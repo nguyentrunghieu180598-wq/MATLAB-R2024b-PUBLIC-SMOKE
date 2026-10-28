@@ -6,7 +6,7 @@ from sampled_actuator_review_io import ROOT,get,need
 from JTE062_google_drive_synthetic import EXPECTED_REPO,access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
 from JTE101_io import quota
-MSG="BTMS_M2_TOFILE_STATIC_COMPILE_ONLY";SCHEMA="BTMS_M1_M2_STATIC_ONLY_NOT_G5"
+MSG="BTMS_M2_TOFILE_METADATA_SCALAR_FIX";SCHEMA="BTMS_M1_M2_STATIC_ONLY_NOT_G5"
 PIN="0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0"
 def context():
  e=json.load(open(os.environ["GITHUB_EVENT_PATH"]))

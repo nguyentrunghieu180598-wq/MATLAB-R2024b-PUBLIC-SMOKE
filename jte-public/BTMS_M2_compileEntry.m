@@ -112,8 +112,9 @@ for k=1:numel(models),try,quietTerm(models{k});close_system(models{k},0);catch,e
 try,if ~isempty(project),close(project);end;catch,end
 end
 function a=attr(b)
-a=struct('types',get_param(b,'CompiledPortDataTypes'),'widths',get_param(b,'CompiledPortWidths'),...
- 'sampleTime',get_param(b,'CompiledSampleTime'),'units','UNAVAILABLE');
+% Assign fields separately: multirate cell sample times must not expand a struct array.
+a=struct();a.types=get_param(b,'CompiledPortDataTypes');a.widths=get_param(b,'CompiledPortWidths');
+a.sampleTime=get_param(b,'CompiledSampleTime');a.units='UNAVAILABLE';
 try,a.units=get_param(b,'CompiledPortUnits');catch,end
 end
 function x=normalRate(x)
