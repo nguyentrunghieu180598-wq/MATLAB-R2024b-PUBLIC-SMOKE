@@ -1,0 +1,30 @@
+name: Stop bounded gate run preserve always private delivery
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/stop-bounded-gate.yml']
+permissions:
+  contents: read
+  actions: write
+jobs:
+  stop-only-owned-run:
+    if: github.event.head_commit.message == 'BTMS_STOP_LONG_INPUT_SCAN_PRESERVE_TOY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 3
+    steps:
+      - name: Cancel only known own run no rerun no MATLAB
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request
+          root="https://api.github.com/repos/nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE/actions/runs/40669078761"
+          headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"}
+          with urllib.request.urlopen(urllib.request.Request(root,headers=headers),timeout=30) as r:d=json.load(r)
+          assert d["head_sha"]=="c9df69ebee56938faa6f484fb77343841c60aa59" and d["head_branch"]=="codex/jte-tf-constant-input"
+          if d["status"]=="completed":print("BOUNDED_STOP_NOT_NEEDED_ALREADY_COMPLETED")
+          else:
+              with urllib.request.urlopen(urllib.request.Request(root+"/cancel",headers=headers,method="POST",data=b""),timeout=30) as r:assert r.status==202
+              print("BOUNDED_STOP_REQUESTED preserveExistingAlwaysPrivatePublisher=1 noRerun=1 noMATLAB=1")
+          PY
