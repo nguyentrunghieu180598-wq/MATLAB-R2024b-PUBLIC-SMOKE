@@ -27,3 +27,5 @@ jobs:
       - name: Remove private scratch
         if: always()
         run: rm -rf actuator-review-private
+
+# Raw XML is authoritative for saved sink schema; prior b audit excludes new sink rows by design.

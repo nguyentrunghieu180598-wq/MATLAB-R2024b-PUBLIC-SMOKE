@@ -33,6 +33,7 @@ def main(t,f):
       pp={v.attrib["Name"]:v.text or "" for v in b.findall("./P")}
       xmlrows.append({"SID":b.attrib.get("SID"),"name":b.attrib.get("Name"),"parameterNames":list(pp),
        "fileKeys":[k for k in pp if k.casefold()=="filename"]})
+  result["sourceXML"]=xmlrows
   matrows=[]
   with h5py.File(ROOT/"proof.mat","r") as fmat:
    def char(ref):
@@ -47,8 +48,9 @@ def main(t,f):
     params=np.asarray(fmat[col[2]]).ravel(order="F")
     names=[char(x) for x in np.asarray(fmat[params[0]]).ravel(order="F")]
     matrows.append({"path":char(col[0]),"dialogParameterNames":names,"fileKeys":[k for k in names if k.casefold()=="filename"]})
-  need(len(xmlrows)==4 and len(matrows)==4,"M2340_SCHEMA_FOUR")
-  result.update({"sourceXML":xmlrows,"actualSavedMATLABDialogMetadata":matrows,"schemaVerified":True})
+  need(len(xmlrows)==4 and all(len(x["fileKeys"])==1 for x in xmlrows),"M2340_SCHEMA_FOUR_XML")
+  result.update({"actualSavedMATLABDialogMetadata":matrows,"schemaVerified":True,
+   "savedAuditNote":"Prior M2 audit b deliberately excludes the four added logger blocks; zero ToFile dialog rows there is expected."})
   tests=[]
   def key(pp):
    z=[x for x in pp if x.casefold()=="filename"]
