@@ -26,7 +26,7 @@ try
    end
    % All input switches are on explicit250us source ticks. FromWorkspace is ZOH.
    z=struct('time',t,'signals',struct('values',v,'dimensions',1));var=['toyInput' num2str(j)];assignin(mw,var,z);
-   add_block('simulink/Sources/From Workspace',source,'VariableName',var,'Interpolate','off','SampleTime','0');
+   add_block('simulink/Sources/From Workspace',source,'VariableName',var,'Interpolate','off','OutputAfterFinalValue','Holding final value','SampleTime','0');
    add_block('simulink/Discrete/Zero-Order Hold',hold,'SampleTime',mat2str(Ts,17));
    add_block('simulink/Discrete/Discrete State-Space',act,'A',mat2str(p.A,17),'B',mat2str(p.B,17),'C','1','D','0',...
     'InitialCondition',mat2str(x0,17),'SampleTime',mat2str(Ts,17),'StateName','amendedActuatorOutputState');
@@ -46,6 +46,8 @@ try
  % Save-as changed root. Refresh listener paths ONLY, never coefficients/wiring.
  for j=1:numel(specs),specs(j).path=[m '/' specs(j).id '_actuator'];end
  sampled_gate_events('init',specs);
+ % Compile guard prevents another call on an invalid toy configuration.
+ feval(m,[],[],[],'compile');feval(m,[],[],[],'term');r.compileGuardPassed=true;
  simCount=simCount+1;out=sim(m); % ONLY simulation call in entire authorized package.
  tr=sampled_gate_events('get');flags.MATLAB_TOY_COMPLETE=true;
  data=cell(1,numel(specs));allState=true;phase=true;clockTol=32*eps(max(1,stop));
@@ -73,7 +75,8 @@ try
  flags.ACTUAL_PRE_POST_STATE_AVAILABLE=allState;flags.MATLAB_PHASE_CHECKS=phase;r.branches=data;
  if ~allState,r.qualification='UNQUALIFIED_ACTUAL_STATE_OR_CLOCK_UNAVAILABLE';else,r.qualification='MATLAB_PHASE_COMPLETE_PENDING_INDEPENDENT_DECIMAL';end
 catch ME
- r.failure=struct('identifier',ME.identifier,'message',ME.message,'stack',{ME.stack});
+ r.failure=struct('identifier',ME.identifier,'message',ME.message,'stack',{ME.stack},'nestedCauses',{causeTree(ME)},'fullReport',getReport(ME,'extended','hyperlinks','off'));
+ try,feval(m,[],[],[],'term');catch,end
  try,tr=sampled_gate_events('get');catch,end
 end
 r.flags=flags;r.simCount=simCount;r.rawEvents=tr;r.simulationOutput=out;r.specs=specs;
@@ -86,4 +89,9 @@ fprintf('SAMPLED_TOY_EXECUTION simulationCalls=%d complete=%d actualPrePostState
 end
 function writeJSON(p,v)
 f=fopen(p,'w');assert(f~=-1,'Gate:Write','Private file write failed.');fprintf(f,'%s',jsonencode(v));fclose(f);
+end
+
+function a=causeTree(e)
+a=cell(size(e.cause));
+for k=1:numel(a),z=e.cause{k};a{k}=struct('identifier',z.identifier,'message',z.message,'children',{causeTree(z)});end
 end
