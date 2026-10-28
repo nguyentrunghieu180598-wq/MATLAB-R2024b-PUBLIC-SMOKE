@@ -1,5 +1,5 @@
 """M3 ONE infrastructure-only receipt publisher. No battery authorization."""
-import os,json,sys,re,hashlib
+import os,json,sys,re,hashlib,urllib.request
 from pathlib import Path
 from JTE062_google_drive_synthetic import access_token,ensure_app_folder
 from JTE063_streaming_drive import upload_verified
@@ -20,6 +20,13 @@ def main():
  t=access_token(*[os.environ[k] for k in ("JTE_GOOGLE_CLIENT_ID","JTE_GOOGLE_CLIENT_SECRET","JTE_GOOGLE_REFRESH_TOKEN")]);f=ensure_app_folder(t)
  run=os.environ["GITHUB_RUN_ID"];mode=sys.argv[1]
  if mode=="prepare":
+  # The superseded job must have been cancelled BEFORE its probe step.
+  url="https://api.github.com/repos/nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE/actions/runs/40747914094/jobs"
+  request=urllib.request.Request(url,headers={"User-Agent":"M3-One-Probe-Guard"})
+  with urllib.request.urlopen(request,timeout=20) as response:prior=json.load(response)
+  jobs=prior.get("jobs",[]);assert len(jobs)==1 and jobs[0]["conclusion"]=="cancelled"
+  candidates=[s for s in jobs[0]["steps"] if s["name"]=="ONE tiny synthetic infrastructure trajectory"]
+  assert len(candidates)==1 and candidates[0]["conclusion"]=="skipped","M3_PRIOR_PROBE_MAY_HAVE_EXECUTED_STOP"
   ROOT.mkdir(mode=0o700,exist_ok=False)
   q=quota(t);assert q["availableBytes"]>3*1024**3
   names=["BTMS_M3_loggerProbe.m","BTMS_M3_completed.m","BTMS_M3_instrument.m","BTMS_M3_events.m"]

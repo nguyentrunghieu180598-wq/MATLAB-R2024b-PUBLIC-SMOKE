@@ -25,7 +25,7 @@ try
  ph=get_param([m '/time'],'PortHandles');ports(1)=ph.Outport(1);
  stage='OBSERVATION_METADATA';BTMS_M3_instrument(m,ports,[m '/state'],root);
  stage='SYNTHETIC_INITIALIZE';s=simulation(m);initialize(s);
- stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;step(s);q0=BTMS_M3_completed(s,processed);
+ stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;finalstep=step(s);q0=BTMS_M3_completed(s,processed);
  stage='FIRST_PAUSED_OPERATING_POINT_NOT_T0';
  firstPausedTop=s.Time;
  op0=get_param(m,'CurrentOperatingPoint');
@@ -33,11 +33,15 @@ try
    abs(op0.snapshotTime-firstPausedTop)<=32*eps(max(1,abs(firstPausedTop))), ...
    'M3:PausedOP','Operating point snapshot does not match actual paused top-of-step.');
  save(fullfile(root,'PROBE_FIRST_PAUSED_OPERATING_POINT.mat'),'op0','q0','firstPausedTop','-v7.3');
- stage='SYNTHETIC_NATIVE_HORIZON';checkpoints={q0};
- while strcmp(s.Status,'paused')
-  processed=s.Time;step(s);
-  if strcmp(s.Status,'paused'),checkpoints{end+1}=BTMS_M3_completed(s,processed);end %#ok<AGROW>
+ stage='SYNTHETIC_NATIVE_HORIZON';checkpoints={q0};majorCount=1;loopClock=tic;
+ while ~finalstep
+  assert(strcmp(s.Status,'paused')&&majorCount<1000&&toc(loopClock)<30,...
+   'M3:SyntheticTermination','Tiny probe failed bounded major-step progression.');
+  processed=s.Time;finalstep=step(s);majorCount=majorCount+1;
+  checkpoints{end+1}=BTMS_M3_completed(s,processed); %#ok<AGROW>
  end
+ assert(processed==.03,'M3:SyntheticHorizon','Final processed major is not frozen synthetic horizon.');
+ stop(s); % Normal-mode final step pauses; terminate explicitly to flush ToFile.
  BTMS_M3_events('close');
  for k=1:4
   d=load(files{k});ts=d.(['native' num2str(k)]);

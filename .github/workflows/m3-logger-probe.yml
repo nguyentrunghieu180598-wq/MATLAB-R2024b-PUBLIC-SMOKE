@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   logger-probe:
-    if: ${{ false }} # Cancel own pending setup before any tiny probe; correct finalstep first.
+    if: github.event.head_commit.message == 'M3_REQUALIFY_ONE_TINY_LOGGER_20261029' && github.run_attempt == 1 && github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
@@ -34,6 +34,7 @@ jobs:
           release: R2024b
           products: Simulink
       - name: ONE tiny synthetic infrastructure trajectory
+        timeout-minutes: 3
         uses: matlab-actions/run-command@v3
         with:
           command: addpath('jte-public'); BTMS_M3_requalifyEntry()
