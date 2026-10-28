@@ -41,7 +41,7 @@ jobs:
         if: always()
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
-          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
           JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
         run: python jte-public/m3_logger_io.py publish
       - name: Cleanup
