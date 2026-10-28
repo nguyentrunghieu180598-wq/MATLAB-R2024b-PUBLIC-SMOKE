@@ -7,10 +7,10 @@ permissions:
   contents: read
 concurrency:
   group: btms-m2-340-one-static
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   compile-new-logger-only:
-    if: github.event.head_commit.message == 'BTMS_M2_340_CANONICAL_PRIVATE_PATH_FIX'
+    if: ${{ false }} # Qualifying one-model compile complete; owner physical approval required.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
