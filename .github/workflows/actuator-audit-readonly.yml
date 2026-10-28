@@ -1,0 +1,31 @@
+name: BTMS read saved STATIC audit metadata ONLY
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/actuator-audit-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  read-saved-diff:
+    if: github.event.head_commit.message == 'BTMS_READ_SAVED_STATIC_AUDIT'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Free pinned HDF5 reader no MATLAB no model execution
+        run: python -m pip install --quiet h5py==3.14.0
+      - name: Read SHA-verified saved parameter diff privately
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python jte-public/read_saved_actuator_audit.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf actuator-review-private
