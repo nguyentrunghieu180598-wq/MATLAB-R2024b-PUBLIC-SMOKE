@@ -1,0 +1,26 @@
+name: JTE106 deliver existing private result only
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte106-delivery.yml']
+permissions:
+  contents: read
+jobs:
+  existing-result-delivery:
+    if: github.event.head_commit.message == 'JTE106_DELIVER_EXISTING_RESULT_ONLY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: SHA-verified existing JSON to private review digest
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE106_deliverExisting.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf jte106-delivery-private
