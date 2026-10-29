@@ -1,0 +1,31 @@
+name: BTMS final role-clock review of saved toy NO MATLAB
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/sampled-role-review.yml']
+permissions:
+  contents: read
+concurrency:
+  group: btms-one-toy-baseline-feasibility
+  cancel-in-progress: false
+jobs:
+  review-only:
+    if: github.event.head_commit.message == 'BTMS_SAVED_TOY_ROLE_CLOCK_REVIEW_ONLY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read only native identity and pulse check
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 -m pip install --quiet numpy==2.2.6
+          python3 jte-public/sampled_gate_role_review.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf actuator-review-private

@@ -1,0 +1,63 @@
+name: BTMS read one saved toy native clocks NO SIM
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/sampled-native-postmortem.yml']
+permissions:
+  contents: read
+concurrency:
+  group: btms-one-toy-baseline-feasibility
+  cancel-in-progress: false
+jobs:
+  review-only:
+    if: github.event.head_commit.message == 'BTMS_READ_SAVED_TOY_NATIVE_CLOCKS_ONLY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Syntax check private transport
+        run: python3 -m py_compile jte-public/sampled_gate_post_io.py jte-public/sampled_gate_check.py
+      - name: Independent Decimal input reader
+        run: python3 -m pip install --quiet numpy==2.2.6
+      - name: Private immutable archives and resource metadata no rights changes
+        id: fetch
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/sampled_gate_post_io.py fetch
+      - name: Official HTTPS dependency mirror
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink
+      - name: Deserialize saved toy native clocks only no model load
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); sampled_gate_native_extract()
+      - name: Native actual-event Decimal review original failed gate retained
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        run: python3 jte-public/sampled_gate_native_check.py
+      - name: Full private evidence SHA readback
+        if: ${{ always() && steps.fetch.outcome == 'success' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/sampled_gate_post_io.py publish
+      - name: Preserve vendor source pin
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
+      - name: Remove private runner scratch
+        if: always()
+        run: rm -rf actuator-review-private

@@ -1,0 +1,100 @@
+name: JTE101 one paired original340 and one constant-input340 private diagnostic
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte101-private.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte101-bounded-private
+  cancel-in-progress: false
+jobs:
+  bounded-pair:
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 35
+    env:
+      JTE101_AUDIT_RUN: '40447257220'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Reuse actual Stage A private audit (no schema/access rerun)
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py fetch-b
+      - name: Pin untouched source
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - name: Official HTTPS dependency mirror
+        run: |
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            printf '%s\n' 'https://archive.ubuntu.com/ubuntu' | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Prepare both copies and exact one-edge proof (no simulation)
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE101_stageB('prepare')
+      - name: Verify frozen workspace restoration and compile both roles in a separate process
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE101_stageB('workspacecheck')
+      - name: Preserve exact source workspace and compile receipt privately
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py publish-prepare
+      - name: Private one-shot original intent
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py intent-original
+      - name: Exactly one necessary original340 with state Dataset
+        id: original
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE101_stageB('original')
+      - name: Persist original raw before any counterfactual
+        if: ${{ always() && steps.original.outcome != 'skipped' && steps.original.outcome != '' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py publish-original
+      - name: Private one-shot constant intent after original private readback
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py intent-constant
+      - name: Exactly one constant-input340
+        id: constant
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); JTE101_stageB('constant')
+      - name: Retain constant raw and localization flags privately
+        if: ${{ always() && steps.constant.outcome != 'skipped' && steps.constant.outcome != '' }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/JTE101_io.py publish-constant
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf jte101-private jte101-generated
+      - name: Confirm vendor unchanged
+        if: always()
+        run: |
+          if [ -f vendor-pack/Models/Battery_Pack_Thermal_Management.slx ]; then
+            echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+          fi
