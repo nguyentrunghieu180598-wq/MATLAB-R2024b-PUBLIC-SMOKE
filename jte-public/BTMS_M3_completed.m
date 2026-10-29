@@ -1,4 +1,8 @@
-function q=BTMS_M3_completed(s,processed)
+function q=BTMS_M3_completed(s,processed,finalstep,expectedStop)
+% Terminal handling is a source-reviewed proposal, NOT yet MATLAB-qualified.
+if nargin<3,finalstep=false;end
+if nargin<4,expectedStop=NaN;end
+assert(islogical(finalstep)&&isscalar(finalstep),'M3:TerminalFlag','Actual step return required.');
 % processed MUST be captured from s.Time BEFORE step(s).
 o=s.SimulationOutput;logs=o.get('m3Signals');names={'m3Core','m3Held','m3Y','m3T312'};
 v=cell(1,4);times=zeros(1,4);lengths=zeros(1,4);
@@ -13,10 +17,25 @@ events=BTMS_M3_events('get');
 assert(all(cellfun(@(x)~isempty(x)&&x.readable,events)),'M3:State','Actual phase states unreadable.');
 assert(events{1}.time==times(3)&&events{1}.output==v{3}&&events{1}.state==v{3},...
  'M3:Phase','Output is not actual C=1,D=0 pre-update state at its own tick.');
-assert(s.Time>=processed,'M3:Clock','Next top-of-step regressed.');
-q=struct('processedPriorTop',processed,'nextTop',s.Time,'signalTimes',times,...
+returnedTime=s.Time;status=char(s.Status);
+assert(isscalar(returnedTime)&&isfinite(returnedTime),'M3:Clock','Returned simulation time unavailable.');
+if finalstep
+ assert(isfinite(expectedStop)&&processed==expectedStop&&...
+  any(strcmp(status,{'paused','inactive'})),...
+  'M3:TerminalClock','Terminal return, processed horizon and lifecycle must agree.');
+ % There is no next processed major after the horizon. Preserve raw lifecycle
+ % time for diagnosis; never reinterpret it as another accepted sample.
+ nextTop=[];nextTopAvailable=false;
+else
+ assert(strcmp(status,'paused')&&returnedTime>=processed,...
+  'M3:Clock','Active next top-of-step regressed or is not paused.');
+ nextTop=returnedTime;nextTopAvailable=true;
+end
+q=struct('processedPriorTop',processed,'nextTop',nextTop,...
+ 'nextTopAvailable',nextTopAvailable,'returnedSimulationTime',returnedTime,...
+ 'simulationStatus',status,'finalStepReturned',finalstep,'signalTimes',times,...
  'core',v{1},'held',v{2},'y',v{3},'T312',v{4},'phases',{events},...
- 'clockScope','Completed major only. Discrete phase times are their own latest tick; nextTop is not a processed sample.');
+ 'clockScope','Signal/phase clocks must match the processed prior top. Discrete times retain their latest tick. No nextTop is asserted after finalStep; raw lifecycle time is preserved. Not hidden physical t0 proof.');
 end
 function [t,v,n]=tail(ts)
 n=numel(ts.Time);assert(n>0,'M3:Empty','No logged native sample.');t=ts.Time(end);a=ts.Data;

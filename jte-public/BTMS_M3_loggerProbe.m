@@ -25,7 +25,7 @@ try
  ph=get_param([m '/time'],'PortHandles');ports(1)=ph.Outport(1);
  stage='OBSERVATION_METADATA';BTMS_M3_instrument(m,ports,[m '/state'],root);
  stage='SYNTHETIC_INITIALIZE';s=simulation(m);initialize(s);
- stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;finalstep=step(s);q0=BTMS_M3_completed(s,processed);
+ stage='SYNTHETIC_FIRST_COMPLETED_MAJOR';processed=s.Time;finalstep=step(s);q0=BTMS_M3_completed(s,processed,finalstep,.03);
  stage='FIRST_PAUSED_OPERATING_POINT_NOT_T0';
  firstPausedTop=s.Time;
  op0=get_param(m,'CurrentOperatingPoint');
@@ -38,10 +38,10 @@ try
   assert(strcmp(s.Status,'paused')&&majorCount<1000&&toc(loopClock)<30,...
    'M3:SyntheticTermination','Tiny probe failed bounded major-step progression.');
   processed=s.Time;finalstep=step(s);majorCount=majorCount+1;
-  checkpoints{end+1}=BTMS_M3_completed(s,processed); %#ok<AGROW>
+  checkpoints{end+1}=BTMS_M3_completed(s,processed,finalstep,.03); %#ok<AGROW>
  end
  assert(processed==.03,'M3:SyntheticHorizon','Final processed major is not frozen synthetic horizon.');
- stop(s); % Normal-mode final step pauses; terminate explicitly to flush ToFile.
+ if ~strcmp(s.Status,'inactive'),stop(s);end % Final lifecycle may already be inactive.
  BTMS_M3_events('close');
  for k=1:4
   d=load(files{k});ts=d.(['native' num2str(k)]);
@@ -61,7 +61,20 @@ catch err
  safeID=regexprep(err.identifier,'[^A-Za-z0-9_:]','_');
  if isempty(safeID),safeID='EMPTY_ERROR_IDENTIFIER';end
  fprintf('M3_SYNTHETIC_INFRA_UNQUALIFIED stage=%s identifier=%s\n',safeStage,safeID);
- if ~isempty(s),try,stop(s);catch,end,end
+ % Preserve observed lifecycle BEFORE cleanup. Never infer a missing final flag.
+ if ~isempty(s)
+  try
+   lifecycle=struct('returnedSimulationTime',s.Time,'simulationStatus',char(s.Status));
+   if exist('processed','var'),lifecycle.processedPriorTop=processed;end
+   if exist('finalstep','var'),lifecycle.finalStepReturned=finalstep;end
+   if exist('majorCount','var'),lifecycle.majorCount=majorCount;end
+   if ~exist('checkpoints','var'),checkpoints={};end
+   save(fullfile(root,'PROBE_PARTIAL_LIFECYCLE.mat'),'lifecycle','checkpoints','-v7.3');
+  catch evidenceErr
+   flags.partialEvidenceIdentifier=evidenceErr.identifier;
+  end
+  try,if ~strcmp(s.Status,'inactive'),stop(s);end,catch,end
+ end
  try,BTMS_M3_events('close');catch,end
 end
 fid=fopen(fullfile(root,'PROBE_FLAGS.json'),'w');
