@@ -5,6 +5,8 @@
 ## Scope and source diff
 Branch codex/wk02-m3-nonterminal-witness is isolated from Work PR62 and Chat's terminal-inactive candidate. It adds `BTMS_WK02_nonterminalWitness.m` and modifies the existing `BTMS_M3_requalifyEntry.m` only to fail the MATLAB action when the private flags remain UNQUALIFIED. It does not edit the model, physical network, solver, controller, actuator period, current load, reference or vendor source.
 
+The function is intentionally source-clone pinned and cannot be passed the 30 ms toy as a substitute for the physical clone; the existing fixture does not call it. Re-running the disabled fixture unchanged would not validate this function. A separately reviewed synthetic adapter would need its own toy identity and explicit mode/terminal metadata before any nonbattery dispatch.
+
 The recorder requires the caller's pre-step `processedPriorTop`, the actual `finalstep=false`, paused status and finite nonregressing next `s.Time`. It invokes the existing four-role bounded signal and phase helper, records four *per-step native tail clocks*, source/clone SHA pins, pre/post actuator DState and output, and ordered phase sequence. Those four tails do not replace four complete ToFile timestamp vectors. It rejects any terminal step before interpreting it as a completed-major witness. Callback records retain only their actual phase semantics.
 
 The source/clone SHA strings are compared and recorded, but true byte integrity depends on an independent owner-private preflight, not a caller-supplied boolean alone. The caller must bind the actual clone hash to the SHA-verified M2 receipt and verify it again after remote readback; this function does not itself prove cryptographic provenance.
