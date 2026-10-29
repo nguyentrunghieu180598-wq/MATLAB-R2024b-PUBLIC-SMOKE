@@ -1,0 +1,54 @@
+{
+  "schema": "JTE111_G5_EVIDENCE_V1",
+  "source_sha256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+  "gates": {
+    "SOURCE_MODEL_LOCK": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "RUNTIME_LOCK": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "RAW_T312_CLOCK": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "ZERO_BIAS_IDENTITY": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "PAIR_INPUT_PARITY": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "ORIGINAL_WINDOW_1": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "ORIGINAL_WINDOW_2": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "ACCEPTED_EVENT_SEMANTICS": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "INDEPENDENT_NUMERICS_W1": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "INDEPENDENT_NUMERICS_W2": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "POSTFILTER_RELIABILITY": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    },
+    "THERMAL_CONVERGENCE": {
+      "status": "UNAVAILABLE",
+      "reason": "Awaiting independently verified owner-private evidence; do not mark PASS from CI success."
+    }
+  }
+}
