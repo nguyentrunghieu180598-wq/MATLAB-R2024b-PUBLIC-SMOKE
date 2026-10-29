@@ -1,0 +1,31 @@
+name: BTMS M1 exact paths private certificate NO MATLAB
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/m1-m2-static.yml']
+permissions:
+  contents: read
+jobs:
+  static-certificate:
+    if: ${{ false }} # Closed after validated static delivery; no further execution authorized.
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Interpret existing private graphs only no MATLAB or model compile
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 -m pip install --quiet h5py==3.14.0
+          python3 -m py_compile jte-public/m1_m2_certificate.py
+          python3 jte-public/m1_m2_certificate.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf actuator-review-private
+
+# Case-local SIDs resolved by verified unique block path; never reused across model files.
