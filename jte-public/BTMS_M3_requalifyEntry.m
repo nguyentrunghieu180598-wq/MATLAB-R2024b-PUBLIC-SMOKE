@@ -20,4 +20,15 @@ f=fopen(fullfile(root,'PROBE_DISPATCHED.json'),'w');assert(f>=0,'M3:ProbeWrite',
 fprintf(f,'{"syntheticOnly":true,"oneAttempt":true,"physicalApprovalConsumed":false}');fclose(f);
 fprintf('M3_R2024B_LINT_PARSE=PASS oneSyntheticProbe=STARTING physicalRun=0\n');
 BTMS_M3_loggerProbe();
+% The MATLAB action MUST fail when the native logger is unqualified.
+% The workflow's independent 'if: always()' publisher still protects
+% diagnostic evidence and produces verified private readback receipts.
+% An upload succeeding must never turn an unqualified MATLAB fixture green.
+f=fullfile(root,'PROBE_FLAGS.json');
+assert(isfile(f),'M3:NoFlags','Native logger did not preserve qualification flags.');
+result=jsondecode(fileread(f));
+assert(isfield(result,'status')&&...
+ strcmp(result.status,'M3_LOGGER_CLOCK_STATE_FIRST_PAUSED_OP_ONLY'),...
+ 'M3:QualificationNoPass','Native logger unqualified; private evidence preserved for publisher.');
+fprintf('M3_SYNTHETIC_LOGGER_QUALIFIED physicalRun=0 G5_ACCEPTED=false\n');
 end
