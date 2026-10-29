@@ -1,0 +1,35 @@
+name: JTE111 Step A private G5 evidence only
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte111-private.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte111-step-a
+  cancel-in-progress: false
+jobs:
+  existing-g5-evidence:
+    if: github.event.head_commit.message == 'JTE111_STEP_A_EXISTING_G5_EVIDENCE_ONLY'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native MAT reader only, no synthetic tests
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 h5py==3.14.0
+      - name: Existing MAT state/window evidence and private structural gate
+        env:
+          PYTHONUNBUFFERED: '1'
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python jte-public/JTE111_existingEvidence.py
+      - name: Remove private runner scratch
+        if: always()
+        run: rm -rf jte111-private
