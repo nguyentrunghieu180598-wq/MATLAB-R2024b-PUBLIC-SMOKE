@@ -1,0 +1,35 @@
+name: JTE112 one private physical-envelope audit
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/jte112-private.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jte112-envelope
+  cancel-in-progress: false
+jobs:
+  archived-filter-envelope:
+    if: github.event.head_commit.message == 'JTE112_ONE_PRIVATE_ENVELOPE_AUDIT'
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Numeric archive reader only, no synthetic tests
+        run: python -m pip install --disable-pip-version-check numpy==2.2.6 h5py==3.14.0
+      - name: Actual-y0 native-envelope audit and complete private SHA readback
+        env:
+          PYTHONUNBUFFERED: '1'
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python jte-public/JTE112_archivedEnvelope.py
+      - name: Remove private runner scratch
+        if: always()
+        run: rm -rf jte112-private
