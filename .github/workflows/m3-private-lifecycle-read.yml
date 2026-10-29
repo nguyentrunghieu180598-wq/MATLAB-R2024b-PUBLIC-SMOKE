@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   private-read:
-    if: github.event.head_commit.message == 'M3_READ_EXISTING_TERMINAL_WITNESS_ONCE_20261029' && github.run_attempt == 1 && github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE'
+    if: ${{ false }} # Read-only one-shot closed.
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
