@@ -1,0 +1,31 @@
+name: M3 read existing private lifecycle NO MATLAB
+on:
+  push:
+    branches: [codex/jte-tf-constant-input]
+    paths: [.github/workflows/m3-private-lifecycle-read.yml]
+permissions:
+  contents: read
+jobs:
+  private-read:
+    if: ${{ false }} # Read-only one-shot closed.
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read saved MAT privately with verified input SHA
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python -m pip install --quiet h5py==3.14.0
+          python jte-public/m3_private_lifecycle_read.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf m3-private-readonly
