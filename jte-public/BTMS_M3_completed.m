@@ -21,10 +21,11 @@ returnedTime=s.Time;status=char(s.Status);
 assert(isscalar(returnedTime)&&isfinite(returnedTime),'M3:Clock','Returned simulation time unavailable.');
 if finalstep
  assert(isfinite(expectedStop)&&processed==expectedStop&&...
-  any(strcmp(status,{'paused','inactive'})),...
-  'M3:TerminalClock','Terminal return, processed horizon and lifecycle must agree.');
+  strcmp(status,'paused'),...
+  'M3:TerminalLifecycle','Normal-mode terminal return must remain paused at exact processed horizon; inactive requires separate evidence.');
  % There is no next processed major after the horizon. Preserve raw lifecycle
  % time for diagnosis; never reinterpret it as another accepted sample.
+ assert(returnedTime>=processed,'M3:TerminalClock','Paused terminal time regressed.');
  nextTop=[];nextTopAvailable=false;
 else
  assert(strcmp(status,'paused')&&returnedTime>=processed,...

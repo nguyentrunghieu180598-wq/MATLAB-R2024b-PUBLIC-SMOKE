@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   logger-probe:
-    if: ${{ false }} # One actual probe consumed; no automatic retry or plant.
+    if: github.event.head_commit.message == 'M3_REQUALIFY_TERMINAL_CLOCK_ONCE_20261029' && github.run_attempt == 1 && github.repository == 'nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE'
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25

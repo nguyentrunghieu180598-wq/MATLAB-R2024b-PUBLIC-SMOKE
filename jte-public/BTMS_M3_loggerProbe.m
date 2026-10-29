@@ -34,10 +34,14 @@ try
    'M3:PausedOP','Operating point snapshot does not match actual paused top-of-step.');
  save(fullfile(root,'PROBE_FIRST_PAUSED_OPERATING_POINT.mat'),'op0','q0','firstPausedTop','-v7.3');
  stage='SYNTHETIC_NATIVE_HORIZON';checkpoints={q0};majorCount=1;loopClock=tic;
+ lifecycle=struct('processedPriorTop',processed,'finalStepReturned',finalstep,...
+  'returnedSimulationTime',s.Time,'simulationStatus',char(s.Status));
  while ~finalstep
   assert(strcmp(s.Status,'paused')&&majorCount<1000&&toc(loopClock)<30,...
    'M3:SyntheticTermination','Tiny probe failed bounded major-step progression.');
   processed=s.Time;finalstep=step(s);majorCount=majorCount+1;
+  lifecycle=struct('processedPriorTop',processed,'finalStepReturned',finalstep,...
+   'returnedSimulationTime',s.Time,'simulationStatus',char(s.Status));
   checkpoints{end+1}=BTMS_M3_completed(s,processed,finalstep,.03); %#ok<AGROW>
  end
  assert(processed==.03,'M3:SyntheticHorizon','Final processed major is not frozen synthetic horizon.');
@@ -45,10 +49,13 @@ try
  BTMS_M3_events('close');
  for k=1:4
   d=load(files{k});ts=d.(['native' num2str(k)]);
-  assert(isa(ts,'timeseries')&&numel(ts.Time)>2&&ts.Time(1)==0&&ts.Time(end)==.03,...
-   'M3:Native','ToFile full stream was truncated or horizon missing.');
+  assert(isa(ts,'timeseries')&&numel(ts.Time)>2&&ts.Time(1)==0&&...
+   all(isfinite(ts.Time))&&all(diff(ts.Time)>=0)&&...
+   abs(ts.Time(end)-.03)<=32*eps(1),...
+   'M3:Native','ToFile full stream or independent native clock failed.');
+  nativeClock{k}=ts.Time; %#ok<AGROW> private exact clock, no interpolation
  end
- save(fullfile(root,'PROBE_CHECKPOINTS.mat'),'checkpoints','-v7.3');
+ save(fullfile(root,'PROBE_CHECKPOINTS.mat'),'checkpoints','nativeClock','lifecycle','-v7.3');
  flags.status='M3_LOGGER_CLOCK_STATE_FIRST_PAUSED_OP_ONLY';
  flags.unboundedToFileWithBoundedDataset=true;flags.actualCompletedMajor=true;
  flags.discreteRoleClocks=true;flags.actualPhaseDState=true;
@@ -74,6 +81,18 @@ catch err
    flags.partialEvidenceIdentifier=evidenceErr.identifier;
   end
   try,if ~strcmp(s.Status,'inactive'),stop(s);end,catch,end
+ end
+ try
+  nativeClock=cell(1,4);nativeLast=cell(1,4);
+  for k=1:4
+   if isfile(files{k})
+    d=load(files{k});ts=d.(['native' num2str(k)]);
+    nativeClock{k}=ts.Time;nativeLast{k}=ts.Data(end,:);
+   end
+  end
+  save(fullfile(root,'PROBE_PARTIAL_NATIVE_CLOCKS.mat'),'nativeClock','nativeLast','-v7.3');
+ catch evidenceErr
+  flags.nativeEvidenceIdentifier=evidenceErr.identifier;
  end
  try,BTMS_M3_events('close');catch,end
 end
