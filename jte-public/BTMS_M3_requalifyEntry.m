@@ -20,4 +20,11 @@ f=fopen(fullfile(root,'PROBE_DISPATCHED.json'),'w');assert(f>=0,'M3:ProbeWrite',
 fprintf(f,'{"syntheticOnly":true,"oneAttempt":true,"physicalApprovalConsumed":false}');fclose(f);
 fprintf('M3_R2024B_LINT_PARSE=PASS oneSyntheticProbe=STARTING physicalRun=0\n');
 BTMS_M3_loggerProbe();
+% Keep the MATLAB action red when the synthetic probe reports UNQUALIFIED.
+% An independent if:always() private publisher may still preserve evidence.
+p=fullfile(root,'PROBE_FLAGS.json');
+assert(isfile(p),'WK02:FlagsMissing','Private qualification flags absent.');
+r=jsondecode(fileread(p));
+assert(isfield(r,'status')&&strcmp(r.status,'M3_LOGGER_CLOCK_STATE_FIRST_PAUSED_OP_ONLY'),...
+ 'WK02:QualificationNoPass','Logger UNQUALIFIED; private publisher must retain diagnostics.');
 end
