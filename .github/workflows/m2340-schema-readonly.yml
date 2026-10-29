@@ -1,0 +1,31 @@
+name: BTMS M2340 inspect saved sink schema READ ONLY
+on:
+  push:
+    branches: ['codex/jte-tf-constant-input']
+    paths: ['.github/workflows/m2340-schema-readonly.yml']
+permissions:
+  contents: read
+jobs:
+  schema:
+    if: ${{ false }} # Saved schema verified; no further inspection authorized.
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Read existing verified SLX and MATLAB proof; no MATLAB or compile
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          python3 -m pip install --quiet h5py==3.14.0
+          python3 -m py_compile jte-public/m2340_schema_readonly.py
+          python3 jte-public/m2340_schema_readonly.py
+      - name: Remove private scratch
+        if: always()
+        run: rm -rf actuator-review-private
+
+# Raw XML is authoritative for saved sink schema; prior b audit excludes new sink rows by design.
