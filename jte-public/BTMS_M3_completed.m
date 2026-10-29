@@ -18,16 +18,17 @@ assert(all(cellfun(@(x)~isempty(x)&&x.readable,events)),'M3:State','Actual phase
 assert(events{1}.time==times(3)&&events{1}.output==v{3}&&events{1}.state==v{3},...
  'M3:Phase','Output is not actual C=1,D=0 pre-update state at its own tick.');
 returnedTime=s.Time;status=char(s.Status);
-assert(isscalar(returnedTime)&&isfinite(returnedTime),'M3:Clock','Returned simulation time unavailable.');
 if finalstep
  assert(isfinite(expectedStop)&&processed==expectedStop&&...
   strcmp(status,'paused'),...
   'M3:TerminalLifecycle','Normal-mode terminal return must remain paused at exact processed horizon; inactive requires separate evidence.');
+ assert(isscalar(returnedTime)&&isfinite(returnedTime),'M3:TerminalClock','Paused terminal time unavailable.');
  % There is no next processed major after the horizon. Preserve raw lifecycle
  % time for diagnosis; never reinterpret it as another accepted sample.
  assert(returnedTime>=processed,'M3:TerminalClock','Paused terminal time regressed.');
  nextTop=[];nextTopAvailable=false;
 else
+ assert(isscalar(returnedTime)&&isfinite(returnedTime),'M3:Clock','Active returned time unavailable.');
  assert(strcmp(status,'paused')&&returnedTime>=processed,...
   'M3:Clock','Active next top-of-step regressed or is not paused.');
  nextTop=returnedTime;nextTopAvailable=true;
