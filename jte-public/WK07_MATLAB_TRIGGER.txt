@@ -1,0 +1,1 @@
+WK07 nonbattery one-shot trigger. Reviewed source ac7b525035f2beb1107183244ac74982a19c8710; enable a21aba2. Owner approval 01 Nov 2026 22:38 ICT (actuator-amendment/WK07_OWNER_APPROVAL_20261101.md). Synthetic fixture only.
