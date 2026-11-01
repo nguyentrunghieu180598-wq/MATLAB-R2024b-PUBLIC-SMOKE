@@ -17,7 +17,7 @@ from JTE101_io import quota
 
 ROOT = Path("actuator-review-private")
 REPO = "nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE"
-REF = "refs/heads/codex/wk04-zero-stop-fixture"
+REF = "refs/heads/codex/wk05-fixture-evidence-gates"
 MESSAGE = "WK04_T0_NONBATTERY_ONE_SHOT"
 INPUTS = (
     "BTMS_WK04_t0Fixture.m",
@@ -26,6 +26,18 @@ INPUTS = (
     "BTMS_M3_events.m",
     "WK04_private_gate.py",
 )
+REQUIRED_OUTPUTS = {
+    "WK04_PREPARE_GATE.json",
+    "WK04_FLAGS.json",
+    "WK04_PRIVATE_EVIDENCE.mat",
+    "ZERO_PHASE.csv",
+    "DIRECT_PHASE.csv",
+    "RESTORE_PHASE.csv",
+} | {
+    f"{run}_NATIVE_{index}.mat"
+    for run in ("ZERO", "DIRECT", "RESTORE")
+    for index in range(1, 5)
+}
 
 
 def sha256(path: Path) -> str:
@@ -88,6 +100,17 @@ def publish(run: str, commit: str) -> None:
     flags_path = ROOT / "WK04_FLAGS.json"
     flags = json.loads(flags_path.read_text()) if flags_path.is_file() else {}
     status = flags.get("status", "UNQUALIFIED_NO_FLAGS")
+    same_attempt = (
+        gate.get("run") == run
+        and gate.get("commit") == commit
+        and flags.get("run") == run
+        and flags.get("commit") == commit
+    )
+    matlab_qualified = (
+        same_attempt
+        and flags.get("MATLAB_API_QUALIFIED") is True
+        and status == "MATLAB_API_QUALIFIED_PENDING_PRIVATE_READBACK"
+    )
     paths = sorted(p for p in ROOT.iterdir() if p.is_file())
     assert sum(p.stat().st_size for p in paths) <= 128 * 1024 * 1024
     receipt = {
@@ -98,8 +121,13 @@ def publish(run: str, commit: str) -> None:
         "emptyPartialFiles": [],
         "physicalRun": False,
         "G5Accepted": False,
-        "postflightRemoteReadback": True,
+        "MATLAB_API_QUALIFIED": matlab_qualified,
+        "PRIVATE_TRANSPORT_VERIFIED": False,
+        "PHYSICAL_G5_ACCEPTED": False,
+        "QUALIFIED_API_FEASIBILITY_ONLY": False,
         "sourceInputsUnchanged": source_unchanged,
+        "sameAttempt": same_attempt,
+        "requiredPayloadComplete": False,
     }
     for path in paths:
         if path.stat().st_size == 0:
@@ -114,6 +142,18 @@ def publish(run: str, commit: str) -> None:
         receipt["files"].append(
             {"name": path.name, "localSHA256": local_sha, "remote": remote}
         )
+    receipt["PRIVATE_TRANSPORT_VERIFIED"] = True
+    uploaded_names = {item["name"] for item in receipt["files"]}
+    receipt["requiredPayloadComplete"] = (
+        REQUIRED_OUTPUTS <= uploaded_names
+        and not receipt["emptyPartialFiles"]
+    )
+    receipt["QUALIFIED_API_FEASIBILITY_ONLY"] = bool(
+        matlab_qualified
+        and source_unchanged
+        and same_attempt
+        and receipt["requiredPayloadComplete"]
+    )
     receipt_path = ROOT / "WK04_PRIVATE_READBACK_RECEIPT.json"
     receipt_path.write_text(json.dumps(receipt, indent=2))
     upload_verified(
@@ -121,7 +161,16 @@ def publish(run: str, commit: str) -> None:
         schema="WK04_NONBATTERY_API_ONLY_NOT_G5",
     )
     assert source_unchanged, "WK04_SOURCE_CHANGED_AFTER_PREFLIGHT"
-    print("WK04_PRIVATE_SHA_READBACK_PASS physicalRun=0 G5_ACCEPTED=false")
+    assert same_attempt, "WK05_ATTEMPT_PROVENANCE_MISMATCH"
+    assert receipt["requiredPayloadComplete"] or not matlab_qualified, (
+        "WK05_MATLAB_PASS_WITH_MISSING_PRIVATE_PAYLOAD"
+    )
+    print(
+        "WK05_PRIVATE_TRANSPORT_VERIFIED=1 "
+        f"MATLAB_API_QUALIFIED={int(matlab_qualified)} "
+        f"QUALIFIED_API_FEASIBILITY_ONLY={int(receipt['QUALIFIED_API_FEASIBILITY_ONLY'])} "
+        "PHYSICAL_G5_ACCEPTED=0"
+    )
 
 
 def main() -> None:
