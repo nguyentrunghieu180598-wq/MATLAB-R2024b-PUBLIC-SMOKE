@@ -1,0 +1,3 @@
+WK06 protected neutral Drive preflight only.
+No MATLAB, no battery model, no research data.
+Owner authorization: Issue #67 comment 6556750820.

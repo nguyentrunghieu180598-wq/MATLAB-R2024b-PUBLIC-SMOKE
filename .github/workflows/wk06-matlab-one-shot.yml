@@ -1,0 +1,61 @@
+name: WK07 reviewed nonbattery MATLAB one-shot - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk06-nonbattery-only-20261101']
+    paths: ['jte-public/WK07_MATLAB_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk07-matlab-one-shot-20261101
+  cancel-in-progress: false
+jobs:
+  nonbattery-api:
+    if: ${{ false }} # WK07 CONSUMED by run 41322365040 (01 Nov 2026); disabled after use
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 25
+    env:
+      # SHA of the independently reviewed SOURCE commit S. The enabling commit E
+      # (parent of the trigger) cannot contain its own SHA, so S must be HEAD~2:
+      #   S (reviewed source) -> E (this file only: predicate + this SHA) -> T (marker only)
+      WK06_REVIEWED_SOURCE_SHA: ac7b525035f2beb1107183244ac74982a19c8710
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Immutable reviewed source, workflow-only enable, single marker-only trigger
+        run: |
+          test "${{ github.event.head_commit.message }}" = "WK07_NONBATTERY_ONE_SHOT_20261101"
+          test "${{ github.run_attempt }}" = "1"
+          test "$(git rev-parse HEAD~2)" = "$WK06_REVIEWED_SOURCE_SHA"
+          test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk06-matlab-one-shot.yml"
+          test "$(git diff --name-only HEAD~1 HEAD)" = "jte-public/WK07_MATLAB_TRIGGER.txt"
+          test ! -d actuator-review-private
+      - name: Protected pre-MATLAB source and private neutral receipt gate
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK04_private_gate.py prepare
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024bU10
+          products: Simulink
+      - name: ONE MATLAB PROCESS; exact build first; synthetic fixture only
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); WK06_oneShotEntry()
+      - name: Protected publisher including MATLAB failure diagnostics
+        if: ${{ always() }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          if test -d actuator-review-private; then
+            python3 jte-public/WK04_private_gate.py publish
+          fi
+      - name: Remove private runner scratch
+        if: ${{ always() }}
+        run: rm -rf actuator-review-private

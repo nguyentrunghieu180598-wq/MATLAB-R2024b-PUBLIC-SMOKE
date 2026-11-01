@@ -9,22 +9,24 @@ import hashlib
 import json
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
-from JTE062_google_drive_synthetic import access_token, ensure_app_folder
-from JTE063_streaming_drive import upload_verified
+from JTE062_google_drive_synthetic import access_token, ensure_app_folder, API, req
+from JTE063_streaming_drive import upload_verified, readback_sha
 from JTE101_io import quota
 
 ROOT = Path("actuator-review-private")
 REPO = "nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE"
-REF = "refs/heads/codex/wk05-fixture-evidence-gates"
-MESSAGE = "WK04_T0_NONBATTERY_ONE_SHOT"
+REF = "refs/heads/codex/wk06-nonbattery-only-20261101"
+MESSAGE = "WK07_NONBATTERY_ONE_SHOT_20261101"
 INPUTS = (
     "BTMS_WK04_t0Fixture.m",
     "BTMS_M3_completed.m",
     "BTMS_M3_instrument.m",
     "BTMS_M3_events.m",
     "WK04_private_gate.py",
+    "WK06_oneShotEntry.m",
 )
 REQUIRED_OUTPUTS = {
     "WK04_PREPARE_GATE.json",
@@ -69,10 +71,56 @@ def drive():
     return token, ensure_app_folder(token)
 
 
-def prepare(run: str, commit: str) -> None:
-    token, _ = drive()
-    assert quota(token)["availableBytes"] >= 512 * 1024 * 1024
+def require_verified_neutral_preflight(token: str, folder: str) -> None:
+    """Fail-closed: the same protected Google identity already proved bytes readback."""
+    name = "JTE063_VERIFIED_WK06_NEUTRAL_PREFLIGHT_20261101.json"
+    q = "'" + folder + "' in parents and name = '" + name + "' and trashed = false"
+    query = urllib.parse.urlencode({"q": q,
+        "fields": "nextPageToken,files(id,size,appProperties,permissions(type,role))",
+        "pageSize": "10"})
+    _, _, raw = req(API + "?" + query, token=token)
+    data = json.loads(raw)
+    entries = data.get("files", [])
+    if data.get("nextPageToken") or len(entries) != 1:
+        raise RuntimeError("WK06_VERIFIED_NEUTRAL_PREFLIGHT_NOT_FOUND")
+    meta = entries[0]
+    props = meta.get("appProperties") or {}
+    size = int(meta.get("size", 0))
+    permissions = meta.get("permissions") or []
+    if (props.get("state") != "VERIFIED"
+        or not 20 < size < 4096
+        or not permissions
+        or any(p.get("type") != "user" or p.get("role") != "owner" for p in permissions)):
+        raise RuntimeError("WK06_PRIVATE_NEUTRAL_RECEIPT_INVALID")
+    expected = props.get("sha256", "")
+    if not isinstance(expected, str) or len(expected) != 64:
+        raise RuntimeError("WK06_NEUTRAL_RECEIPT_SHA_INVALID")
+    if readback_sha(token, meta["id"], size) != expected:
+        raise RuntimeError("WK06_NEUTRAL_RECEIPT_READBACK_MISMATCH")
+
+def reserve_one_shot(token: str, folder: str, run: str, commit: str) -> None:
+    name = "WK07_MATLAB_ATTEMPT_INTENT_20261101.json"
+    verified = "JTE063_VERIFIED_" + name
+    q = "'" + folder + "' in parents and name = '" + verified + "' and trashed = false"
+    query = urllib.parse.urlencode({"q": q, "fields": "nextPageToken,files(id)", "pageSize": "10"})
+    _, _, raw = req(API + "?" + query, token=token)
+    prior = json.loads(raw)
+    if prior.get("nextPageToken") or prior.get("files"):
+        raise RuntimeError("WK07_MATLAB_ONE_SHOT_ALREADY_RESERVED")
     ROOT.mkdir(mode=0o700, exist_ok=False)
+    intent = ROOT / name
+    intent.write_text(json.dumps({"schema": "WK07_NONBATTERY_ONE_SHOT_INTENT",
+        "run": run, "commit": commit, "physicalRun": False,
+        "MATLAB_STARTED": "NOT_YET_CONFIRMED"}, sort_keys=True))
+    intent.chmod(0o600)
+    upload_verified(token, folder, intent, schema="SYNTHETIC_PREFLIGHT")
+
+
+def prepare(run: str, commit: str) -> None:
+    token, folder = drive()
+    require_verified_neutral_preflight(token, folder)
+    assert quota(token)["availableBytes"] >= 512 * 1024 * 1024
+    reserve_one_shot(token, folder, run, commit)
     hashes = {name: sha256(Path("jte-public") / name) for name in INPUTS}
     gate = {
         "sourceKind": "WK04_NONBATTERY",

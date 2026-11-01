@@ -65,6 +65,7 @@ try
 
  flags.stage='ZERO_STOP_CAPTURE';
  zeroFiles=targets(name,privateRoot,'ZERO');
+ fp0=structFingerprint(name);
  BTMS_M3_events('close');
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'ZERO_PHASE.csv'));
@@ -80,18 +81,18 @@ try
  meta0=metadata(out0,'ZERO');
  assert(meta0.simulationModeAvailable && ...
   meta0.structuralChecksumAvailable && meta0.stopEventAvailable && ...
-  meta0.stopEventTimeAvailable && ...
   strcmp(meta0.simulationMode,'normal') && ...
   strcmp(meta0.stopEvent,'ReachedStopTime') && ...
-  isequal(meta0.stopEventTime,0) && ...
+  stopTimeConsistent(meta0,0) && ...
   isempty(meta0.errorMessage), ...
   'WK04:ZeroStopEvent','Zero-stop reason unqualified.');
- nativeZero=readFour(zeroFiles,0);
+ nativeZero=readFour(collectNative(zeroFiles),0);
  phaseZero=phaseCSV(fullfile(privateRoot,'ZERO_PHASE.csv'),nativeZero,0);
  opSemantics='POST_T0_STEP_CANDIDATE_NOT_PREUPDATE_IC';
 
  flags.stage='DIRECT_START';
  directFiles=targets(name,privateRoot,'DIRECT');
+ fpD=structFingerprint(name);
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'DIRECT_PHASE.csv'));
  s=simulation(name);initialize(s);
@@ -108,20 +109,29 @@ try
   witness{end+1}=w; %#ok<AGROW>
   lastPhaseSequence=w.lastObservedPhaseSequence;
  end
- assert(strcmp(terminal.status,'paused'), ...
-  'WK04:TerminalMode','Normal-mode terminal did not pause.');
- terminal.explicitStopIssued=true;
- outD=stop(s);s=[];
+ % WK07: on R2024b the final step() leaves the simulation 'inactive'
+ % (owner-local dry run), not 'paused'. Accept both; stop only if paused.
+ assert(any(strcmp(terminal.status,{'paused','inactive'})), ...
+  'WK04:TerminalMode','Normal-mode terminal neither paused nor inactive.');
+ if strcmp(terminal.status,'paused')
+  terminal.explicitStopIssued=true;
+  outD=stop(s);
+ else
+  terminal.explicitStopIssued=false;
+  outD=s.SimulationOutput;
+ end
+ s=[];
  BTMS_M3_events('close');
  metaD=metadata(outD,'TERMINAL_POST_STOP');
  terminal.postStop=metaD;
- nativeDirect=readFour(directFiles,.03);
+ nativeDirect=readFour(collectNative(directFiles),.03);
  phaseDirect=phaseCSV(fullfile(privateRoot,'DIRECT_PHASE.csv'), ...
   nativeDirect,.03);
  assert(~isempty(witness),'WK04:Nonterminal','No completed nonterminal major witness.');
 
  flags.stage='SAME_MODEL_RESTORE';
  restoreFiles=targets(name,privateRoot,'RESTORE');
+ fpR=structFingerprint(name);
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'RESTORE_PHASE.csv'));
  inR=Simulink.SimulationInput(name);
@@ -130,22 +140,26 @@ try
  outR=sim(inR);
  BTMS_M3_events('close');
  metaR=metadata(outR,'RESTORE');
- nativeRestore=readFour(restoreFiles,.03);
+ nativeRestore=readFour(collectNative(restoreFiles),.03);
  phaseRestore=phaseCSV(fullfile(privateRoot,'RESTORE_PHASE.csv'), ...
   nativeRestore,.03);
 
  flags.stage='PARITY';
  assert(strcmp(metaD.simulationMode,'normal') && ...
   metaD.simulationModeAvailable && metaD.structuralChecksumAvailable && ...
-  metaD.stopEventAvailable && metaD.stopEventTimeAvailable && ...
+  metaD.stopEventAvailable && ...
   any(strcmp(metaD.stopEvent,{'StopCommand','ReachedStopTime'})) && ...
-  abs(metaD.stopEventTime-.03)<=32*eps(1) && ...
+  stopTimeConsistent(metaD,.03) && ...
   isempty(metaD.errorMessage), ...
   'WK05:PostStopMetadata', ...
   'Final post-stop mode, checksum, stop event/time or error unqualified.');
- assert(isequal(meta0.structuralChecksum,metaD.structuralChecksum) && ...
-  isequal(metaD.structuralChecksum,metaR.structuralChecksum), ...
-  'WK04:StructuralChecksum','Model structural checksum mismatch.');
+ % WK07: R2024b ModelStructuralChecksum changes with StopTime and with an
+ % initial operating point (owner-local test), so it cannot prove equal
+ % structure across ZERO/DIRECT/RESTORE. The three checksums stay recorded
+ % in meta0/metaD/metaR as diagnostics; equality is proven on an explicit
+ % block/parameter/line fingerprint captured before each run.
+ assert(isequal(fp0,fpD) && isequal(fpD,fpR), ...
+  'WK07:StructuralFingerprint','Model structure differs between runs.');
  for k=1:4
   assert(isequaln(nativeDirect{k}.Time,nativeRestore{k}.Time) && ...
    isequaln(nativeDirect{k}.Data,nativeRestore{k}.Data), ...
@@ -159,10 +173,9 @@ try
   'Zero/direct t0 or direct/restore full callback phase trace differs.');
  assert(metaR.simulationModeAvailable && ...
   metaR.structuralChecksumAvailable && metaR.stopEventAvailable && ...
-  metaR.stopEventTimeAvailable && ...
   strcmp(metaD.simulationMode,'normal') && ...
   strcmp(metaR.simulationMode,'normal') && ...
-  abs(metaR.stopEventTime-.03)<=32*eps(1) && ...
+  stopTimeConsistent(metaR,.03) && ...
   isempty(metaR.errorMessage), ...
   'WK04:Mode','Effective simulation mode unqualified.');
  assert(strcmp(metaR.stopEvent,'ReachedStopTime'), ...
@@ -171,7 +184,7 @@ try
   'op0','meta0','metaD','metaR','terminal','witness', ...
   'nativeZero','nativeDirect','nativeRestore', ...
   'phaseZero','phaseDirect','phaseRestore','opSemantics', ...
-  'gate','-v7.3');
+  'fp0','fpD','fpR','gate','-v7.3');
  flags.MATLAB_API_QUALIFIED=true;
  flags.status='MATLAB_API_QUALIFIED_PENDING_PRIVATE_READBACK';
  flags.stage='DONE';
@@ -219,12 +232,69 @@ fprintf('WK04_NONBATTERY_API_CANDIDATE_ONLY physicalRun=0 G5_ACCEPTED=false\n');
 end
 
 function files=targets(m,root,tag)
-files=cell(1,4);
+% WK07: To File FileName is part of ModelStructuralChecksum (owner-local
+% R2024b test). Every run therefore writes to the SAME run names, so the
+% cross-run checksum gate compares identical structure; collectNative()
+% then moves each output to its tagged name before it is read.
+files=struct('run',{cell(1,4)},'final',{cell(1,4)});
 for k=1:4
- files{k}=fullfile(root,[tag '_NATIVE_' num2str(k) '.mat']);
- assert(~isfile(files{k}),'WK04:OutputExists','Native target already exists.');
- set_param([m '/file' num2str(k)],'FileName',files{k});
+ files.run{k}=fullfile(root,['RUN_NATIVE_' num2str(k) '.mat']);
+ files.final{k}=fullfile(root,[tag '_NATIVE_' num2str(k) '.mat']);
+ assert(~isfile(files.run{k}) && ~isfile(files.final{k}), ...
+  'WK04:OutputExists','Native target already exists.');
+ set_param([m '/file' num2str(k)],'FileName',files.run{k});
 end
+end
+
+function fp=structFingerprint(m)
+% Blocks (type + every dialog parameter), lines and solver settings.
+% Only the To File output filename is masked: it is the run output path.
+b=sort(find_system(m,'LookUnderMasks','all','FollowLinks','on','Type','block'));
+parts=cell(numel(b),1);
+for k=1:numel(b)
+ dp=get_param(b{k},'DialogParameters');names={};
+ if isstruct(dp),names=sort(fieldnames(dp));end
+ isToFile=strcmp(get_param(b{k},'BlockType'),'ToFile');
+ vals=cell(1,numel(names));
+ for j=1:numel(names)
+  if isToFile && strcmpi(names{j},'Filename')
+   vals{j}=[names{j} '=<run output>'];continue
+  end
+  try
+   v=get_param(b{k},names{j});
+   if ~ischar(v),v=jsonencode(v);end
+  catch
+   v='<unreadable>';
+  end
+  vals{j}=[names{j} '=' v];
+ end
+ parts{k}=[b{k} '|' get_param(b{k},'BlockType') '|' strjoin(vals,';')];
+end
+L=find_system(m,'FindAll','on','Type','line');
+lines=cell(numel(L),1);
+for k=1:numel(L)
+ try
+  sp=get_param(L(k),'SrcPortHandle');dp=get_param(L(k),'DstPortHandle');
+  dst=arrayfun(@(p) sprintf('%s:%d',get_param(p,'Parent'), ...
+   get_param(p,'PortNumber')),dp(dp>0),'UniformOutput',false);
+  lines{k}=sprintf('%s:%d->%s',get_param(sp,'Parent'), ...
+   get_param(sp,'PortNumber'),strjoin(sort(dst),','));
+ catch
+  lines{k}='<unreadable line>';
+ end
+end
+solver=strjoin({get_param(m,'Solver'),get_param(m,'MaxStep'), ...
+ get_param(m,'BlockReduction'),get_param(m,'SimulationMode')},'|');
+fp=struct('blocks',{parts},'lines',{sort(lines)},'solver',solver);
+end
+
+function out=collectNative(files)
+for k=1:4
+ assert(isfile(files.run{k}),'WK04:NativeMissing','To File output missing.');
+ [ok,msg]=movefile(files.run{k},files.final{k});
+ assert(ok,'WK07:NativeMove','Native output move failed: %s',msg);
+end
+out=files.final;
 end
 
 function q=nonterminalWitness(s,prior,lastSeq)
@@ -267,6 +337,7 @@ m=struct('role',role,'simulationMode','UNAVAILABLE', ...
  'executionInfoIdentifier','UNAVAILABLE', ...
  'stopEventIdentifier','UNAVAILABLE', ...
  'stopEventTimeIdentifier','UNAVAILABLE');
+m.executionInfoFields={}; % provenance: R2024b ExecutionInfo has no StopEventTime
 try
  m.errorMessage=out.ErrorMessage;
  m.errorMessageAvailable=true;
@@ -308,6 +379,7 @@ try
 catch err
  m.executionInfoIdentifier=err.identifier;
 end
+if isstruct(ex),m.executionInfoFields=fieldnames(ex)';end
 try
  if isstruct(ex) && isfield(ex,'StopEvent') && ...
     ~isempty(ex.StopEvent)
@@ -328,6 +400,20 @@ try
  end
 catch err
  m.stopEventTimeIdentifier=err.identifier;
+end
+end
+
+function ok=stopTimeConsistent(m,horizon)
+% WK07: ExecutionInfo.StopEventTime does not exist in R2024b (run 41319712018
+% and owner-local probe). When present it must match exactly/within 32 eps.
+% When absent, time evidence is the native To File terminal tick, enforced
+% independently by readFour(files,horizon) (and op0.snapshotTime for t0).
+if ~m.stopEventTimeAvailable
+ ok=true;
+elseif horizon==0
+ ok=isequal(m.stopEventTime,0);
+else
+ ok=abs(m.stopEventTime-horizon)<=32*eps(1);
 end
 end
 
