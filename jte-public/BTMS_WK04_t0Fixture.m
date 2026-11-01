@@ -65,6 +65,7 @@ try
 
  flags.stage='ZERO_STOP_CAPTURE';
  zeroFiles=targets(name,privateRoot,'ZERO');
+ fp0=structFingerprint(name);
  BTMS_M3_events('close');
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'ZERO_PHASE.csv'));
@@ -91,6 +92,7 @@ try
 
  flags.stage='DIRECT_START';
  directFiles=targets(name,privateRoot,'DIRECT');
+ fpD=structFingerprint(name);
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'DIRECT_PHASE.csv'));
  s=simulation(name);initialize(s);
@@ -129,6 +131,7 @@ try
 
  flags.stage='SAME_MODEL_RESTORE';
  restoreFiles=targets(name,privateRoot,'RESTORE');
+ fpR=structFingerprint(name);
  BTMS_M3_events('init',[name '/state'], ...
   fullfile(privateRoot,'RESTORE_PHASE.csv'));
  inR=Simulink.SimulationInput(name);
@@ -150,9 +153,13 @@ try
   isempty(metaD.errorMessage), ...
   'WK05:PostStopMetadata', ...
   'Final post-stop mode, checksum, stop event/time or error unqualified.');
- assert(isequal(meta0.structuralChecksum,metaD.structuralChecksum) && ...
-  isequal(metaD.structuralChecksum,metaR.structuralChecksum), ...
-  'WK04:StructuralChecksum','Model structural checksum mismatch.');
+ % WK07: R2024b ModelStructuralChecksum changes with StopTime and with an
+ % initial operating point (owner-local test), so it cannot prove equal
+ % structure across ZERO/DIRECT/RESTORE. The three checksums stay recorded
+ % in meta0/metaD/metaR as diagnostics; equality is proven on an explicit
+ % block/parameter/line fingerprint captured before each run.
+ assert(isequal(fp0,fpD) && isequal(fpD,fpR), ...
+  'WK07:StructuralFingerprint','Model structure differs between runs.');
  for k=1:4
   assert(isequaln(nativeDirect{k}.Time,nativeRestore{k}.Time) && ...
    isequaln(nativeDirect{k}.Data,nativeRestore{k}.Data), ...
@@ -177,7 +184,7 @@ try
   'op0','meta0','metaD','metaR','terminal','witness', ...
   'nativeZero','nativeDirect','nativeRestore', ...
   'phaseZero','phaseDirect','phaseRestore','opSemantics', ...
-  'gate','-v7.3');
+  'fp0','fpD','fpR','gate','-v7.3');
  flags.MATLAB_API_QUALIFIED=true;
  flags.status='MATLAB_API_QUALIFIED_PENDING_PRIVATE_READBACK';
  flags.stage='DONE';
@@ -237,6 +244,48 @@ for k=1:4
   'WK04:OutputExists','Native target already exists.');
  set_param([m '/file' num2str(k)],'FileName',files.run{k});
 end
+end
+
+function fp=structFingerprint(m)
+% Blocks (type + every dialog parameter), lines and solver settings.
+% Only the To File output filename is masked: it is the run output path.
+b=sort(find_system(m,'LookUnderMasks','all','FollowLinks','on','Type','block'));
+parts=cell(numel(b),1);
+for k=1:numel(b)
+ dp=get_param(b{k},'DialogParameters');names={};
+ if isstruct(dp),names=sort(fieldnames(dp));end
+ isToFile=strcmp(get_param(b{k},'BlockType'),'ToFile');
+ vals=cell(1,numel(names));
+ for j=1:numel(names)
+  if isToFile && strcmpi(names{j},'Filename')
+   vals{j}=[names{j} '=<run output>'];continue
+  end
+  try
+   v=get_param(b{k},names{j});
+   if ~ischar(v),v=jsonencode(v);end
+  catch
+   v='<unreadable>';
+  end
+  vals{j}=[names{j} '=' v];
+ end
+ parts{k}=[b{k} '|' get_param(b{k},'BlockType') '|' strjoin(vals,';')];
+end
+L=find_system(m,'FindAll','on','Type','line');
+lines=cell(numel(L),1);
+for k=1:numel(L)
+ try
+  sp=get_param(L(k),'SrcPortHandle');dp=get_param(L(k),'DstPortHandle');
+  dst=arrayfun(@(p) sprintf('%s:%d',get_param(p,'Parent'), ...
+   get_param(p,'PortNumber')),dp(dp>0),'UniformOutput',false);
+  lines{k}=sprintf('%s:%d->%s',get_param(sp,'Parent'), ...
+   get_param(sp,'PortNumber'),strjoin(sort(dst),','));
+ catch
+  lines{k}='<unreadable line>';
+ end
+end
+solver=strjoin({get_param(m,'Solver'),get_param(m,'MaxStep'), ...
+ get_param(m,'BlockReduction'),get_param(m,'SimulationMode')},'|');
+fp=struct('blocks',{parts},'lines',{sort(lines)},'solver',solver);
 end
 
 function out=collectNative(files)
