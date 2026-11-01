@@ -41,11 +41,7 @@ jobs:
       - name: ONE MATLAB PROCESS; exact build first; synthetic fixture only
         uses: matlab-actions/run-command@v3
         with:
-          command: |
-            assert(strcmp(version,'24.2.0.3361896 (R2024b) Update 10'),'WK06:BuildMismatch');
-            addpath('jte-public');
-            p=fullfile(pwd,'actuator-review-private');
-            BTMS_WK04_t0Fixture(p,fullfile(p,'WK04_PREPARE_GATE.json'));
+          command: addpath('jte-public'); WK06_oneShotEntry()
       - name: Protected publisher including MATLAB failure diagnostics
         if: ${{ always() }}
         env:

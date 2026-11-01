@@ -26,6 +26,7 @@ INPUTS = (
     "BTMS_M3_instrument.m",
     "BTMS_M3_events.m",
     "WK04_private_gate.py",
+    "WK06_oneShotEntry.m",
 )
 REQUIRED_OUTPUTS = {
     "WK04_PREPARE_GATE.json",
