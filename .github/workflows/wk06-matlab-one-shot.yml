@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   nonbattery-api:
-    if: ${{ github.ref == 'refs/heads/codex/wk06-nonbattery-only-20261101' && github.event_name == 'push' && github.event.head_commit.message == 'WK06_NONBATTERY_ONE_SHOT_20261101' && github.run_attempt == 1 }}
+    if: ${{ false }} # CONSUMED by run 41319712018 (01 Nov 2026); one-shot disabled after use
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
