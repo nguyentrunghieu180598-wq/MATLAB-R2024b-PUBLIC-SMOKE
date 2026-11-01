@@ -1,0 +1,36 @@
+name: WK06 one-time protected NEUTRAL DRIVE only - NO MATLAB
+on:
+  push:
+    branches: ['codex/wk06-nonbattery-only-20261101']
+    paths:
+      - '.github/workflows/wk06-infra-only.yml'
+      - 'jte-public/WK06_neutral_preflight_20261101.py'
+      - 'jte-public/WK06_PREFLIGHT_TRIGGER.txt'
+permissions:
+  contents: read
+concurrency:
+  group: wk06-neutral-infra-once-20261101
+  cancel-in-progress: false
+jobs:
+  neutral-private-preflight:
+    if: github.event.head_commit.message == 'WK06_INFRA_PREFLIGHT_ONCE_20261101' && github.run_attempt == 1
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 8
+    env:
+      WK06_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Owner-private small synthetic file full-byte SHA readback; NO MATLAB
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK06_neutral_preflight_20261101.py
+      - name: Delete private runner scratch
+        if: always()
+        run: rm -rf wk06-neutral-private
+# This workflow contains ZERO MATLAB commands and ZERO battery/model simulation.
+# Never use jte116-one-approved.yml for this task; it contains a physical 340s run.
