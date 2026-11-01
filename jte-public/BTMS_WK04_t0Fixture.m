@@ -107,10 +107,18 @@ try
   witness{end+1}=w; %#ok<AGROW>
   lastPhaseSequence=w.lastObservedPhaseSequence;
  end
- assert(strcmp(terminal.status,'paused'), ...
-  'WK04:TerminalMode','Normal-mode terminal did not pause.');
- terminal.explicitStopIssued=true;
- outD=stop(s);s=[];
+ % WK07: on R2024b the final step() leaves the simulation 'inactive'
+ % (owner-local dry run), not 'paused'. Accept both; stop only if paused.
+ assert(any(strcmp(terminal.status,{'paused','inactive'})), ...
+  'WK04:TerminalMode','Normal-mode terminal neither paused nor inactive.');
+ if strcmp(terminal.status,'paused')
+  terminal.explicitStopIssued=true;
+  outD=stop(s);
+ else
+  terminal.explicitStopIssued=false;
+  outD=s.SimulationOutput;
+ end
+ s=[];
  BTMS_M3_events('close');
  metaD=metadata(outD,'TERMINAL_POST_STOP');
  terminal.postStop=metaD;
