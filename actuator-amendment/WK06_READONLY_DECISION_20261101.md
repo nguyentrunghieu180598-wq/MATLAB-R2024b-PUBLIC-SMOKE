@@ -25,3 +25,17 @@ Archived original thermal data are quarantined from quantitative G5/G6 thermal c
 
 Next read-only action is privileged retrieval of the existing five MAT + receipts and source/clock manifest, without rerun, to close E01/E02/E04 where the bytes allow. Separately, after owner authorization, WK06-A may test only the tiny nonbattery API gate. No numeric sensor IDs, temperatures or time fractions are reported.
 
+## 01 Nov targeted P0 preflight and selector erratum
+
+| Condition | Read-only result | Exact limit |
+|---|---|---|
+| R2024b Update 10 build/license | HISTORICAL PASS; CURRENT UNKNOWN | Protected M2 run 40701917441 recorded build 24.2.0.3361896 and successful static compile. No present WK06 license entitlement or runner availability queried/executed. |
+| GitHub branch/environment | UNKNOWN | WK05 branch and draft PR exist. Public rulesets list is empty; branch-protection read returned 403 `Resource not accessible by integration`. No protected-environment branch eligibility or secret mapping can be inferred. |
+| Owner-private Drive | READ PASS; WRITE/READBACK UNKNOWN | Connected owner account read restricted M2 reports/receipts. No fresh OAuth write, free-byte quota or remote-byte round trip was attempted. |
+| No-cost resource quota | UNKNOWN | No current MATLAB Actions allowance, Drive free-byte budget or fresh cgroup capacity measurement. Historical static resource logs cannot certify current capacity. |
+| Separate authorization | FAIL / ABSENT | Issue #67 explicitly requires distinct owner permission for exactly one nonbattery trial. The B0L340 approval cannot be transferred. |
+
+Required owner wording, after all other gates are reviewable: “Tôi phê duyệt đúng 01 lượt thử **không dùng mô hình pin** WK06-A trên MATLAB R2024b Update 10: zero-stop/ModelOperatingPoint/direct–restore theo WK05 PR #66; chỉ dùng tài nguyên hiện có và Drive riêng, không tự chạy lại.” This is the minimum *scope* of approval, not a claim that preflight passed.
+
+Selector correction: JTE050/054 defines a native-time-weighted **mean**, descending ranks 1/156/312 on original zero-bias B0L 1800–2400 s, with channel-ID ascending ties. The Chat v02 Python candidate implements a trapezoid over native ordered rows and retains duplicate timestamps. The original `JTE050_selectNativeChannels.m` bytes were not found in the connected repo or Drive; JTE050's documented source contract additionally rejects more than two event sides at a timestamp. The v02 code currently has no explicit `>2` duplicate-time rejection, so exact MATLAB parity remains **UNKNOWN**. Neither v01 MAX ranking nor v02 outputs may freeze channels before a G5-qualified baseline and exact source-oracle review. No new selection was computed.
+
