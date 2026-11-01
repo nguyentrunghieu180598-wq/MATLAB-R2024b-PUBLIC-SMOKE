@@ -85,7 +85,7 @@ try
   stopTimeConsistent(meta0,0) && ...
   isempty(meta0.errorMessage), ...
   'WK04:ZeroStopEvent','Zero-stop reason unqualified.');
- nativeZero=readFour(zeroFiles,0);
+ nativeZero=readFour(collectNative(zeroFiles),0);
  phaseZero=phaseCSV(fullfile(privateRoot,'ZERO_PHASE.csv'),nativeZero,0);
  opSemantics='POST_T0_STEP_CANDIDATE_NOT_PREUPDATE_IC';
 
@@ -122,7 +122,7 @@ try
  BTMS_M3_events('close');
  metaD=metadata(outD,'TERMINAL_POST_STOP');
  terminal.postStop=metaD;
- nativeDirect=readFour(directFiles,.03);
+ nativeDirect=readFour(collectNative(directFiles),.03);
  phaseDirect=phaseCSV(fullfile(privateRoot,'DIRECT_PHASE.csv'), ...
   nativeDirect,.03);
  assert(~isempty(witness),'WK04:Nonterminal','No completed nonterminal major witness.');
@@ -137,7 +137,7 @@ try
  outR=sim(inR);
  BTMS_M3_events('close');
  metaR=metadata(outR,'RESTORE');
- nativeRestore=readFour(restoreFiles,.03);
+ nativeRestore=readFour(collectNative(restoreFiles),.03);
  phaseRestore=phaseCSV(fullfile(privateRoot,'RESTORE_PHASE.csv'), ...
   nativeRestore,.03);
 
@@ -225,12 +225,27 @@ fprintf('WK04_NONBATTERY_API_CANDIDATE_ONLY physicalRun=0 G5_ACCEPTED=false\n');
 end
 
 function files=targets(m,root,tag)
-files=cell(1,4);
+% WK07: To File FileName is part of ModelStructuralChecksum (owner-local
+% R2024b test). Every run therefore writes to the SAME run names, so the
+% cross-run checksum gate compares identical structure; collectNative()
+% then moves each output to its tagged name before it is read.
+files=struct('run',{cell(1,4)},'final',{cell(1,4)});
 for k=1:4
- files{k}=fullfile(root,[tag '_NATIVE_' num2str(k) '.mat']);
- assert(~isfile(files{k}),'WK04:OutputExists','Native target already exists.');
- set_param([m '/file' num2str(k)],'FileName',files{k});
+ files.run{k}=fullfile(root,['RUN_NATIVE_' num2str(k) '.mat']);
+ files.final{k}=fullfile(root,[tag '_NATIVE_' num2str(k) '.mat']);
+ assert(~isfile(files.run{k}) && ~isfile(files.final{k}), ...
+  'WK04:OutputExists','Native target already exists.');
+ set_param([m '/file' num2str(k)],'FileName',files.run{k});
 end
+end
+
+function out=collectNative(files)
+for k=1:4
+ assert(isfile(files.run{k}),'WK04:NativeMissing','To File output missing.');
+ [ok,msg]=movefile(files.run{k},files.final{k});
+ assert(ok,'WK07:NativeMove','Native output move failed: %s',msg);
+end
+out=files.final;
 end
 
 function q=nonterminalWitness(s,prior,lastSeq)
