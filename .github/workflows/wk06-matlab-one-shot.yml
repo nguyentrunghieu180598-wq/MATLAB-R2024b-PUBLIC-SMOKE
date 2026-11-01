@@ -1,0 +1,61 @@
+name: WK06 reviewed nonbattery MATLAB one-shot - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk06-nonbattery-only-20261101']
+    paths: ['jte-public/WK06_MATLAB_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk06-matlab-one-shot-20261101
+  cancel-in-progress: false
+jobs:
+  nonbattery-api:
+    if: ${{ false }} # independent source/security GO required before use
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 25
+    env:
+      WK06_REVIEWED_PARENT_SHA: TO_BE_SET_AFTER_INDEPENDENT_GO
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Immutable parent and single marker-only trigger
+        run: |
+          test "${{ github.event.head_commit.message }}" = "WK06_NONBATTERY_ONE_SHOT_20261101"
+          test "${{ github.run_attempt }}" = "1"
+          test "$(git rev-parse HEAD^)" = "$WK06_REVIEWED_PARENT_SHA"
+          test "$(git diff --name-only HEAD^ HEAD)" = "jte-public/WK06_MATLAB_TRIGGER.txt"
+          test ! -d actuator-review-private
+      - name: Protected pre-MATLAB source and private neutral receipt gate
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK04_private_gate.py prepare
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: Simulink
+      - name: ONE MATLAB PROCESS; exact build first; synthetic fixture only
+        uses: matlab-actions/run-command@v3
+        with:
+          command: |
+            assert(strcmp(version,'24.2.0.3361896 (R2024b) Update 10'),'WK06:BuildMismatch');
+            addpath('jte-public');
+            p=fullfile(pwd,'actuator-review-private');
+            BTMS_WK04_t0Fixture(p,fullfile(p,'WK04_PREPARE_GATE.json'));
+      - name: Protected publisher including MATLAB failure diagnostics
+        if: ${{ always() }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          if test -d actuator-review-private; then
+            python3 jte-public/WK04_private_gate.py publish
+          fi
+      - name: Remove private runner scratch
+        if: ${{ always() }}
+        run: rm -rf actuator-review-private

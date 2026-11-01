@@ -97,11 +97,29 @@ def require_verified_neutral_preflight(token: str, folder: str) -> None:
     if readback_sha(token, meta["id"], size) != expected:
         raise RuntimeError("WK06_NEUTRAL_RECEIPT_READBACK_MISMATCH")
 
+def reserve_one_shot(token: str, folder: str, run: str, commit: str) -> None:
+    name = "WK06_MATLAB_ATTEMPT_INTENT_20261101.json"
+    verified = "JTE063_VERIFIED_" + name
+    q = "'" + folder + "' in parents and name = '" + verified + "' and trashed = false"
+    query = urllib.parse.urlencode({"q": q, "fields": "nextPageToken,files(id)", "pageSize": "10"})
+    _, _, raw = req(API + "?" + query, token=token)
+    prior = json.loads(raw)
+    if prior.get("nextPageToken") or prior.get("files"):
+        raise RuntimeError("WK06_MATLAB_ONE_SHOT_ALREADY_RESERVED")
+    ROOT.mkdir(mode=0o700, exist_ok=False)
+    intent = ROOT / name
+    intent.write_text(json.dumps({"schema": "WK06_NONBATTERY_ONE_SHOT_INTENT",
+        "run": run, "commit": commit, "physicalRun": False,
+        "MATLAB_STARTED": "NOT_YET_CONFIRMED"}, sort_keys=True))
+    intent.chmod(0o600)
+    upload_verified(token, folder, intent, schema="SYNTHETIC_PREFLIGHT")
+
+
 def prepare(run: str, commit: str) -> None:
     token, folder = drive()
     require_verified_neutral_preflight(token, folder)
     assert quota(token)["availableBytes"] >= 512 * 1024 * 1024
-    ROOT.mkdir(mode=0o700, exist_ok=False)
+    reserve_one_shot(token, folder, run, commit)
     hashes = {name: sha256(Path("jte-public") / name) for name in INPUTS}
     gate = {
         "sourceKind": "WK04_NONBATTERY",
