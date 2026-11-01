@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   nonbattery-api:
-    if: ${{ false }} # WK06 consumed by run 41319712018; WK07 needs reviewed-source enable commit
+    if: ${{ github.ref == 'refs/heads/codex/wk06-nonbattery-only-20261101' && github.event_name == 'push' && github.event.head_commit.message == 'WK07_NONBATTERY_ONE_SHOT_20261101' && github.run_attempt == 1 }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
@@ -18,7 +18,7 @@ jobs:
       # SHA of the independently reviewed SOURCE commit S. The enabling commit E
       # (parent of the trigger) cannot contain its own SHA, so S must be HEAD~2:
       #   S (reviewed source) -> E (this file only: predicate + this SHA) -> T (marker only)
-      WK06_REVIEWED_SOURCE_SHA: TO_BE_SET_AFTER_INDEPENDENT_GO
+      WK06_REVIEWED_SOURCE_SHA: ac7b525035f2beb1107183244ac74982a19c8710
     steps:
       - uses: actions/checkout@v4
         with:
