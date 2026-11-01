@@ -1,0 +1,1 @@
+WK06 nonbattery one-shot trigger. Reviewed source 4f8e3d68697ccf7b76691e2b36db8b6bd3a4a8c0; enable 39b61a4. Owner approval: Issue #67 (01 Nov 2026). Synthetic fixture only, no battery pack.
