@@ -19,7 +19,7 @@ from JTE101_io import quota
 ROOT = Path("actuator-review-private")
 REPO = "nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE"
 REF = "refs/heads/codex/wk06-nonbattery-only-20261101"
-MESSAGE = "WK06_NONBATTERY_ONE_SHOT_20261101"
+MESSAGE = "WK07_NONBATTERY_ONE_SHOT_20261101"
 INPUTS = (
     "BTMS_WK04_t0Fixture.m",
     "BTMS_M3_completed.m",
@@ -99,17 +99,17 @@ def require_verified_neutral_preflight(token: str, folder: str) -> None:
         raise RuntimeError("WK06_NEUTRAL_RECEIPT_READBACK_MISMATCH")
 
 def reserve_one_shot(token: str, folder: str, run: str, commit: str) -> None:
-    name = "WK06_MATLAB_ATTEMPT_INTENT_20261101.json"
+    name = "WK07_MATLAB_ATTEMPT_INTENT_20261101.json"
     verified = "JTE063_VERIFIED_" + name
     q = "'" + folder + "' in parents and name = '" + verified + "' and trashed = false"
     query = urllib.parse.urlencode({"q": q, "fields": "nextPageToken,files(id)", "pageSize": "10"})
     _, _, raw = req(API + "?" + query, token=token)
     prior = json.loads(raw)
     if prior.get("nextPageToken") or prior.get("files"):
-        raise RuntimeError("WK06_MATLAB_ONE_SHOT_ALREADY_RESERVED")
+        raise RuntimeError("WK07_MATLAB_ONE_SHOT_ALREADY_RESERVED")
     ROOT.mkdir(mode=0o700, exist_ok=False)
     intent = ROOT / name
-    intent.write_text(json.dumps({"schema": "WK06_NONBATTERY_ONE_SHOT_INTENT",
+    intent.write_text(json.dumps({"schema": "WK07_NONBATTERY_ONE_SHOT_INTENT",
         "run": run, "commit": commit, "physicalRun": False,
         "MATLAB_STARTED": "NOT_YET_CONFIRMED"}, sort_keys=True))
     intent.chmod(0o600)

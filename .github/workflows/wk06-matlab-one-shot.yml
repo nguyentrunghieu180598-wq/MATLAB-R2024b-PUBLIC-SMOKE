@@ -1,16 +1,16 @@
-name: WK06 reviewed nonbattery MATLAB one-shot - DEFAULT DISABLED
+name: WK07 reviewed nonbattery MATLAB one-shot - DEFAULT DISABLED
 on:
   push:
     branches: ['codex/wk06-nonbattery-only-20261101']
-    paths: ['jte-public/WK06_MATLAB_TRIGGER.txt']
+    paths: ['jte-public/WK07_MATLAB_TRIGGER.txt']
 permissions:
   contents: read
 concurrency:
-  group: wk06-matlab-one-shot-20261101
+  group: wk07-matlab-one-shot-20261101
   cancel-in-progress: false
 jobs:
   nonbattery-api:
-    if: ${{ false }} # CONSUMED by run 41319712018 (01 Nov 2026); one-shot disabled after use
+    if: ${{ false }} # WK06 consumed by run 41319712018; WK07 needs reviewed-source enable commit
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 25
@@ -18,7 +18,7 @@ jobs:
       # SHA of the independently reviewed SOURCE commit S. The enabling commit E
       # (parent of the trigger) cannot contain its own SHA, so S must be HEAD~2:
       #   S (reviewed source) -> E (this file only: predicate + this SHA) -> T (marker only)
-      WK06_REVIEWED_SOURCE_SHA: 4f8e3d68697ccf7b76691e2b36db8b6bd3a4a8c0
+      WK06_REVIEWED_SOURCE_SHA: TO_BE_SET_AFTER_INDEPENDENT_GO
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,11 +26,11 @@ jobs:
           fetch-depth: 3
       - name: Immutable reviewed source, workflow-only enable, single marker-only trigger
         run: |
-          test "${{ github.event.head_commit.message }}" = "WK06_NONBATTERY_ONE_SHOT_20261101"
+          test "${{ github.event.head_commit.message }}" = "WK07_NONBATTERY_ONE_SHOT_20261101"
           test "${{ github.run_attempt }}" = "1"
           test "$(git rev-parse HEAD~2)" = "$WK06_REVIEWED_SOURCE_SHA"
           test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk06-matlab-one-shot.yml"
-          test "$(git diff --name-only HEAD~1 HEAD)" = "jte-public/WK06_MATLAB_TRIGGER.txt"
+          test "$(git diff --name-only HEAD~1 HEAD)" = "jte-public/WK07_MATLAB_TRIGGER.txt"
           test ! -d actuator-review-private
       - name: Protected pre-MATLAB source and private neutral receipt gate
         env:
