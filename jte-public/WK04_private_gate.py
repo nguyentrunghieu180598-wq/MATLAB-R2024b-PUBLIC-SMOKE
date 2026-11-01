@@ -9,16 +9,17 @@ import hashlib
 import json
 import os
 import sys
+import urllib.parse
 from pathlib import Path
 
-from JTE062_google_drive_synthetic import access_token, ensure_app_folder
-from JTE063_streaming_drive import upload_verified
+from JTE062_google_drive_synthetic import access_token, ensure_app_folder, API, req
+from JTE063_streaming_drive import upload_verified, readback_sha
 from JTE101_io import quota
 
 ROOT = Path("actuator-review-private")
 REPO = "nguyentrunghieu180598-wq/MATLAB-R2024b-PUBLIC-SMOKE"
-REF = "refs/heads/codex/wk05-fixture-evidence-gates"
-MESSAGE = "WK04_T0_NONBATTERY_ONE_SHOT"
+REF = "refs/heads/codex/wk06-nonbattery-only-20261101"
+MESSAGE = "WK06_NONBATTERY_ONE_SHOT_20261101"
 INPUTS = (
     "BTMS_WK04_t0Fixture.m",
     "BTMS_M3_completed.m",
@@ -69,8 +70,36 @@ def drive():
     return token, ensure_app_folder(token)
 
 
+def require_verified_neutral_preflight(token: str, folder: str) -> None:
+    """Fail-closed: the same protected Google identity already proved bytes readback."""
+    name = "JTE063_VERIFIED_WK06_NEUTRAL_PREFLIGHT_20261101.json"
+    q = "'" + folder + "' in parents and name = '" + name + "' and trashed = false"
+    query = urllib.parse.urlencode({"q": q,
+        "fields": "nextPageToken,files(id,size,appProperties,permissions(type,role))",
+        "pageSize": "10"})
+    _, _, raw = req(API + "?" + query, token=token)
+    data = json.loads(raw)
+    entries = data.get("files", [])
+    if data.get("nextPageToken") or len(entries) != 1:
+        raise RuntimeError("WK06_VERIFIED_NEUTRAL_PREFLIGHT_NOT_FOUND")
+    meta = entries[0]
+    props = meta.get("appProperties") or {}
+    size = int(meta.get("size", 0))
+    permissions = meta.get("permissions") or []
+    if (props.get("state") != "VERIFIED"
+        or not 20 < size < 4096
+        or not permissions
+        or any(p.get("type") != "user" or p.get("role") != "owner" for p in permissions)):
+        raise RuntimeError("WK06_PRIVATE_NEUTRAL_RECEIPT_INVALID")
+    expected = props.get("sha256", "")
+    if not isinstance(expected, str) or len(expected) != 64:
+        raise RuntimeError("WK06_NEUTRAL_RECEIPT_SHA_INVALID")
+    if readback_sha(token, meta["id"], size) != expected:
+        raise RuntimeError("WK06_NEUTRAL_RECEIPT_READBACK_MISMATCH")
+
 def prepare(run: str, commit: str) -> None:
-    token, _ = drive()
+    token, folder = drive()
+    require_verified_neutral_preflight(token, folder)
     assert quota(token)["availableBytes"] >= 512 * 1024 * 1024
     ROOT.mkdir(mode=0o700, exist_ok=False)
     hashes = {name: sha256(Path("jte-public") / name) for name in INPUTS}
