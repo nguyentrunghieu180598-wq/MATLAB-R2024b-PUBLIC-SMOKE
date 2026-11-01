@@ -36,7 +36,7 @@ jobs:
         run: python3 jte-public/WK04_private_gate.py prepare
       - uses: matlab-actions/setup-matlab@v3
         with:
-          release: R2024b
+          release: R2024bU10
           products: Simulink
       - name: ONE MATLAB PROCESS; exact build first; synthetic fixture only
         uses: matlab-actions/run-command@v3
