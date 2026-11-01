@@ -24,6 +24,7 @@ INPUTS = (
     "BTMS_M3_completed.m",
     "BTMS_M3_instrument.m",
     "BTMS_M3_events.m",
+    "WK04_private_gate.py",
 )
 
 
