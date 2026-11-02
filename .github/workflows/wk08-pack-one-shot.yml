@@ -1,0 +1,76 @@
+name: WK08 R1 340s source design - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk08-geometric-injection']
+    paths: ['jte-public/WK08_PACK_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk08-r1-one-shot-20261102
+  cancel-in-progress: false
+jobs:
+  r1:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 35
+    env:
+      WK08_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
+      WK08_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
+      WK08_OWNER_APPROVAL: ${{ vars.WK08_OWNER_APPROVAL }}
+    steps:
+      - name: Reserve wall time for private delivery
+        run: echo "WK08_JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Reviewed source S then workflow-only E then marker-only T
+        shell: bash
+        run: |
+          test "${{ github.event.head_commit.message }}" = "WK08_PACK_340S_ONE_SHOT_20261102"
+          test "${{ github.run_attempt }}" = "1"
+          test "$(git rev-parse HEAD~2)" = "$WK08_REVIEWED_SOURCE_SHA"
+          test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk08-pack-one-shot.yml"
+          test "$(git diff --name-only HEAD~1 HEAD)" = "jte-public/WK08_PACK_TRIGGER.txt"
+          test ! -d actuator-review-private
+      - uses: actions/checkout@v4
+        with:
+          repository: mathworks/Battery-Pack-Model-Simscape
+          ref: f98d21929a3a269dacd1ee38999cd9773760c6db
+          path: vendor-pack
+          persist-credentials: false
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024bU10
+          products: Simulink Simscape Simscape_Electrical
+      - name: Private source SHA and durable one-attempt reservation
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK08_private_gate.py prepare
+      - name: ONE supervised MATLAB process, no retry
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK08_supervise.py
+      - name: Private full-byte receipt including failure diagnostics
+        if: ${{ always() }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        shell: bash
+        run: |
+          if test -d actuator-review-private; then
+            python3 jte-public/WK08_private_gate.py publish
+          fi
+      - name: Cleanup after complete private readback only
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          if test -f actuator-review-private/WK08_DELIVERY_VERIFIED; then
+            rm -rf actuator-review-private
+          fi
