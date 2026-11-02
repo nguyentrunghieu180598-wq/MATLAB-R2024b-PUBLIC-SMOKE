@@ -2,6 +2,7 @@
 import csv
 import json
 import os
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -79,6 +80,29 @@ class FixedGeometryTests(unittest.TestCase):
                 self.assertEqual([int(r["channel"]) for r in selected],
                                  [offset + k for k in expected])
                 offset += n
+
+
+class BiasGuardSourceTests(unittest.TestCase):
+    def test_unsensed_bias_rejected_after_neutral_return_before_graph_edits(self):
+        # Offline source contract only; MATLAB runtime behavior is tested separately
+        # by test_BTMS_WK08_inject_guard.m (not executed by Codex).
+        source = (Path(__file__).parent / "BTMS_WK08_inject.m").read_text()
+        neutral = re.search(
+            r"if\s+b==0\s*&&\s*isequal\(S,1:312\)[\s\S]*?\breturn\s+end",
+            source,
+        )
+        self.assertIsNotNone(neutral, "Neutral identity bypass must remain present")
+        tail = source[neutral.end():]
+        guard = re.match(
+            r"\s*assert\(ismember\(j,S\),'WK08:BiasNotSensed',\s*\.\.\.\s*"
+            r"'Biased channel must be in the sensed subset\.'\);",
+            tail,
+        )
+        self.assertIsNotNone(guard, "Reject unsensed biased channels on the non-neutral path")
+        mutation = re.search(r"\b(?:add_block|delete_line|add_line|set_param)\s*\(", source)
+        self.assertIsNotNone(mutation)
+        self.assertLess(neutral.end() + guard.end(), mutation.start(),
+                        "The bias guard must reject before the first graph edit")
 
 
 if __name__ == "__main__":
