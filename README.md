@@ -29,6 +29,7 @@ See [run sheet](actuator-amendment/WK08_R1_DESIGN.md) for provenance, limits and
 | `jte-public/test_BTMS_WK08_inject_guard.m` | B1 synthetic unsensed-channel rejection and unchanged-graph guard test; not executed |
 | `jte-public/JTE063_streaming_drive.py` | One new schema whitelist entry; transport unchanged |
 | `.github/workflows/wk08-pack-one-shot.yml` | Disabled R1 workflow; exact future marker only |
+| `.github/workflows/wk08-ci5s-one-shot.yml` | Separate disabled CI_5S one-shot workflow (30 minutes) |
 
 No existing MATLAB file is modified. The vendor model, original continuous TF, controller law and solver
 remain unchanged. R1 uses the already-approved sampled M2 derivative, not an alteration of the vendor TF.
@@ -50,3 +51,33 @@ The v01 MAX-based selector is neither imported nor called.
 - [ ] Claude independent code/design review.
 - [ ] Owner approval and future E/T actions; no run approval exercised by Codex.
 - [ ] Physical build/compile, file clocks, hidden Simscape IC, measured time/RAM and 340s completion (unverified).
+
+## CI_5S (D11) — source only, pending Claude review
+
+CI_5S mirrors the R1 neutral sampled-actuator model and exact R2024b Update 10 build,
+with a 5s horizon. Its disabled workflow sets `WK08_MODE=CI_5S`; R1 continues to default
+to R1. CI_5S requires approval `APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO`, its own marker
+`jte-public/WK08_CI5S_TRIGGER.txt` and message `WK08_CI_5S_ONE_SHOT_20261103`.
+The marker remains absent in this source delivery. Both workflows stay disabled.
+
+The separate private intent `WK08_CI5S_ATTEMPT_INTENT_20261103.json` is reserved alongside
+the R1 intent, but queries only its own pending/verified reservation. CI_5S neither consumes
+nor blocks R1. The same receipt-verified M2 model/workspace inputs and transport preflight
+are reused. CI outputs and `WK08_CI5S_<run>_PRIVATE_RECEIPT.json` are uploaded to the owner-only
+`BTMS-DATS` subfolder of the existing app-private Drive folder, using
+`WK08_CI5S_RAW_UNREVIEWED_NOT_G5`. No raw data goes to public artifacts.
+
+CI-only flags add `prepareWall_s` (builder), `firstStepWall_s`,
+`trajectoryWall_s` (remaining steps after paused probes), `majorSteps` (completed step calls,
+including first and terminal), and `pausedNativeReadable` (file name/readable/error identifier
+for all eight native files). A failed paused read is recorded; if it prevents the three t0
+reads, that t0 witness is marked unavailable and execution continues once to the terminal
+gates. Any unreadable paused native file keeps the final status `UNQUALIFIED` even if final
+files pass. Otherwise CI completion is `CI_5S_GATES_PASS_NOT_R1`, pending private readback
+and Claude review. Other finite/clock/model/build/controller/solver gates remain in force.
+Timings stay null/unavailable if a stage was never entered; failed entered stages record
+elapsed time where possible. No physical performance claim is made from source checks.
+
+The supervisor preserves R1 resource/wall bounds and uses a conservative maximum launch age
+of 300s for CI_5S's 30-minute job, leaving delivery time. CI_5S never dispatches R1.
+No MATLAB/CI was run, no workflow enabled/triggered. Hub #6 is queued after this review stop.

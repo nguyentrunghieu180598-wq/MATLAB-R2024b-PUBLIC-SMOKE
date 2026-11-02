@@ -29,14 +29,16 @@ class ContextTests(unittest.TestCase):
     def invoke(self, changes=None, extra_source=False):
         env = dict(self.env)
         env.update(changes or {})
+        workflow = gate.config(env.get("WK08_MODE", "R1"))["workflow"]
         def git(*args):
             return {("rev-parse", "HEAD"): "c" * 40,
                     ("rev-parse", "HEAD~2"): "a" * 40,
                     ("diff", "--name-only", "HEAD~2", "HEAD~1"):
-                        gate.WORKFLOW + ("\njte-public/BTMS_WK08_run.m" if extra_source else ""),
+                        workflow + ("\njte-public/BTMS_WK08_run.m" if extra_source else ""),
                     ("diff", "--name-only", "HEAD~1", "HEAD"): str(self.marker)}[args]
         with patch.dict(os.environ, env, clear=True), patch.object(gate, "git", git), \
-             patch.object(gate, "MARKER", str(self.marker)):
+             patch.object(gate, "MARKER", str(self.marker)), \
+             patch.dict(gate.CI5S, {"marker": str(self.marker)}):
             return gate.context()
 
     def test_valid_chain(self):
@@ -58,6 +60,117 @@ class ContextTests(unittest.TestCase):
         self.marker.write_text("NOT THE APPROVED MESSAGE")
         with self.assertRaises(RuntimeError):
             self.invoke()
+
+
+class CI5SContextTests(ContextTests):
+    def setUp(self):
+        super().setUp()
+        p = gate.config("CI_5S")
+        self.env["WK08_MODE"] = "CI_5S"
+        self.env["WK08_OWNER_APPROVAL"] = p["approval"]
+        event = json.loads(self.event.read_text())
+        event["head_commit"]["message"] = p["message"]
+        self.event.write_text(json.dumps(event))
+        self.marker.write_text(p["message"])
+
+    def test_r1_approval_cannot_authorize_ci5s(self):
+        with self.assertRaises(RuntimeError):
+            self.invoke({"WK08_OWNER_APPROVAL": gate.config("R1")["approval"]})
+
+    def test_ci5s_message_cannot_authorize_r1(self):
+        with self.assertRaises(RuntimeError):
+            self.invoke({"WK08_MODE": "R1",
+                         "WK08_OWNER_APPROVAL": gate.config("R1")["approval"]})
+
+    def test_r1_trigger_message_rejected(self):
+        event = json.loads(self.event.read_text())
+        event["head_commit"]["message"] = gate.config("R1")["message"]
+        self.event.write_text(json.dumps(event))
+        with self.assertRaises(RuntimeError):
+            self.invoke()
+
+
+class IntentSeparationTests(unittest.TestCase):
+    def test_each_mode_ignores_other_intent_but_blocks_its_own(self):
+        for mode, other_mode in (("CI_5S", "R1"), ("R1", "CI_5S")):
+            for own_exists in (False, True):
+                with self.subTest(mode=mode, own_exists=own_exists), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp) / "scratch"
+                    own = gate.config(mode)["intent"]
+                    other = gate.config(other_mode)["intent"]
+                    checked = []
+                    def remote_query(token, folder, condition):
+                        checked.append(condition)
+                        self.assertNotIn(other, condition)
+                        self.assertIn("JTE063_PENDING_" + own, condition)
+                        self.assertIn("JTE063_VERIFIED_" + own, condition)
+                        return [{"id": "prior"}] if own_exists else []
+                    with patch.dict(os.environ, {"WK08_MODE": mode}, clear=True), \
+                         patch.object(gate, "ROOT", root), \
+                         patch.object(gate, "query", remote_query), \
+                         patch.object(gate, "upload") as upload:
+                        if own_exists:
+                            with self.assertRaises(RuntimeError):
+                                gate.reserve_one_shot("token", "folder", "123", "c"*40)
+                            upload.assert_not_called()
+                            self.assertFalse(root.exists())
+                        else:
+                            gate.reserve_one_shot("token", "folder", "123", "c"*40)
+                            self.assertTrue((root / own).is_file())
+                            self.assertFalse((root / other).exists())
+                            payload = json.loads((root / own).read_text())
+                            self.assertEqual(payload["schema"], gate.config()["schema"])
+                            upload.assert_called_once()
+                    self.assertEqual(len(checked), 1)
+
+    def test_receipts_and_horizons_are_separate(self):
+        names = {}
+        for mode, horizon in (("CI_5S", 5), ("R1", 340)):
+            with patch.dict(os.environ, {"WK08_MODE": mode}, clear=True):
+                p = gate.config()
+                self.assertEqual(p["stopTime_s"], horizon)
+                names[mode] = gate.receipt_name("123")
+        self.assertNotEqual(names["CI_5S"], names["R1"])
+        self.assertNotEqual(gate.config("CI_5S")["schema"], gate.config("R1")["schema"])
+
+    def test_unknown_mode_rejected(self):
+        with self.assertRaises(RuntimeError):
+            gate.config("CI_340S")
+
+
+class CI5SPublishTests(unittest.TestCase):
+    def test_unreadable_paused_files_cannot_be_upgraded_by_terminal_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "scratch"
+            (root / "native").mkdir(parents=True)
+            manifest = {"run": "123", "commit": "c"*40, "mode": "CI_5S",
+                "stopTime_s": 5, "inputCodeSHA256": {"source": "hash"},
+                "inputs": [{"local": "source.slx", "sha256": "hash"}]}
+            flags = {"run": "123", "commit": "c"*40, "mode": "CI_5S",
+                "status": "UNQUALIFIED", "allPausedNativeReadable": False}
+            monitor = {"run": "123", "commit": "c"*40, "mode": "CI_5S",
+                "status": "PROCESS_EXIT_ZERO", "returncode": 0}
+            for name, obj in (("WK08_MANIFEST.json", manifest),
+                              ("WK08_FLAGS.json", flags), ("WK08_SUPERVISOR.json", monitor)):
+                (root / name).write_text(json.dumps(obj))
+            for role in gate.NATIVE:
+                (root / "native" / ("WK08_" + role + ".mat")).write_bytes(b"synthetic")
+            for name in ("WK08_PREPARED_PROOF.mat", "WK08R1.slx", "WK08_RESOURCES.jsonl"):
+                (root / name).write_bytes(b"synthetic")
+            with patch.dict(os.environ, {"WK08_MODE": "CI_5S"}, clear=True), \
+                 patch.object(gate, "ROOT", root), patch.object(gate, "drive", return_value=("t", "app")), \
+                 patch.object(gate, "btms_dats_folder", return_value="private-BTMS-DATS"), \
+                 patch.object(gate, "sha", return_value="hash"), \
+                 patch.object(gate, "code_hashes", return_value={"source": "hash"}), \
+                 patch.object(gate, "upload", return_value={"integrity": "FULL_REMOTE_READBACK_VERIFIED"}) as upload:
+                with self.assertRaises(RuntimeError):
+                    gate.publish("123", "c"*40)
+                receipt = json.loads((root / gate.receipt_name("123")).read_text())
+                self.assertTrue(receipt["requiredPayloadComplete"])
+                self.assertEqual(receipt["status"], "UNQUALIFIED")
+                self.assertEqual(receipt["schema"], gate.CI5S["schema"])
+                self.assertFalse((root / "WK08_DELIVERY_VERIFIED").exists())
+                self.assertTrue(all(c.args[1] == "private-BTMS-DATS" for c in upload.call_args_list))
 
 
 class FixedGeometryTests(unittest.TestCase):

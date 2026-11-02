@@ -5,6 +5,13 @@ assert(isfolder(root),'WK08:Private','Private root missing.');
 flags=struct('status','UNQUALIFIED','physicalRun',false,'G5Accepted',false, ...
  'run',M.run,'commit',M.commit,'stopTime_s',M.stopTime_s, ...
  'stage','INPUT','hiddenSimscapeICCertified',false);
+isCI5S=strcmp(M.mode,'CI_5S');
+if isCI5S
+ flags.mode='CI_5S';flags.prepareWall_s=NaN;flags.firstStepWall_s=NaN;
+ flags.trajectoryWall_s=NaN;flags.majorSteps=0;
+ flags.pausedNativeReadable=struct('file',{},'readable',{},'identifier',{});
+ flags.allPausedNativeReadable=false;
+end
 s=[];project=[];m='';failure=[];wall=tic;
 guard=onCleanup(@finish); %#ok<NASGU>
 try
@@ -14,6 +21,13 @@ try
   assert(M.stopTime_s==340 && strcmp(getenv('WK08_OWNER_APPROVAL'), ...
    'APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO'), ...
    'WK08:Approval','R1 requires separate owner approval after Claude GO.');
+  assert(strcmp(M.run,getenv('GITHUB_RUN_ID')) && ...
+   strcmp(M.commit,getenv('GITHUB_SHA')), ...
+   'WK08:Context','Run/commit provenance mismatch.');
+ elseif isCI5S
+  assert(M.stopTime_s==5 && strcmp(getenv('WK08_OWNER_APPROVAL'), ...
+   'APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO'), ...
+   'WK08:Approval','CI_5S requires separate owner approval after Claude GO.');
   assert(strcmp(M.run,getenv('GITHUB_RUN_ID')) && ...
    strcmp(M.commit,getenv('GITHUB_SHA')), ...
    'WK08:Context','Run/commit provenance mismatch.');
@@ -38,7 +52,9 @@ try
  native=fullfile(root,'native');assert(~isfolder(native),'WK08:Fresh','Fresh output folder required.');
  mkdir(native);
  flags.stage='PREPARE';
+ if isCI5S,prepareTimer=tic;end
  proof=BTMS_WK08_prepare(source,target,native,M.sourceSHA256,M.stopTime_s);
+ if isCI5S,flags.prepareWall_s=toc(prepareTimer);end
  m='WK08R1';load_system(target);
  assert(isequaln(proof.fingerprint,BTMS_WK08_structFingerprint(m)), ...
   'WK08:Fingerprint','Saved/reloaded structure differs.');
@@ -63,23 +79,51 @@ try
  'WK08:EffectiveConfig','Effective run cap/solver changed.');
  assert(s.Time==0,'WK08:T0','Direct-start time is not zero.');
  flags.stage='FIRST_MAJOR';
- final=step(s); % one completed initial major; paused To File files are closed
+ if isCI5S,firstStepTimer=tic;end
+ final=step(s); % one completed initial major; paused To File readability is probed in CI_5S
+ if isCI5S
+  flags.firstStepWall_s=toc(firstStepTimer);flags.majorSteps=1;
+ end
  assert(~final && strcmp(char(s.Status),'paused'), ...
   'WK08:FirstMajor','Initial completed-major witness unavailable.');
- first=readNative(proof.privateTargets{4},312,0,false);
- measured=readNative(proof.privateTargets{6},1,0,false);
- trueMax=readNative(proof.privateTargets{5},1,0,false);
- assert(first.time(1)==0 && measured.time(1)==0 && trueMax.time(1)==0 && ...
- trueMax.data(1)==max(first.data(1,:)) && ...
- measured.data(1)==trueMax.data(1), ...
- 'WK08:T0Values','Neutral true/measured t0 witness mismatch.');
- flags.visibleT0Checked=true;
+ if isCI5S
+  % Probe every file while paused; never reinterpret missing/readability evidence as PASS.
+  for k=1:numel(proof.privateTargets)
+   [~,file,ext]=fileparts(proof.privateTargets{k});
+   row=struct('file',[file ext],'readable',false,'identifier','');
+   try
+    probe=load(proof.privateTargets{k}); %#ok<NASGU>
+    row.readable=true;
+   catch pausedError
+    row.identifier=pausedError.identifier;
+   end
+   flags.pausedNativeReadable(end+1)=row; %#ok<AGROW>
+  end
+  flags.allPausedNativeReadable=all([flags.pausedNativeReadable.readable]);
+  writeJSON(fullfile(root,'WK08_FLAGS.json'),flags);
+ end
+ if isCI5S && ~all([flags.pausedNativeReadable([4 6 5]).readable])
+  % The CI check must finish once to assess terminal files even if paused reads fail.
+  flags.visibleT0Checked=false;
+ else
+  first=readNative(proof.privateTargets{4},312,0,false);
+  measured=readNative(proof.privateTargets{6},1,0,false);
+  trueMax=readNative(proof.privateTargets{5},1,0,false);
+  assert(first.time(1)==0 && measured.time(1)==0 && trueMax.time(1)==0 && ...
+  trueMax.data(1)==max(first.data(1,:)) && ...
+  measured.data(1)==trueMax.data(1), ...
+  'WK08:T0Values','Neutral true/measured t0 witness mismatch.');
+  flags.visibleT0Checked=true;
+ end
  flags.t0Protocol='DIRECT_START; HIDDEN_SIMSCAPE_IC_NOT_CERTIFIED';
  flags.stage='TRAJECTORY';
+ if isCI5S,trajectoryTimer=tic;end
  while ~final
   assert(toc(wall)<1200,'WK08:Wall','One trajectory wall ceiling reached.');
   final=step(s);
+  if isCI5S,flags.majorSteps=flags.majorSteps+1;end
  end
+ if isCI5S,flags.trajectoryWall_s=toc(trajectoryTimer);end
  % R2024b final step may already be inactive (WK07 verified).
  terminalStatus=char(s.Status);
  assert(any(strcmp(terminalStatus,{'paused','inactive'})), ...
@@ -116,11 +160,26 @@ try
  'WK08:Immutable','Source/derivative/fingerprint changed.');
  flags.status='R1_NATIVE_GATES_PASS_PENDING_PRIVATE_READBACK';
  if M.stopTime_s==5,flags.status='LOCAL_5S_GATES_PASS_NOT_R1';end
+ if isCI5S
+  flags.status='CI_5S_GATES_PASS_NOT_R1';
+  if ~flags.allPausedNativeReadable,flags.status='UNQUALIFIED';end
+ end
  flags.stage='DONE';flags.terminalStatus=terminalStatus;
  flags.nativeFinite=true;flags.nativeEndpointsChecked=true;
  flags.runtimeWall_s=toc(wall);flags.derivativeSHA256=proof.derivativeSHA256;
  flags.structuralFingerprintChecked=true;
 catch err
+ if isCI5S
+  if exist('prepareTimer','var') && isnan(flags.prepareWall_s)
+   flags.prepareWall_s=toc(prepareTimer);
+  end
+  if exist('firstStepTimer','var') && isnan(flags.firstStepWall_s)
+   flags.firstStepWall_s=toc(firstStepTimer);
+  end
+  if exist('trajectoryTimer','var') && isnan(flags.trajectoryWall_s)
+   flags.trajectoryWall_s=toc(trajectoryTimer);
+  end
+ end
  failure=err;flags.identifier=err.identifier;flags.reason=err.message;
 end
 writeJSON(fullfile(root,'WK08_FLAGS.json'),flags);

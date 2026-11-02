@@ -1,4 +1,4 @@
-"""WK08 R1 private prepare/publish. Never launches MATLAB. Default workflow disabled."""
+"""WK08 R1/CI_5S private prepare/publish. Never launches MATLAB. Default workflow disabled."""
 from __future__ import annotations
 import hashlib
 import json
@@ -24,8 +24,37 @@ MARKER = "jte-public/WK08_PACK_TRIGGER.txt"
 SCHEMA = "WK08_R1_RAW_UNREVIEWED_NOT_G5"
 INTENT = "WK08_R1_ATTEMPT_INTENT_20261102.json"
 GiB = 1024**3
+CI5S = {
+    "mode": "CI_5S", "stopTime_s": 5,
+    "message": "WK08_CI_5S_ONE_SHOT_20261103",
+    "workflow": ".github/workflows/wk08-ci5s-one-shot.yml",
+    "marker": "jte-public/WK08_CI5S_TRIGGER.txt",
+    "approval": "APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO",
+    "intent": "WK08_CI5S_ATTEMPT_INTENT_20261103.json",
+    "schema": "WK08_CI5S_RAW_UNREVIEWED_NOT_G5",
+    "receiptPrefix": "WK08_CI5S_",
+    "flagsPass": "CI_5S_GATES_PASS_NOT_R1",
+    "receiptPass": "CI_5S_GATES_AND_PRIVATE_READBACK_PASS_NOT_R1_PENDING_CLAUDE",
+}
 NATIVE = ("uCore", "uSampled", "actuatorY", "Ttrue312",
           "TmaxTrue", "TmaxMeas", "pumpPower", "Ttrue312_1s")
+
+
+def config(mode=None):
+    mode = os.environ.get("WK08_MODE", "R1") if mode is None else mode
+    need(mode in {"R1", "CI_5S"}, "WK08_MODE_DENIED")
+    if mode == "CI_5S":
+        return dict(CI5S)
+    return {"mode": "R1", "stopTime_s": 340, "message": MESSAGE,
+        "workflow": WORKFLOW, "marker": MARKER,
+        "approval": "APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO",
+        "intent": INTENT, "schema": SCHEMA, "receiptPrefix": "WK08_",
+        "flagsPass": "R1_NATIVE_GATES_PASS_PENDING_PRIVATE_READBACK",
+        "receiptPass": "R1_GATES_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE"}
+
+
+def receipt_name(run):
+    return config()["receiptPrefix"] + run + "_PRIVATE_RECEIPT.json"
 
 
 def sha(path):
@@ -41,6 +70,7 @@ def git(*args):
 
 
 def context():
+    p = config()
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     need(os.environ.get("GITHUB_REPOSITORY") == REPO
          and event.get("repository", {}).get("full_name") == REPO
@@ -51,8 +81,8 @@ def context():
          and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
          and os.environ.get("WK08_PROTECTED_ENV_NAME") == "JTE_DRIVE_WRITE"
          and os.environ.get("WK08_OWNER_APPROVAL") ==
-             "APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO"
-         and (event.get("head_commit") or {}).get("message") == MESSAGE
+             p["approval"]
+         and (event.get("head_commit") or {}).get("message") == p["message"]
          and (event.get("head_commit") or {}).get("id") == os.environ["GITHUB_SHA"],
          "WK08_CONTEXT_DENIED")
     source = os.environ.get("WK08_REVIEWED_SOURCE_SHA", "")
@@ -60,9 +90,9 @@ def context():
          "WK08_REVIEWED_SOURCE_UNSET")
     need(git("rev-parse", "HEAD") == os.environ["GITHUB_SHA"]
          and git("rev-parse", "HEAD~2") == source
-         and git("diff", "--name-only", "HEAD~2", "HEAD~1") == WORKFLOW
-         and git("diff", "--name-only", "HEAD~1", "HEAD") == MARKER
-         and Path(MARKER).read_text().strip() == MESSAGE, "WK08_CHAIN_DENIED")
+         and git("diff", "--name-only", "HEAD~2", "HEAD~1") == p["workflow"]
+         and git("diff", "--name-only", "HEAD~1", "HEAD") == p["marker"]
+         and Path(p["marker"]).read_text().strip() == p["message"], "WK08_CHAIN_DENIED")
     return os.environ["GITHUB_RUN_ID"], os.environ["GITHUB_SHA"]
 
 
@@ -84,31 +114,52 @@ def drive():
 
 
 def upload(token, folder, path):
-    result = upload_verified(token, folder, path, schema=SCHEMA)
+    result = upload_verified(token, folder, path, schema=config()["schema"])
     meta = one(token, folder, "JTE063_VERIFIED_" + path.name)
     private_acl(token, meta["id"])
     return result
 
 
 def code_hashes():
-    paths = git("ls-files", "jte-public", WORKFLOW).splitlines()
+    paths = git("ls-files", "jte-public", config()["workflow"]).splitlines()
     return {p: sha(p) for p in paths if Path(p).suffix in {".m", ".py", ".csv", ".yml"}}
 
 
+def reserve_one_shot(token, folder, run, commit):
+    p = config()
+    condition = "name = 'JTE063_PENDING_" + p["intent"] + "' or name = 'JTE063_VERIFIED_" + p["intent"] + "'"
+    need(not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY")
+    ROOT.mkdir(mode=0o700, exist_ok=False)
+    intent = ROOT / p["intent"]
+    intent.write_text(json.dumps({"run": run, "commit": commit,
+        "schema": p["schema"], "MATLAB_STARTED": "NOT_YET_CONFIRMED",
+        "exactlyOneInitialize": True, "allowRetry": False}))
+    intent.chmod(0o600)
+    upload(token, folder, intent)  # persistent reservation BEFORE any model or MATLAB work
+
+def btms_dats_folder(token, parent):
+    condition = "name = 'BTMS-DATS' and mimeType = 'application/vnd.google-apps.folder'"
+    rows = query(token, parent, condition)
+    need(len(rows) <= 1, "WK08_CI5S_RESULTS_FOLDER_AMBIGUOUS")
+    if rows:
+        folder = rows[0]["id"]
+    else:
+        _, _, raw = req(API + "?fields=id", method="POST", token=token,
+            data=json.dumps({"name": "BTMS-DATS", "parents": [parent],
+                "mimeType": "application/vnd.google-apps.folder"}).encode(),
+            extra={"Content-Type": "application/json"})
+        folder = json.loads(raw)["id"]
+    private_acl(token, folder)
+    return folder
+
+
 def prepare(run, commit):
+    p = config()
     need(not ROOT.exists(), "WK08_FRESH_PRIVATE_ROOT")
     token, folder = drive()
     require_verified_neutral_preflight(token, folder)
     need(quota(token)["availableBytes"] > 3 * GiB, "WK08_DRIVE_RESERVE")
-    condition = "name = 'JTE063_PENDING_" + INTENT + "' or name = 'JTE063_VERIFIED_" + INTENT + "'"
-    need(not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY")
-    ROOT.mkdir(mode=0o700, exist_ok=False)
-    intent = ROOT / INTENT
-    intent.write_text(json.dumps({"run": run, "commit": commit,
-        "schema": SCHEMA, "MATLAB_STARTED": "NOT_YET_CONFIRMED",
-        "exactlyOneInitialize": True, "allowRetry": False}))
-    intent.chmod(0o600)
-    upload(token, folder, intent)  # persistent reservation BEFORE any model or MATLAB work
+    reserve_one_shot(token, folder, run, commit)
     assets = []
     def asset(name, local, receipt=None):
         meta = one(token, folder, "JTE063_VERIFIED_" + name)
@@ -145,7 +196,7 @@ def prepare(run, commit):
     need(sha(vendor_slx) ==
          "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
          "WK08_VENDOR_SHA")
-    manifest = {"run": run, "commit": commit, "mode": "R1", "stopTime_s": 340,
+    manifest = {"run": run, "commit": commit, "mode": p["mode"], "stopTime_s": p["stopTime_s"],
         "privateRoot": str(ROOT.resolve()), "sourceSHA256": src["sha256"],
         "inputs": assets, "vendorRoot": str(vendor), "vendorSLX": str(vendor_slx),
         "inputCodeSHA256": code_hashes(), "retry": False}
@@ -153,7 +204,10 @@ def prepare(run, commit):
 
 
 def publish(run, commit):
+    p = config()
     token, folder = drive()
+    if p["mode"] == "CI_5S":
+        folder = btms_dats_folder(token, folder)
     manifest_path = ROOT / "WK08_MANIFEST.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
     flags_path = ROOT / "WK08_FLAGS.json"
@@ -162,17 +216,22 @@ def publish(run, commit):
     monitor = json.loads(monitor_path.read_text()) if monitor_path.is_file() else {}
     same = all(x.get("run") == run and x.get("commit") == commit
                for x in (manifest, flags, monitor))
+    if p["mode"] == "CI_5S":
+        same = (same and manifest.get("mode") == "CI_5S"
+                and manifest.get("stopTime_s") == 5
+                and flags.get("mode") == "CI_5S"
+                and monitor.get("mode") == "CI_5S")
     unchanged = manifest.get("inputCodeSHA256") == code_hashes()
     inputs_ok = bool(manifest.get("inputs")) and all(
         sha(ROOT / a["local"]) == a["sha256"] for a in manifest.get("inputs", []))
-    receipt = {"run": run, "commit": commit, "schema": SCHEMA, "files": [],
+    receipt = {"run": run, "commit": commit, "schema": p["schema"], "files": [],
         "sameAttempt": same, "sourceCodeUnchanged": unchanged,
         "inputsUnchanged": inputs_ok, "G5Accepted": False,
         "status": "UNQUALIFIED", "rawDataPublic": False}
     # Exclude downloaded inputs and the intent; publish only this attempt's outputs.
     paths = sorted(p for p in ROOT.rglob("*") if p.is_file() and
                    (p.name.startswith("WK08") or p.parent.name == "native") and
-                   p.name != INTENT)
+                   p.name != config()["intent"])
     need(all(not p.is_symlink() for p in paths), "WK08_SYMLINK")
     need(sum(p.stat().st_size for p in paths) <= 2 * GiB, "WK08_DELIVERY_TOTAL_CAP")
     for path in paths:
@@ -186,18 +245,18 @@ def publish(run, commit):
     uploaded = {p["name"] for p in receipt["files"]}
     complete = required <= uploaded
     passed = (same and unchanged and inputs_ok and complete
-              and flags.get("status") == "R1_NATIVE_GATES_PASS_PENDING_PRIVATE_READBACK"
+              and flags.get("status") == p["flagsPass"]
               and monitor.get("status") == "PROCESS_EXIT_ZERO"
               and monitor.get("returncode") == 0)
     receipt["requiredPayloadComplete"] = complete
-    receipt["status"] = "R1_GATES_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE" if passed else "UNQUALIFIED"
-    receipt_path = ROOT / ("WK08_" + run + "_PRIVATE_RECEIPT.json")
+    receipt["status"] = p["receiptPass"] if passed else "UNQUALIFIED"
+    receipt_path = ROOT / receipt_name(run)
     receipt_path.write_text(json.dumps(receipt, indent=2))
     upload(token, folder, receipt_path)
     if passed:
         (ROOT / "WK08_DELIVERY_VERIFIED").write_text("PRIVATE_READBACK_COMPLETE")
     need(passed, "WK08_UNQUALIFIED_PRIVATE_DIAGNOSTICS_SAVED")
-    print("WK08_R1_PRIVATE_RECEIPT_COMPLETE pendingClaudeReview=1 G5_ACCEPTED=false")
+    print("WK08_" + p["mode"] + "_PRIVATE_RECEIPT_COMPLETE pendingClaudeReview=1 G5_ACCEPTED=false")
 
 
 if __name__ == "__main__":

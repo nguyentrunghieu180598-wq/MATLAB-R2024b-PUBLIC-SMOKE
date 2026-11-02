@@ -12,18 +12,24 @@ import threading
 
 from BTMS_M3_oneShotWatchdog import memory, violation, proc_start, proc_rss, terminate_tree
 from JTE101_io import quota
-from WK08_private_gate import context, drive, ROOT, GiB
+from WK08_private_gate import context, drive, ROOT, GiB, config
 
 
 def main():
     run, commit = context()
+    p = config()
     manifest = ROOT / "WK08_MANIFEST.json"
     if not manifest.is_file():
         raise RuntimeError("WK08_MANIFEST_REQUIRED")
+    if p["mode"] == "CI_5S":
+        data = json.loads(manifest.read_text())
+        if (data.get("mode") != "CI_5S" or data.get("stopTime_s") != 5
+            or data.get("run") != run or data.get("commit") != commit):
+            raise RuntimeError("WK08_CI5S_MANIFEST_BINDING")
     token, _ = drive()
     free_drive = quota(token)["availableBytes"]
     job_start = float(os.environ["WK08_JOB_START_EPOCH"])
-    if time.time() - job_start > 600:
+    if time.time() - job_start > (300 if p["mode"] == "CI_5S" else 600):
         raise RuntimeError("WK08_INSUFFICIENT_JOB_DELIVERY_RESERVE")
     mem = memory()
     if (mem["hostAvailable"] < 8 * GiB or
@@ -38,6 +44,8 @@ def main():
     console = ROOT / "WK08_CONSOLE.log"
     report = {"run": run, "commit": commit, "status": "UNQUALIFIED", "returncode": None,
               "matlabProcessesLaunched": 0, "automaticRetry": False, "G5Accepted": False}
+    if p["mode"] == "CI_5S":
+        report["mode"] = "CI_5S"
     proc = None
     identity = None
     started = time.monotonic()
