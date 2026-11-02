@@ -30,6 +30,7 @@ See [run sheet](actuator-amendment/WK08_R1_DESIGN.md) for provenance, limits and
 | `jte-public/JTE063_streaming_drive.py` | One new schema whitelist entry; transport unchanged |
 | `.github/workflows/wk08-pack-one-shot.yml` | Disabled R1 workflow; exact future marker only |
 | `.github/workflows/wk08-ci5s-one-shot.yml` | Separate disabled CI_5S one-shot workflow (30 minutes) |
+| `.github/workflows/wk08-preflight-check.yml` | Disabled read-only preflight; no MATLAB/vendor checkout or reservation |
 
 No existing MATLAB file is modified. The vendor model, original continuous TF, controller law and solver
 remain unchanged. R1 uses the already-approved sampled M2 derivative, not an alteration of the vendor TF.
@@ -81,3 +82,28 @@ elapsed time where possible. No physical performance claim is made from source c
 The supervisor preserves R1 resource/wall bounds and uses a conservative maximum launch age
 of 300s for CI_5S's 30-minute job, leaving delivery time. CI_5S never dispatches R1.
 No MATLAB/CI was run, no workflow enabled/triggered. Hub #6 is queued after this review stop.
+
+## Required run order: preflight check → CI_5S → R1
+
+Before each one-shot, Claude follows the hub RUN_CHECKLIST.md and obtains the owner's
+separate preflight approval. The read-only workflow uses the same S→E→T structure,
+`WK08_PREFLIGHT_CHECK_20261103`, `jte-public/WK08_PREFLIGHT_TRIGGER.txt`,
+`APPROVE_WK08_PREFLIGHT_ONCE_AFTER_CLAUDE_GO`, protected JTE_DRIVE_WRITE and a 10-minute
+timeout. It is disabled and the trigger marker is absent in this source commit.
+
+`WK08_private_gate.py check` accepts WK08_MODE=R1 or CI_5S. It refreshes OAuth, looks up
+the existing app folder without creating one, checks owner-only ACL, WK06 neutral receipt,
+quota >3GiB, absence of both pending/verified run intents, unique verified input metadata
+and ACL, M2 receipt/proof/manifest linkage and actual workspace SHA. Three JSON files and
+the workspace are downloaded to a private temporary directory that is deleted on success
+or failure; model SLX SHA is linked through verified metadata, not downloaded. Vendor
+checkout/SHA is deliberately skipped here and remains enforced by prepare.
+
+The check path never creates actuator-review-private, reserves an intent, creates a Drive
+folder, uploads, installs MATLAB, or starts a simulation. Safe CHECK lines report PASS/FAIL
+with allowlisted machine reasons; only complete success prints WK08_PREFLIGHT_ALL_PASS.
+The reason allowlist also accepts three-digit GOOGLE_API_HTTP codes, exact
+GOOGLE_API_TRANSPORT_FAILED/OAUTH_REFRESH_FAILED and JTE101 codes. No exception text,
+private paths, IDs or credentials are printed. A check PASS is a point-in-time prerequisite;
+prepare still repeats its own gates before any approved one-shot. No workflow was enabled
+or triggered and no live preflight/Drive call was performed for this source delivery.

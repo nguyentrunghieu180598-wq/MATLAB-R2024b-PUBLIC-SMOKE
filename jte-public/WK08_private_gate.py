@@ -8,11 +8,12 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import urllib.parse
 
-from JTE062_google_drive_synthetic import access_token, ensure_app_folder, API, req
+from JTE062_google_drive_synthetic import access_token, ensure_app_folder, API, req, DRIVE_FOLDER_NAME, MIME_FOLDER
 from JTE063_streaming_drive import upload_verified
-from JTE101_io import quota, query, one
+from JTE101_io import quota, query, one, download
 from sampled_actuator_review_io import get, need, ROOT
 from WK04_private_gate import require_verified_neutral_preflight
 
@@ -40,17 +41,34 @@ NATIVE = ("uCore", "uSampled", "actuatorY", "Ttrue312",
           "TmaxTrue", "TmaxMeas", "pumpPower", "Ttrue312_1s")
 
 
-def report_failure(prefix, exc):
-    """Public log: exception type plus one strictly allowlisted machine code."""
-    line = prefix + " code=" + type(exc).__name__
-    # Inspect args without str(exc): arbitrary exception rendering can leak data.
+PREFLIGHT = {
+    "workflow": ".github/workflows/wk08-preflight-check.yml",
+    "marker": "jte-public/WK08_PREFLIGHT_TRIGGER.txt",
+    "message": "WK08_PREFLIGHT_CHECK_20261103",
+    "approval": "APPROVE_WK08_PREFLIGHT_ONCE_AFTER_CLAUDE_GO",
+}
+
+
+def safe_failure_reason(exc):
+    # Never stringify exceptions or non-string payloads.
     if isinstance(exc, RuntimeError) and len(exc.args) == 1:
         reason = exc.args[0]
         if type(reason) is str and (
-            re.fullmatch(r"(WK08|WK06|WK04|JTE063)_[A-Z0-9_]+", reason)
-            or reason == "AMBIGUOUS_APP_FOLDER"
+            re.fullmatch(r"(WK08|WK06|WK04|JTE063|JTE101)_[A-Z0-9_]+", reason)
+            or re.fullmatch(r"GOOGLE_API_HTTP_[0-9]{3}", reason)
+            or reason in {"AMBIGUOUS_APP_FOLDER", "GOOGLE_API_TRANSPORT_FAILED",
+                          "OAUTH_REFRESH_FAILED"}
         ):
-            line += " reason=" + reason
+            return reason
+    return None
+
+
+def report_failure(prefix, exc):
+    """Public log: exception type plus one strictly allowlisted machine code."""
+    line = prefix + " code=" + type(exc).__name__
+    reason = safe_failure_reason(exc)
+    if reason is not None:
+        line += " reason=" + reason
     print(line)
 
 
@@ -83,8 +101,10 @@ def git(*args):
     return subprocess.check_output(["git", *args], text=True).strip()
 
 
-def context():
-    p = config()
+def context(check_only=False):
+    p = config()  # validate WK08_MODE even for read-only check
+    if check_only:
+        p = PREFLIGHT
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     need(os.environ.get("GITHUB_REPOSITORY") == REPO
          and event.get("repository", {}).get("full_name") == REPO
@@ -165,6 +185,120 @@ def btms_dats_folder(token, parent):
         folder = json.loads(raw)["id"]
     private_acl(token, folder)
     return folder
+
+
+def check_step(name, action):
+    """Print no private values, including when an unexpected exception occurs."""
+    try:
+        result = action()
+    except Exception as exc:
+        reason = safe_failure_reason(exc) or "WK08_PREFLIGHT_UNCLASSIFIED"
+        print("CHECK " + name + "=FAIL reason=" + reason)
+        raise
+    print("CHECK " + name + "=PASS reason=WK08_PREFLIGHT_OK")
+    return result
+
+
+def readonly_app_folder(token):
+    # ensure_app_folder() may POST a folder; NEVER use it on the check path.
+    filt = ("name = '" + DRIVE_FOLDER_NAME + "' and mimeType = '" +
+            MIME_FOLDER + "' and trashed = false")
+    _, _, raw = req(API + "?" + urllib.parse.urlencode({
+        "q": filt, "fields": "nextPageToken,files(id)", "pageSize": "100",
+        "spaces": "drive"}), token=token)
+    data = json.loads(raw)
+    rows = data.get("files", [])
+    need(not data.get("nextPageToken") and len(rows) <= 1, "AMBIGUOUS_APP_FOLDER")
+    need(len(rows) == 1, "WK08_PREFLIGHT_APP_FOLDER_MISSING")
+    return rows[0]["id"]
+
+
+def check(run, commit):
+    """Drive read-only: no ROOT, reservation, upload, vendor checkout or MATLAB."""
+    config()  # R1 and CI_5S are the only valid run modes.
+    check_step("FRESH_SCRATCH", lambda: need(not ROOT.exists(), "WK08_FRESH_PRIVATE_ROOT"))
+    def oauth():
+        keys = ("JTE_GOOGLE_CLIENT_ID", "JTE_GOOGLE_CLIENT_SECRET", "JTE_GOOGLE_REFRESH_TOKEN")
+        need(all(os.environ.get(k) for k in keys), "WK08_PREFLIGHT_CREDENTIALS_MISSING")
+        return access_token(*[os.environ[k] for k in keys])
+    token = check_step("OAUTH_REFRESH", oauth)
+    folder = check_step("APP_FOLDER", lambda: readonly_app_folder(token))
+    check_step("APP_FOLDER_ACL", lambda: private_acl(token, folder))
+    check_step("WK06_NEUTRAL_RECEIPT", lambda: require_verified_neutral_preflight(token, folder))
+    check_step("DRIVE_QUOTA", lambda: need(
+        quota(token)["availableBytes"] > 3 * GiB, "WK08_DRIVE_RESERVE"))
+    for mode in ("R1", "CI_5S"):
+        intent = config(mode)["intent"]
+        condition = ("name = 'JTE063_PENDING_" + intent +
+                     "' or name = 'JTE063_VERIFIED_" + intent + "'")
+        check_step(mode + "_INTENT_ABSENT", lambda condition=condition: need(
+            not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY"))
+
+    prefix = "BTMS_M2_40701917441_"
+    assets = (
+        ("M2_RECEIPT", prefix + "PRIVATE_RECEIPT.json", "old_receipt.json"),
+        ("M2_MODEL", prefix + "B0L_Ref_LOGGER.slx", None),
+        ("M2_PROOF", prefix + "B0L_Ref_PROOF.json", "old_proof.json"),
+        ("M2_MANIFEST", prefix + "INPUT_MANIFEST.json", "old_manifest.json"),
+        ("WORKSPACE", "JTE101_40449421507_PREPARE_WORKSPACE.mat", "source_workspace.mat"),
+    )
+    metas = {}
+    for label, name, local in assets:
+        def metadata(name=name):
+            meta = one(token, folder, "JTE063_VERIFIED_" + name)
+            private_acl(token, meta["id"])
+            props = meta.get("appProperties") or {}
+            need(props.get("state") == "VERIFIED" and
+                 re.fullmatch("[a-f0-9]{64}", props.get("sha256", "")) and
+                 0 < int(meta.get("size", -1)) <= 3 * GiB,
+                 "WK08_PREFLIGHT_ASSET_METADATA")
+            return meta
+        metas[name] = check_step(label + "_METADATA_ACL", metadata)
+
+    # Only verified JSON and workspace bytes enter disposable, owner-private temp storage.
+    with tempfile.TemporaryDirectory(prefix="wk08-check-") as temporary:
+        temp = Path(temporary)
+        os.chmod(temp, 0o700)
+        for label, name, local in assets:
+            if local is None:
+                continue  # model bytes stay in Drive; link verified SHA metadata below
+            def fetch(name=name, local=local):
+                if local.endswith(".json"):
+                    need(int(metas[name]["size"]) <= 4 * 1024**2, "WK08_PREFLIGHT_JSON_SIZE")
+                return download(token, metas[name], temp / local)
+            check_step(label + "_DOWNLOAD_SHA", fetch)
+
+        receipt = check_step("M2_RECEIPT_JSON", lambda: json.loads(
+            (temp / "old_receipt.json").read_text()))
+        check_step("M2_PROVENANCE", lambda: need(
+            receipt["run"] == "40701917441" and receipt["commit"] ==
+            "75afa01be55339d20ce5831830a0cacdb0c5d3f4" and receipt["physicalRun"] is False,
+            "WK08_M2_PROVENANCE"))
+        def receipt_links():
+            for label, name, local in assets[1:4]:
+                rows = [x for x in receipt["files"] if x["name"] == name]
+                need(len(rows) == 1 and rows[0]["sha256"] ==
+                     metas[name]["appProperties"]["sha256"] and
+                     rows[0]["integrity"] == "FULL_REMOTE_READBACK_VERIFIED",
+                     "WK08_RECEIPT_LINK")
+        check_step("M2_RECEIPT_LINKS", receipt_links)
+        proof = check_step("M2_PROOF_JSON", lambda: json.loads(
+            (temp / "old_proof.json").read_text()))
+        check_step("M2_PROOF_MODEL_LINK", lambda: need(
+            proof["instrumentedModelSHA256"] ==
+            metas[prefix + "B0L_Ref_LOGGER.slx"]["appProperties"]["sha256"] and
+            proof["period_s"] == .01 and proof["trueT312CompiledWidthVerified"] and
+            proof["fullRetainedParametersConfigGraphParity"], "WK08_M2_SOURCE"))
+        manifest = check_step("M2_MANIFEST_JSON", lambda: json.loads(
+            (temp / "old_manifest.json").read_text()))
+        def workspace_link():
+            rows = [x for x in manifest["inputs"] if x["local"] == "source_workspace.mat"]
+            workspace = metas[assets[-1][1]]["appProperties"]["sha256"]
+            need(len(rows) == 1 and rows[0]["sha256"] == workspace and
+                 sha(temp / "source_workspace.mat") == workspace, "WK08_WORKSPACE")
+        check_step("WORKSPACE_MANIFEST_SHA", workspace_link)
+    # No vendor checkout/SHA gate on check; prepare retains the actual vendor byte gate.
+    print("WK08_PREFLIGHT_ALL_PASS")
 
 
 def prepare(run, commit):
@@ -275,12 +409,14 @@ def publish(run, commit):
 
 if __name__ == "__main__":
     try:
-        run, commit = context()
-        mode = sys.argv[1]
+        mode = sys.argv[1] if len(sys.argv) > 1 else ""
+        run, commit = context(check_only=(mode == "check"))
         if mode == "prepare":
             prepare(run, commit)
         elif mode == "publish":
             publish(run, commit)
+        elif mode == "check":
+            check(run, commit)
         else:
             raise ValueError("WK08_MODE")
     except Exception as exc:

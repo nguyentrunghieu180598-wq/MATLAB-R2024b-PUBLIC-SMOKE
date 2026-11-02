@@ -1,8 +1,9 @@
 """Author checks only: offline authorization and fixed topology; no MATLAB/CI."""
 import csv
+import hashlib
 import io
 import runpy
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, ExitStack
 import json
 import os
 import re
@@ -32,7 +33,8 @@ class ContextTests(unittest.TestCase):
     def invoke(self, changes=None, extra_source=False):
         env = dict(self.env)
         env.update(changes or {})
-        workflow = gate.config(env.get("WK08_MODE", "R1"))["workflow"]
+        workflow = (gate.PREFLIGHT if getattr(self, "check_only", False) else
+                    gate.config(env.get("WK08_MODE", "R1")))["workflow"]
         def git(*args):
             return {("rev-parse", "HEAD"): "c" * 40,
                     ("rev-parse", "HEAD~2"): "a" * 40,
@@ -41,8 +43,9 @@ class ContextTests(unittest.TestCase):
                     ("diff", "--name-only", "HEAD~1", "HEAD"): str(self.marker)}[args]
         with patch.dict(os.environ, env, clear=True), patch.object(gate, "git", git), \
              patch.object(gate, "MARKER", str(self.marker)), \
-             patch.dict(gate.CI5S, {"marker": str(self.marker)}):
-            return gate.context()
+             patch.dict(gate.CI5S, {"marker": str(self.marker)}), \
+             patch.dict(gate.PREFLIGHT, {"marker": str(self.marker)}):
+            return gate.context(check_only=getattr(self, "check_only", False))
 
     def test_valid_chain(self):
         self.assertEqual(self.invoke(), ("123", "c" * 40))
@@ -182,7 +185,9 @@ class SafeFailureLoggingTests(unittest.TestCase):
     def test_allowlisted_need_codes_are_printed_exactly(self):
         for reason in ("WK08_DRIVE_RESERVE", "WK06_CONTEXT_DENIED",
                        "WK04_INPUT_SHA", "JTE063_REMOTE_SIZE_MISMATCH",
-                       "AMBIGUOUS_APP_FOLDER"):
+                       "AMBIGUOUS_APP_FOLDER", "GOOGLE_API_HTTP_400", "GOOGLE_API_HTTP_503",
+                       "GOOGLE_API_TRANSPORT_FAILED", "OAUTH_REFRESH_FAILED",
+                       "JTE101_REFERENCE_NOT_UNIQUE"):
             for prefix in self.prefixes:
                 with self.subTest(reason=reason, prefix=prefix):
                     output = io.StringIO()
@@ -204,6 +209,12 @@ class SafeFailureLoggingTests(unittest.TestCase):
             RuntimeError("WK08_DRIVE_RESERVE\n"),
             RuntimeError("WK08_lowercase"),
             RuntimeError("WK09_NOT_ALLOWED"),
+            RuntimeError("GOOGLE_API_HTTP_40"),
+            RuntimeError("GOOGLE_API_HTTP_4000"),
+            RuntimeError("GOOGLE_API_HTTP_400 token=secret"),
+            RuntimeError("GOOGLE_API_TRANSPORT_FAILED extra"),
+            RuntimeError("OAUTH_REFRESH_FAILED secret"),
+            RuntimeError("JTE101_lowercase"),
             RuntimeError("WK08_"),
             RuntimeError("AMBIGUOUS_APP_FOLDER extra"),
             RuntimeError("WK08_DRIVE_RESERVE", "secret"),
@@ -240,6 +251,153 @@ class SafeFailureLoggingTests(unittest.TestCase):
         self.assertEqual(exit_code.exception.code, 1)
         self.assertEqual(output.getvalue(),
             "WK08_SUPERVISOR_UNQUALIFIED code=RuntimeError reason=WK08_DRIVE_RESERVE\n")
+
+
+class PreflightContextTests(ContextTests):
+    def setUp(self):
+        super().setUp()
+        self.check_only = True
+        self.env["WK08_OWNER_APPROVAL"] = gate.PREFLIGHT["approval"]
+        event = json.loads(self.event.read_text())
+        event["head_commit"]["message"] = gate.PREFLIGHT["message"]
+        self.event.write_text(json.dumps(event))
+        self.marker.write_text(gate.PREFLIGHT["message"])
+
+    def test_accepts_both_run_modes(self):
+        for mode in ("R1", "CI_5S"):
+            with self.subTest(mode=mode):
+                self.assertEqual(self.invoke({"WK08_MODE": mode}), ("123", "c"*40))
+
+    def test_run_approval_cannot_authorize_check(self):
+        for mode in ("R1", "CI_5S"):
+            with self.subTest(mode=mode), self.assertRaises(RuntimeError):
+                self.invoke({"WK08_OWNER_APPROVAL": gate.config(mode)["approval"]})
+
+
+class ReadonlyPreflightTests(unittest.TestCase):
+    def invoke(self, fault=None, mode="CI_5S"):
+        prefix = "BTMS_M2_40701917441_"
+        workspace = b"synthetic private workspace"
+        workspace_sha = hashlib.sha256(workspace).hexdigest()
+        model_sha = hashlib.sha256(b"synthetic model metadata").hexdigest()
+        manifest = {"inputs": [{"local": "source_workspace.mat", "sha256": workspace_sha}]}
+        if fault == "workspace":
+            manifest["inputs"][0]["sha256"] = "0"*64
+        proof = {"instrumentedModelSHA256": model_sha, "period_s": .01,
+                 "trueT312CompiledWidthVerified": True,
+                 "fullRetainedParametersConfigGraphParity": True}
+        payloads = {
+            prefix + "B0L_Ref_LOGGER.slx": b"synthetic model metadata",
+            prefix + "B0L_Ref_PROOF.json": json.dumps(proof).encode(),
+            prefix + "INPUT_MANIFEST.json": json.dumps(manifest).encode(),
+            "JTE101_40449421507_PREPARE_WORKSPACE.mat": workspace,
+        }
+        receipt = {"run": "40701917441",
+                   "commit": "75afa01be55339d20ce5831830a0cacdb0c5d3f4",
+                   "physicalRun": False, "files": [
+                       {"name": n, "sha256": hashlib.sha256(b).hexdigest(),
+                        "integrity": "FULL_REMOTE_READBACK_VERIFIED"}
+                       for n, b in payloads.items() if n.startswith(prefix)]}
+        payloads[prefix + "PRIVATE_RECEIPT.json"] = json.dumps(receipt).encode()
+        metas = {n: {"id": "private-id-" + str(i), "name": "JTE063_VERIFIED_" + n,
+                     "size": len(b), "md5Checksum": hashlib.md5(b).hexdigest(),
+                     "appProperties": {"state": "VERIFIED",
+                                       "sha256": hashlib.sha256(b).hexdigest()}}
+                 for i, (n, b) in enumerate(payloads.items())}
+        requests = []
+        def req(url, **kwargs):
+            self.assertEqual(kwargs.get("method", "GET"), "GET")
+            requests.append(url)
+            if "spaces=drive" in url:
+                rows = [] if fault == "missing_folder" else [{"id": "private-folder-id"}]
+                return 200, {}, json.dumps({"files": rows}).encode()
+            return 200, {}, json.dumps({"permissions": [{"type": "user", "role": "owner"}]}).encode()
+        def lookup(token, folder, name):
+            if fault == "duplicate_asset":
+                gate.need(False, "JTE101_REFERENCE_NOT_UNIQUE")
+            return metas[name.removeprefix("JTE063_VERIFIED_")]
+        queried = []
+        def query(token, folder, condition):
+            queried.append(condition)
+            return [{"id": "reserved"}] if fault in ("R1", "CI_5S") and (
+                gate.config(fault)["intent"] in condition) else []
+        by_id = {m["id"]: payloads[n] for n, m in metas.items()}
+        downloads = []
+        def urlopen(request, **kwargs):
+            # JTE101.download verifies real SHA/MD5 against the synthetic response.
+            file_id = request.full_url.split("/")[-1].split("?")[0]
+            downloads.append(file_id)
+            return io.BytesIO(by_id[file_id])
+        temporary_paths = []
+        real_temporary = tempfile.TemporaryDirectory
+        def temporary(*args, **kwargs):
+            result = real_temporary(*args, **kwargs)
+            temporary_paths.append(Path(result.name))
+            return result
+
+        with real_temporary() as base, ExitStack() as stack:
+            root = Path(base) / "actuator-review-private"
+            env = {"WK08_MODE": mode, "JTE_GOOGLE_CLIENT_ID": "dummy",
+                   "JTE_GOOGLE_CLIENT_SECRET": "dummy", "JTE_GOOGLE_REFRESH_TOKEN": "dummy"}
+            stack.enter_context(patch.dict(os.environ, env, clear=True))
+            stack.enter_context(patch.object(gate, "ROOT", root))
+            stack.enter_context(patch.object(gate, "access_token", return_value="private-token"))
+            stack.enter_context(patch.object(gate, "req", req))
+            stack.enter_context(patch.object(gate, "one", lookup))
+            stack.enter_context(patch.object(gate, "query", query))
+            stack.enter_context(patch.object(gate, "quota",
+                return_value={"availableBytes": 3*gate.GiB if fault == "quota" else 4*gate.GiB}))
+            neutral = stack.enter_context(patch.object(gate, "require_verified_neutral_preflight"))
+            stack.enter_context(patch("urllib.request.urlopen", urlopen))
+            stack.enter_context(patch.object(gate.tempfile, "TemporaryDirectory", temporary))
+            forbidden = {}
+            for name in ("ensure_app_folder", "drive", "reserve_one_shot", "upload",
+                         "upload_verified", "get", "btms_dats_folder"):
+                forbidden[name] = stack.enter_context(patch.object(gate, name,
+                    side_effect=AssertionError("Write-capable helper must not be used")))
+            output = io.StringIO()
+            error = None
+            with redirect_stdout(output):
+                try:
+                    gate.check("123", "c"*40)
+                except Exception as exc:
+                    error = exc
+            self.assertFalse(root.exists())
+            self.assertTrue(all(not p.exists() for p in temporary_paths))
+            for spy in forbidden.values():
+                spy.assert_not_called()
+            text = output.getvalue()
+            for private in ("private-token", "private-folder-id", "private-id-",
+                            workspace_sha, model_sha, str(root)):
+                self.assertNotIn(private, text)
+            if fault != "missing_folder":
+                neutral.assert_called_once()
+        return text, error, queried, downloads, temporary_paths
+
+    def test_all_checks_pass_readonly_and_temp_is_deleted(self):
+        for mode in ("R1", "CI_5S"):
+            with self.subTest(mode=mode):
+                text, error, queried, downloaded, temporary = self.invoke(mode=mode)
+                self.assertIsNone(error)
+                self.assertTrue(text.endswith("WK08_PREFLIGHT_ALL_PASS\n"))
+                self.assertEqual(len(queried), 2)
+                self.assertEqual(len(downloaded), 4)  # 3 JSON + workspace; no model download
+                self.assertEqual(len(temporary), 1)
+
+    def test_failures_do_not_reserve_upload_or_claim_success(self):
+        for fault, reason in (
+            ("missing_folder", "WK08_PREFLIGHT_APP_FOLDER_MISSING"),
+            ("quota", "WK08_DRIVE_RESERVE"),
+            ("R1", "WK08_ALREADY_RESERVED_NO_RETRY"),
+            ("CI_5S", "WK08_ALREADY_RESERVED_NO_RETRY"),
+            ("duplicate_asset", "JTE101_REFERENCE_NOT_UNIQUE"),
+            ("workspace", "WK08_WORKSPACE"),
+        ):
+            with self.subTest(fault=fault):
+                text, error, _, _, _ = self.invoke(fault=fault)
+                self.assertIsInstance(error, RuntimeError)
+                self.assertIn("=FAIL reason=" + reason, text)
+                self.assertNotIn("WK08_PREFLIGHT_ALL_PASS", text)
 
 
 class FixedGeometryTests(unittest.TestCase):
