@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   ci5s:
-    if: ${{ false }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/codex/wk08-geometric-injection' && github.run_attempt == 1 }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 30
     env:
       WK08_MODE: CI_5S
       WK08_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
-      WK08_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
+      WK08_REVIEWED_SOURCE_SHA: 'd4afe63eb221cd33181bf521f0255db85436116e'
       WK08_OWNER_APPROVAL: ${{ vars.WK08_OWNER_APPROVAL }}
     steps:
       - name: Reserve wall time for private delivery
