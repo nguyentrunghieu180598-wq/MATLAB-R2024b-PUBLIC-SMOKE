@@ -26,6 +26,8 @@ if b==0 && isequal(S,1:312)
   'WK08:IdentityFingerprint','Neutral injection changed structure.');
  return
 end
+assert(ismember(j,S),'WK08:BiasNotSensed', ...
+ 'Biased channel must be in the sensed subset.');
 % Select actual channels, never zero-pad/replace unsensed channels for MinMax.
 block=[bc '/WK08 measurement'];
 add_block('simulink/User-Defined Functions/MATLAB Function',block);

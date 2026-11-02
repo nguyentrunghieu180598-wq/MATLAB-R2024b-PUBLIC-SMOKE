@@ -26,6 +26,7 @@ See [run sheet](actuator-amendment/WK08_R1_DESIGN.md) for provenance, limits and
 | `jte-public/WK08_private_gate.py` | S→E→T authorization, private archive provenance, intent, ACL and readback receipt |
 | `jte-public/WK08_supervise.py` | One future MATLAB process, external memory/disk/wall monitor and bounded termination |
 | `jte-public/test_WK08_guards.py` | Offline authorization and sensor topology checks |
+| `jte-public/test_BTMS_WK08_inject_guard.m` | B1 synthetic unsensed-channel rejection and unchanged-graph guard test; not executed |
 | `jte-public/JTE063_streaming_drive.py` | One new schema whitelist entry; transport unchanged |
 | `.github/workflows/wk08-pack-one-shot.yml` | Disabled R1 workflow; exact future marker only |
 
