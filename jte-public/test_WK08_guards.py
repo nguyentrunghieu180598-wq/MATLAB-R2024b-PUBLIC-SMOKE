@@ -1,5 +1,8 @@
 """Author checks only: offline authorization and fixed topology; no MATLAB/CI."""
 import csv
+import io
+import runpy
+from contextlib import redirect_stdout
 import json
 import os
 import re
@@ -171,6 +174,72 @@ class CI5SPublishTests(unittest.TestCase):
                 self.assertEqual(receipt["schema"], gate.CI5S["schema"])
                 self.assertFalse((root / "WK08_DELIVERY_VERIFIED").exists())
                 self.assertTrue(all(c.args[1] == "private-BTMS-DATS" for c in upload.call_args_list))
+
+
+class SafeFailureLoggingTests(unittest.TestCase):
+    prefixes = ("WK08_PRIVATE_GATE_UNQUALIFIED", "WK08_SUPERVISOR_UNQUALIFIED")
+
+    def test_allowlisted_need_codes_are_printed_exactly(self):
+        for reason in ("WK08_DRIVE_RESERVE", "WK06_CONTEXT_DENIED",
+                       "WK04_INPUT_SHA", "JTE063_REMOTE_SIZE_MISMATCH",
+                       "AMBIGUOUS_APP_FOLDER"):
+            for prefix in self.prefixes:
+                with self.subTest(reason=reason, prefix=prefix):
+                    output = io.StringIO()
+                    try:
+                        gate.need(False, reason)
+                    except RuntimeError as exc:
+                        with redirect_stdout(output):
+                            gate.report_failure(prefix, exc)
+                    self.assertEqual(output.getvalue(),
+                                     prefix + " code=RuntimeError reason=" + reason + "\n")
+
+    def test_other_payloads_never_enter_public_logs(self):
+        class PrivatePayload:
+            def __str__(self):
+                raise AssertionError("Private payload must never be rendered")
+        cases = (
+            RuntimeError("WK08_DRIVE_RESERVE /private/source.mat id=private-id token=secret"),
+            RuntimeError("WK08_DRIVE_RESERVE\nsecret"),
+            RuntimeError("WK08_DRIVE_RESERVE\n"),
+            RuntimeError("WK08_lowercase"),
+            RuntimeError("WK09_NOT_ALLOWED"),
+            RuntimeError("WK08_"),
+            RuntimeError("AMBIGUOUS_APP_FOLDER extra"),
+            RuntimeError("WK08_DRIVE_RESERVE", "secret"),
+            RuntimeError(PrivatePayload()),
+            ValueError("WK08_DRIVE_RESERVE"),
+            KeyError("private-id"),
+        )
+        for exc in cases:
+            for prefix in self.prefixes:
+                with self.subTest(kind=type(exc).__name__, prefix=prefix):
+                    output = io.StringIO()
+                    with redirect_stdout(output):
+                        gate.report_failure(prefix, exc)
+                    self.assertEqual(output.getvalue(),
+                                     prefix + " code=" + type(exc).__name__ + "\n")
+
+    def test_private_gate_entrypoint_uses_safe_reason(self):
+        output = io.StringIO()
+        with patch.dict(os.environ, {"WK08_MODE": "INVALID"}, clear=True), redirect_stdout(output):
+            with self.assertRaises(SystemExit) as exit_code:
+                runpy.run_path(str(Path(gate.__file__)), run_name="__main__")
+        self.assertEqual(exit_code.exception.code, 1)
+        self.assertEqual(output.getvalue(),
+            "WK08_PRIVATE_GATE_UNQUALIFIED code=RuntimeError reason=WK08_MODE_DENIED\n")
+
+    def test_supervisor_entrypoint_uses_safe_reason_without_launch(self):
+        def denied_context():
+            gate.need(False, "WK08_DRIVE_RESERVE")
+        output = io.StringIO()
+        with patch.object(gate, "context", denied_context), redirect_stdout(output):
+            with self.assertRaises(SystemExit) as exit_code:
+                runpy.run_path(str(Path(gate.__file__).with_name("WK08_supervise.py")),
+                              run_name="__main__")
+        self.assertEqual(exit_code.exception.code, 1)
+        self.assertEqual(output.getvalue(),
+            "WK08_SUPERVISOR_UNQUALIFIED code=RuntimeError reason=WK08_DRIVE_RESERVE\n")
 
 
 class FixedGeometryTests(unittest.TestCase):

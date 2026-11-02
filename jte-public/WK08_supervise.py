@@ -12,7 +12,7 @@ import threading
 
 from BTMS_M3_oneShotWatchdog import memory, violation, proc_start, proc_rss, terminate_tree
 from JTE101_io import quota
-from WK08_private_gate import context, drive, ROOT, GiB, config
+from WK08_private_gate import context, drive, ROOT, GiB, config, report_failure
 
 
 def main():
@@ -98,6 +98,7 @@ def main():
                 report["status"] = "PROCESS_EXIT_ZERO"
     except Exception as exc:
         report["exceptionType"] = type(exc).__name__
+        report_failure("WK08_SUPERVISOR_UNQUALIFIED", exc)
         if proc is not None and identity is not None and proc.poll() is None:
             terminate_tree(proc.pid, identity)
     finally:
@@ -110,5 +111,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except Exception as exc:
-        print("WK08_SUPERVISOR_UNQUALIFIED code=" + type(exc).__name__)
+        report_failure("WK08_SUPERVISOR_UNQUALIFIED", exc)
         sys.exit(1)

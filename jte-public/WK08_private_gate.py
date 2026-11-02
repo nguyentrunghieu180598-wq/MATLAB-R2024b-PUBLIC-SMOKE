@@ -40,6 +40,20 @@ NATIVE = ("uCore", "uSampled", "actuatorY", "Ttrue312",
           "TmaxTrue", "TmaxMeas", "pumpPower", "Ttrue312_1s")
 
 
+def report_failure(prefix, exc):
+    """Public log: exception type plus one strictly allowlisted machine code."""
+    line = prefix + " code=" + type(exc).__name__
+    # Inspect args without str(exc): arbitrary exception rendering can leak data.
+    if isinstance(exc, RuntimeError) and len(exc.args) == 1:
+        reason = exc.args[0]
+        if type(reason) is str and (
+            re.fullmatch(r"(WK08|WK06|WK04|JTE063)_[A-Z0-9_]+", reason)
+            or reason == "AMBIGUOUS_APP_FOLDER"
+        ):
+            line += " reason=" + reason
+    print(line)
+
+
 def config(mode=None):
     mode = os.environ.get("WK08_MODE", "R1") if mode is None else mode
     need(mode in {"R1", "CI_5S"}, "WK08_MODE_DENIED")
@@ -271,5 +285,5 @@ if __name__ == "__main__":
             raise ValueError("WK08_MODE")
     except Exception as exc:
         # No exception text, OAuth values, private IDs, paths or temperatures in logs.
-        print("WK08_PRIVATE_GATE_UNQUALIFIED code=" + type(exc).__name__)
+        report_failure("WK08_PRIVATE_GATE_UNQUALIFIED", exc)
         sys.exit(1)
