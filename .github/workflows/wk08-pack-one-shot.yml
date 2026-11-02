@@ -1,0 +1,70 @@
+name: WK08 reviewed pack 340s one-shot - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk08-pack-design']
+    paths: ['jte-public/WK08_PACK_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk08-pack-one-shot-20261102
+  cancel-in-progress: false
+jobs:
+  pack-r1:
+    if: ${{ false }} # SOURCE ONLY; Claude review and owner enable still required
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 90
+    env:
+      # SHA of the independently reviewed SOURCE commit S. The enabling commit E
+      # (parent of the trigger) cannot contain its own SHA, so S must be HEAD~2:
+      #   S (reviewed source) -> E (this file only: predicate + this SHA) -> T (marker only)
+      WK08_REVIEWED_SOURCE_SHA: UNSET_REVIEWED_SOURCE_COMMIT_S
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Immutable reviewed source, workflow-only enable, single marker-only trigger
+        run: |
+          test "${{ github.event.head_commit.message }}" = "WK08_PACK_340S_ONE_SHOT_20261102"
+          test "${{ github.run_attempt }}" = "1"
+          test "$(git rev-parse HEAD~2)" = "$WK08_REVIEWED_SOURCE_SHA"
+          test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk08-pack-one-shot.yml"
+          test "$(git diff --name-only HEAD~1 HEAD)" = "jte-public/WK08_PACK_TRIGGER.txt"
+          test ! -d actuator-review-private
+      - name: Protected pre-MATLAB source and private neutral receipt gate
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 jte-public/WK08_private_io.py prepare
+      - name: Immutable vendor dependency
+        run: |
+          git clone --depth 1 --branch 24.2.1.5 https://github.com/mathworks/Battery-Pack-Model-Simscape.git vendor-pack
+          test "$(git -C vendor-pack rev-parse HEAD)" = "f98d21929a3a269dacd1ee38999cd9773760c6db"
+          echo '0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0  vendor-pack/Models/Battery_Pack_Thermal_Management.slx' | sha256sum -c -
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024bU10
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: Start external resource watcher (no simulation)
+        run: |
+          nohup python3 jte-public/WK08_watch.py > actuator-review-private/WK08_WATCH_CONSOLE.txt 2>&1 &
+      - name: ONE MATLAB PROCESS; exact build first; one direct-start R1 only
+        uses: matlab-actions/run-command@v3
+        with:
+          command: addpath('jte-public'); WK08_entry()
+      - name: Protected publisher including MATLAB failure diagnostics
+        if: ${{ always() }}
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: |
+          if test -d actuator-review-private; then
+            touch actuator-review-private/WK08_DONE.json
+            python3 jte-public/WK08_private_io.py publish
+          fi
+      - name: Remove private runner scratch
+        if: ${{ always() }}
+        run: rm -rf actuator-review-private

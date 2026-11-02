@@ -1,0 +1,2 @@
+SOURCE_ONLY_NOT_TRIGGERED
+Future marker-only T requires WK08_PACK_340S_ONE_SHOT_20261102 after reviewed S and owner-authorized E.
