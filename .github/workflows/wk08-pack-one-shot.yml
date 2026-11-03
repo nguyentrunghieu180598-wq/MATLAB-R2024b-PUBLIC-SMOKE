@@ -43,7 +43,7 @@ jobs:
       - uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024bU10
-          products: Simulink Simscape Simscape_Electrical
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
       - name: License probe through run-command (WK07 path, dummy command, before reservation)
         uses: matlab-actions/run-command@v3
         with:

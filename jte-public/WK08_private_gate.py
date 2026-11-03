@@ -27,14 +27,14 @@ INTENT = "WK08_R1_ATTEMPT_INTENT_20261102.json"
 GiB = 1024**3
 CI5S = {
     "mode": "CI_5S", "stopTime_s": 5,
-    "message": "WK08_CI_5S_ONE_SHOT_20261103D",
+    "message": "WK08_CI_5S_ONE_SHOT_20261103E",
     "workflow": ".github/workflows/wk08-ci5s-one-shot.yml",
     "marker": "jte-public/WK08_CI5S_TRIGGER.txt",
-    "approval": "APPROVE_WK08_CI5S_D_ONCE_AFTER_CLAUDE_GO",
-    "intent": "WK08_CI5S_ATTEMPT_INTENT_20261103D.json",
+    "approval": "APPROVE_WK08_CI5S_E_ONCE_AFTER_CLAUDE_GO",
+    "intent": "WK08_CI5S_ATTEMPT_INTENT_20261103E.json",
     "schema": "WK08_CI5S_RAW_UNREVIEWED_NOT_G5",
     "receiptPrefix": "WK08_CI5S_",
-    "receiptSuffix": "_PRIVATE_RECEIPT_20261103D.json",
+    "receiptSuffix": "_PRIVATE_RECEIPT_20261103E.json",
     "flagsPass": "CI_5S_GATES_PASS_NOT_R1",
     "receiptPass": "CI_5S_GATES_AND_PRIVATE_READBACK_PASS_NOT_R1_PENDING_CLAUDE",
 }

@@ -1,4 +1,4 @@
-name: WK08 CI_5S-D 5s source design - DEFAULT DISABLED
+name: WK08 CI_5S-E 5s source design - DEFAULT DISABLED
 on:
   push:
     branches: ['codex/wk08-geometric-injection']
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: wk08-ci5s-one-shot-20261103D
+  group: wk08-ci5s-one-shot-20261103E
   cancel-in-progress: false
 jobs:
   ci5s:
@@ -29,7 +29,7 @@ jobs:
       - name: Reviewed source S then workflow-only E then marker-only T
         shell: bash
         run: |
-          test "${{ github.event.head_commit.message }}" = "WK08_CI_5S_ONE_SHOT_20261103D"
+          test "${{ github.event.head_commit.message }}" = "WK08_CI_5S_ONE_SHOT_20261103E"
           test "${{ github.run_attempt }}" = "1"
           test "$(git rev-parse HEAD~2)" = "$WK08_REVIEWED_SOURCE_SHA"
           test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk08-ci5s-one-shot.yml"
@@ -44,7 +44,7 @@ jobs:
       - uses: matlab-actions/setup-matlab@v3
         with:
           release: R2024bU10
-          products: Simulink Simscape Simscape_Electrical
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
       - name: License probe through run-command (WK07 path, dummy command, before reservation)
         uses: matlab-actions/run-command@v3
         with:
