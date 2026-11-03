@@ -44,22 +44,20 @@ jobs:
         with:
           release: R2024bU10
           products: Simulink Simscape Simscape_Electrical
-      - name: Verify matlab-batch and its license before reserving one-shot
+      - name: License probe through run-command (WK07 path, dummy command, before reservation)
+        uses: matlab-actions/run-command@v3
+        with:
+          command: disp('WK08_LICENSE_OK')
+          generate-summary: false
+      - name: Resolve the run-matlab-command binary used by the supervisor
         shell: bash
         run: |
-          command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
-          # B5: license probe BEFORE the reservation. This dummy disp() carries no
-          # model/simulation data (unlike the real supervised run below, which stays
-          # private), so on failure its console text is safe to print for diagnosis.
-          out="$(MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch "disp('WK08_LICENSE_OK')" 2>&1)" || true
-          case "$out" in
-            *WK08_LICENSE_OK*) echo WK08_LICENSE_PROBE_OK ;;
-            *) echo WK08_LICENSE_PROBE_FAILED
-               echo "--- probe console (first 4000 chars; dummy command only, no model/run data) ---"
-               printf '%s\n' "$out" | head -c 4000
-               echo
-               exit 1 ;;
-          esac
+          bin="$(find "$(dirname "$RUNNER_WORKSPACE")/_actions/matlab-actions/run-command" -path '*/dist/bin/glnxa64/run-matlab-command' -type f 2>/dev/null | head -n1)"
+          test -n "$bin" || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
+          chmod +x "$bin"
+          test -x "$bin" || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
+          echo "WK08_RUN_MATLAB_COMMAND=$bin" >> "$GITHUB_ENV"
+          echo WK08_LAUNCHER_RESOLVED
       - name: Private source SHA and durable one-attempt reservation
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}

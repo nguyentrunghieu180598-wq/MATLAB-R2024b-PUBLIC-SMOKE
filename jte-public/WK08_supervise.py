@@ -39,11 +39,13 @@ def main():
         raise RuntimeError("WK08_PREFLIGHT_RESOURCE")
     env = {k: v for k, v in os.environ.items()
            if not k.startswith("JTE_GOOGLE_") and k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
-    # B4: matlab-batch licenses online only with this flag; matlab-actions/run-command@v3
-    # sets it for its own launch (src/index.ts). Without it: License Manager Error -1.
+    # B6: launch through the same bundled binary matlab-actions/run-command@v3 uses
+    # (common-utils runCommand -> dist/bin/glnxa64/run-matlab-command), with the same env flag
+    # (src/index.ts). A bare `matlab-batch` ignored the flag: License Manager Error -1
+    # (runs 41593851156, 41601825131). The workflow resolves the path before the reservation.
     env["MW_BATCH_LICENSING_ONLINE"] = "true"
-    matlab_batch = shutil.which("matlab-batch")
-    if not matlab_batch:
+    matlab_batch = os.environ.get("WK08_RUN_MATLAB_COMMAND", "")
+    if not (matlab_batch and os.path.isfile(matlab_batch) and os.access(matlab_batch, os.X_OK)):
         raise RuntimeError("WK08_MATLAB_BATCH_UNAVAILABLE")
     console = ROOT / "WK08_CONSOLE.log"
     report = {"run": run, "commit": commit, "status": "UNQUALIFIED", "returncode": None,

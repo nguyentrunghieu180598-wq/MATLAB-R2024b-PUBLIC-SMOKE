@@ -468,9 +468,12 @@ class SupervisorLauncherTests(unittest.TestCase):
                 return_value={"hostAvailable": 16*gate.GiB, "cgroupAvailable": 16*gate.GiB}))
             stack.enter_context(patch.object(supervisor.shutil, "disk_usage",
                 return_value=SimpleNamespace(free=20*gate.GiB)))
-            launcher = "/opt/hostedtoolcache/matlab-batch/bin/matlab-batch"
-            which = stack.enter_context(patch.object(supervisor.shutil, "which",
-                return_value=launcher if available else None))
+            launcher = "/home/runner/work/_actions/matlab-actions/run-command/v3/dist/bin/glnxa64/run-matlab-command"
+            if available:
+                child_context["WK08_RUN_MATLAB_COMMAND"] = launcher
+            stack.enter_context(patch.dict(os.environ, child_context, clear=True))
+            stack.enter_context(patch.object(supervisor.os.path, "isfile", return_value=True))
+            stack.enter_context(patch.object(supervisor.os, "access", return_value=True))
             stack.enter_context(patch.object(supervisor.time, "time", return_value=1000))
             stack.enter_context(patch.object(supervisor.time, "monotonic", return_value=10))
             stack.enter_context(patch.object(supervisor.time, "sleep"))
@@ -496,7 +499,6 @@ class SupervisorLauncherTests(unittest.TestCase):
                     result = supervisor.main()
                 except RuntimeError as exc:
                     error = exc
-            which.assert_called_once_with("matlab-batch")
             if not available:
                 popen.assert_not_called()
                 self.assertEqual(gate.safe_failure_reason(error), "WK08_MATLAB_BATCH_UNAVAILABLE")
@@ -539,31 +541,27 @@ class SupervisorLauncherTests(unittest.TestCase):
 
 
 class WorkflowLauncherPreflightTests(unittest.TestCase):
-    def test_launcher_check_is_between_setup_and_reservation_in_both_workflows(self):
+    def test_launcher_probe_and_resolution_precede_reservation_in_both_workflows(self):
         root = Path(__file__).resolve().parents[1]
-        command = "command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }"
         for name in ("wk08-ci5s-one-shot.yml", "wk08-pack-one-shot.yml"):
             with self.subTest(workflow=name):
                 source = (root / ".github/workflows" / name).read_text()
                 self.assertIn("if: " + "$" + "{{ false }}", source)
                 steps = re.split(r"(?m)^      - ", source)[1:]
-                setup = [i for i, step in enumerate(steps) if "uses: matlab-actions/setup-matlab@" in step]
-                check = [i for i, step in enumerate(steps) if command in step]
-                reserve = [i for i, step in enumerate(steps) if "python3 jte-public/WK08_private_gate.py prepare" in step]
-                self.assertEqual(len(setup), 1)
-                self.assertEqual(len(check), 1)
-                self.assertEqual(len(reserve), 1)
-                self.assertEqual(check[0], setup[0] + 1)
-                self.assertEqual(reserve[0], check[0] + 1)
-                self.assertIn("shell: bash", steps[check[0]])
-                # B5: license probe sits in the same pre-reservation step. Its own command is a
-                # static dummy disp() with no model/run data, so on failure its console text is
-                # printed (truncated) for diagnosis; this is unrelated to the real supervised
-                # run's console (WK08_SUPERVISOR.json), which stays private and is never printed.
-                self.assertIn("MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch", steps[check[0]])
-                self.assertIn("echo WK08_LICENSE_PROBE_FAILED", steps[check[0]])
-                self.assertIn('printf \'%s\\n\' "$out" | head -c 4000', steps[check[0]])
-                self.assertIn("exit 1 ;;", steps[check[0]])
+                setup = [i for i, s in enumerate(steps) if "uses: matlab-actions/setup-matlab@" in s]
+                probe = [i for i, s in enumerate(steps) if "uses: matlab-actions/run-command@v3" in s]
+                resolve = [i for i, s in enumerate(steps) if "WK08_RUN_MATLAB_COMMAND=" in s]
+                reserve = [i for i, s in enumerate(steps) if "python3 jte-public/WK08_private_gate.py prepare" in s]
+                self.assertEqual((len(setup), len(probe), len(resolve), len(reserve)), (1, 1, 1, 1))
+                self.assertEqual(probe[0], setup[0] + 1)
+                self.assertEqual(resolve[0], probe[0] + 1)
+                self.assertEqual(reserve[0], resolve[0] + 1)
+                # B6: probe uses the proven WK07 action with a static dummy command (no model data).
+                self.assertIn("command: disp('WK08_LICENSE_OK')", steps[probe[0]])
+                self.assertIn("generate-summary: false", steps[probe[0]])
+                self.assertIn("dist/bin/glnxa64/run-matlab-command", steps[resolve[0]])
+                self.assertIn("echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1", steps[resolve[0]])
+                self.assertNotIn("matlab-batch", steps[resolve[0]])
 
 
 class FixedGeometryTests(unittest.TestCase):
