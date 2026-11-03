@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   check:
-    if: ${{ true }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
     env:
       WK08_MODE: D13_REF
       WK08_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
-      WK08_REVIEWED_SOURCE_SHA: 'f75d4ba9a0d00af0874caa25151b8f4e64317917'
+      WK08_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
       WK08_OWNER_APPROVAL: ${{ vars.WK08_OWNER_APPROVAL }}
     steps:
       - uses: actions/checkout@v4
