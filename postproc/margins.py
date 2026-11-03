@@ -86,6 +86,27 @@ def predicted_downshift(mg, case: Case):
     return np.where(np.isnan(d), False, d < D)
 
 
+def predicted_upshift(T, case: Case, tamb=TAMB_K):
+    """Positive bias (b > 0): command rises above full-sensing command iff the inflated
+    reading reaches the next threshold above the true maximum (thresholds inclusive).
+
+    Delta_up = max(0, T_j + b - Tmax_true); e = (next threshold above Tmax_true) - Tmax_true;
+    upshift iff e <= Delta_up. A sparse deficit can only lower the reading, so for b > 0
+    the sensed maximum max(sensed_max, T_j + b) is what is compared with the threshold.
+    """
+    T = np.atleast_2d(np.asarray(T, float))
+    if case.channel is None or case.bias_K <= 0:
+        return np.zeros(len(T), bool)
+    true_max = T.max(axis=1)
+    sensed_max = T[:, list(case.sensed)].max(axis=1)
+    reading = np.maximum(sensed_max, T[:, case.channel] + case.bias_K)
+    th = np.array(THRESHOLDS_K) + tamb
+    above = th[None, :] > true_max[:, None]
+    e = np.where(above.any(axis=1),
+                 np.where(above, th[None, :], np.inf).min(axis=1) - true_max, np.inf)
+    return np.isfinite(e) & (true_max + e <= reading)
+
+
 def command_change(T, case: Case, tamb=TAMB_K):
     """Direct: -1 lower, 0 same, +1 higher command than full-sensing unbiased baseline."""
     u0 = u_law(np.atleast_2d(T).max(axis=1), tamb)
@@ -116,7 +137,11 @@ def lock_predictions(t, T_baseline, cases, tamb=TAMB_K):
         mg = margins(T_baseline, c, tamb)
         ch = command_change(T_baseline, c, tamb)
         if c.bias_K <= 0:
-            assert np.array_equal(predicted_downshift(mg, c), ch < 0), c.name
+            if not np.array_equal(predicted_downshift(mg, c), ch < 0):
+                raise AssertionError(f"theorem/direct mismatch (down): {c.name}")
+        else:
+            if not np.array_equal(predicted_upshift(T_baseline, c, tamb), ch > 0):
+                raise AssertionError(f"theorem/direct mismatch (up): {c.name}")
         res["cases"][c.name] = {
             "case": {**asdict(c), "sensed": [int(x) for x in c.sensed]},
             "lower_command_intervals_s": intervals(t, ch < 0),
