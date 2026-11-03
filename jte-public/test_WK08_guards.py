@@ -625,7 +625,7 @@ class BiasGuardSourceTests(unittest.TestCase):
         self.assertIsNotNone(neutral, "Neutral identity bypass must remain present")
         tail = source[neutral.end():]
         guard = re.match(
-            r"\s*assert\(ismember\(j,S\),'WK08:BiasNotSensed',\s*\.\.\.\s*"
+            r"\s*assert\(all\(ismember\(j,S\)\),'WK08:BiasNotSensed',\s*\.\.\.\s*"
             r"'Biased channel must be in the sensed subset\.'\);",
             tail,
         )

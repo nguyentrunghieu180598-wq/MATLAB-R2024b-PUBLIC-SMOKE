@@ -1,0 +1,36 @@
+name: WK09 D13 CASES read-only preflight - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk09-d13-340s']
+    paths: ['jte-public/WK09_D13_CASES_PREFLIGHT_A_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk09-d13-private-exclusive
+  cancel-in-progress: false
+jobs:
+  check:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 10
+    env:
+      WK09_GROUP: CASES
+      WK09_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
+      WK09_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
+      WK09_OWNER_APPROVAL: ${{ vars.WK09_OWNER_APPROVAL }}
+      WK09_CONTROLS_ACCEPTANCE_SHA256: ${{ vars.WK09_CONTROLS_ACCEPTANCE_SHA256 }}
+      WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT: ${{ vars.WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT }}
+    steps:
+      - name: Start the never-reset job clock before setup
+        run: echo "WK09_JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Read-only preflight - cannot reserve or launch
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 -B jte-public/WK09_group_gate.py check

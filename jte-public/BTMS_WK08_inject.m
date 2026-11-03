@@ -1,7 +1,10 @@
-function p=BTMS_WK08_inject(m,b,j,S)
+function p=BTMS_WK08_inject(m,b,j,S,forcePipeline)
 % Prepare measurement path only. No compile/simulation; T_true stays untouched.
+if nargin<5,forcePipeline=false;end
+validateattributes(forcePipeline,{'logical'},{'scalar'});
 validateattributes(b,{'double'},{'real','scalar','finite'});
-validateattributes(j,{'double'},{'real','scalar','integer','>=',1,'<=',312});
+validateattributes(j,{'double'},{'real','vector','nonempty','integer','>=',1,'<=',312});
+j=j(:)';assert(isequal(j,unique(j)),'WK08:BiasChannels','Sorted unique biased channels required.');
 validateattributes(S,{'double'},{'real','vector','integer','>=',1,'<=',312});
 S=S(:)';assert(ismember(numel(S),[312 16 8]) && ...
  isequal(S,unique(S)),'WK08:Subset','Sorted unique 312/16/8 subset required.');
@@ -19,14 +22,14 @@ assert(getSimulinkBlockHandle([bc '/JTE local bias'])==-1 && ...
 before=BTMS_WK08_structFingerprint(m);
 p=struct('truePort',source,'measuredPort',source,'bias_K',b,'channel',j, ...
  'subset',S,'identityBypass',false);
-if b==0 && isequal(S,1:312)
+if b==0 && isequal(S,1:312) && ~forcePipeline
  % Literal no-op, including workspace, chart, blocks and lines.
  p.identityBypass=true;
  assert(isequaln(before,BTMS_WK08_structFingerprint(m)), ...
   'WK08:IdentityFingerprint','Neutral injection changed structure.');
  return
 end
-assert(ismember(j,S),'WK08:BiasNotSensed', ...
+assert(all(ismember(j,S)),'WK08:BiasNotSensed', ...
  'Biased channel must be in the sensed subset.');
 % Select actual channels, never zero-pad/replace unsensed channels for MinMax.
 block=[bc '/WK08 measurement'];
@@ -34,8 +37,8 @@ add_block('simulink/User-Defined Functions/MATLAB Function',block);
 sf=sfroot;chart=sf.find('-isa','Stateflow.EMChart','Path',block);
 assert(numel(chart)==1,'WK08:Chart','Injection chart unavailable.');
 chart.Script=sprintf(['function Tm=wk08measurement(T)\n%%#codegen\n' ...
- 'assert(numel(T)==312);\nv=T(:);\nv(%d)=v(%d)+%.17g;\n' ...
- 'Tm=v(%s);\nend\n'],j,j,b,mat2str(S));
+ 'assert(numel(T)==312);\nv=T(:);\nv(%s)=v(%s)+%.17g;\n' ...
+ 'Tm=v(%s);\nend\n'],mat2str(j),mat2str(j),b,mat2str(S));
 h=get_param(block,'PortHandles');
 assert(numel(h.Inport)==1 && numel(h.Outport)==1, ...
  'WK08:ChartPorts','Injection chart port discovery failed.');
