@@ -93,7 +93,7 @@ timeout. It is disabled and the trigger marker is absent in this source commit.
 
 `WK08_private_gate.py check` accepts WK08_MODE=R1 or CI_5S. It refreshes OAuth, looks up
 the existing app folder without creating one, checks owner-only ACL, WK06 neutral receipt,
-quota >3GiB, absence of both pending/verified run intents, unique verified input metadata
+quota >3GiB, absence of the R1 pending/verified intent and presence of the spent CI_5S-E intent (B9), unique verified input metadata
 and ACL, M2 receipt/proof/manifest linkage and actual workspace SHA. Three JSON files and
 the workspace are downloaded to a private temporary directory that is deleted on success
 or failure; model SLX SHA is linked through verified metadata, not downloaded. Vendor
