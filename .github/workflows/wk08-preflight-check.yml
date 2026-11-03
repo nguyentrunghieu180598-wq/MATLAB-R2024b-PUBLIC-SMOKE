@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   check:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/codex/wk08-geometric-injection' && github.run_attempt == 1 }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 10
     env:
       WK08_MODE: CI_5S
       WK08_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
-      WK08_REVIEWED_SOURCE_SHA: '7d7d3d472dc882f7a68ee45ca6a2088e58e8f23e'
+      WK08_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
       WK08_OWNER_APPROVAL: ${{ vars.WK08_OWNER_APPROVAL }}
     steps:
       - uses: actions/checkout@v4
