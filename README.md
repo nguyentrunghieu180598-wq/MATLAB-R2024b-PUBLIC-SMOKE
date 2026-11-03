@@ -57,14 +57,14 @@ The v01 MAX-based selector is neither imported nor called.
 
 CI_5S mirrors the R1 neutral sampled-actuator model and exact R2024b Update 10 build,
 with a 5s horizon. Its disabled workflow sets `WK08_MODE=CI_5S`; R1 continues to default
-to R1. CI_5S requires approval `APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO`, its own marker
-`jte-public/WK08_CI5S_TRIGGER.txt` and message `WK08_CI_5S_ONE_SHOT_20261103`.
+to R1. CI_5S requires approval `APPROVE_WK08_CI5S_B_ONCE_AFTER_CLAUDE_GO`, its own marker
+`jte-public/WK08_CI5S_TRIGGER.txt` and message `WK08_CI_5S_ONE_SHOT_20261103B`.
 The marker remains absent in this source delivery. Both workflows stay disabled.
 
-The separate private intent `WK08_CI5S_ATTEMPT_INTENT_20261103.json` is reserved alongside
+The separate private intent `WK08_CI5S_ATTEMPT_INTENT_20261103B.json` is reserved alongside
 the R1 intent, but queries only its own pending/verified reservation. CI_5S neither consumes
 nor blocks R1. The same receipt-verified M2 model/workspace inputs and transport preflight
-are reused. CI outputs and `WK08_CI5S_<run>_PRIVATE_RECEIPT.json` are uploaded to the owner-only
+are reused. CI outputs and `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103B.json` are uploaded to the owner-only
 `BTMS-DATS` subfolder of the existing app-private Drive folder, using
 `WK08_CI5S_RAW_UNREVIEWED_NOT_G5`. No raw data goes to public artifacts.
 
@@ -107,3 +107,26 @@ GOOGLE_API_TRANSPORT_FAILED/OAUTH_REFRESH_FAILED and JTE101 codes. No exception 
 private paths, IDs or credentials are printed. A check PASS is a point-in-time prerequisite;
 prepare still repeats its own gates before any approved one-shot. No workflow was enabled
 or triggered and no live preflight/Drive call was performed for this source delivery.
+
+## B2: licensed launcher and CI_5S-B identity — source only
+
+Both CI_5S and R1 now resolve `matlab-batch` and launch exactly
+`[matlab_batch, "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"]`.
+There is no direct `matlab -batch` fallback or second license-smoke process; the existing exact-build
+assert is still first in the single MATLAB entrypoint. Missing launcher fails with
+`WK08_MATLAB_BATCH_UNAVAILABLE`, already accepted by the WK08 safe-reason pattern.
+The watchdog, termination escalation, resource sampling and no-retry rule remain.
+JTE_GOOGLE_* / GH_TOKEN / GITHUB_TOKEN are excluded from the child environment; all other
+variables, including GITHUB_* and RUNNER_* licensing context, are passed unchanged.
+
+The private WK08_SUPERVISOR.json captures consoleExcerptBytes, UTF-8 consoleExcerpt
+(replacement decoding if necessary) and consoleExcerptBase64 for the exact first 2048 bytes
+of WK08_CONSOLE.log, including early license failures. These fields are never printed publicly.
+
+The consumed `WK08_CI5S_ATTEMPT_INTENT_20261103.json` remains historical evidence.
+The active CI_5S-B identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103B.json`,
+`WK08_CI_5S_ONE_SHOT_20261103B`, `APPROVE_WK08_CI5S_B_ONCE_AFTER_CLAUDE_GO` and
+`WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103B.json`. Mode stays CI_5S.
+Preflight requires the new B intent and R1 intent absent, and accepts the consumed old intent.
+R1 identifiers stay unchanged. The CI_5S-B workflow stays disabled and no trigger marker is added.
+Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.

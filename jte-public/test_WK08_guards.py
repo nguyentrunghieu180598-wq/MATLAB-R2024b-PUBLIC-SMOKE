@@ -1,5 +1,6 @@
 """Author checks only: offline authorization and fixed topology; no MATLAB/CI."""
 import csv
+import base64
 import hashlib
 import io
 import runpy
@@ -9,9 +10,11 @@ import os
 import re
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import WK08_private_gate as gate
+import WK08_supervise as supervisor
 
 
 class ContextTests(unittest.TestCase):
@@ -78,6 +81,15 @@ class CI5SContextTests(ContextTests):
         event["head_commit"]["message"] = p["message"]
         self.event.write_text(json.dumps(event))
         self.marker.write_text(p["message"])
+
+    def test_consumed_identity_cannot_authorize_ci5s_b(self):
+        with self.assertRaises(RuntimeError):
+            self.invoke({"WK08_OWNER_APPROVAL": "APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO"})
+        event = json.loads(self.event.read_text())
+        event["head_commit"]["message"] = "WK08_CI_5S_ONE_SHOT_20261103"
+        self.event.write_text(json.dumps(event))
+        with self.assertRaises(RuntimeError):
+            self.invoke()
 
     def test_r1_approval_cannot_authorize_ci5s(self):
         with self.assertRaises(RuntimeError):
@@ -183,7 +195,7 @@ class SafeFailureLoggingTests(unittest.TestCase):
     prefixes = ("WK08_PRIVATE_GATE_UNQUALIFIED", "WK08_SUPERVISOR_UNQUALIFIED")
 
     def test_allowlisted_need_codes_are_printed_exactly(self):
-        for reason in ("WK08_DRIVE_RESERVE", "WK06_CONTEXT_DENIED",
+        for reason in ("WK08_DRIVE_RESERVE", "WK08_MATLAB_BATCH_UNAVAILABLE", "WK06_CONTEXT_DENIED",
                        "WK04_INPUT_SHA", "JTE063_REMOTE_SIZE_MISMATCH",
                        "AMBIGUOUS_APP_FOLDER", "GOOGLE_API_HTTP_400", "GOOGLE_API_HTTP_503",
                        "GOOGLE_API_TRANSPORT_FAILED", "OAUTH_REFRESH_FAILED",
@@ -319,6 +331,8 @@ class ReadonlyPreflightTests(unittest.TestCase):
         queried = []
         def query(token, folder, condition):
             queried.append(condition)
+            if fault == "consumed_old":
+                return [{"id": "consumed-evidence"}] if "WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition else []
             return [{"id": "reserved"}] if fault in ("R1", "CI_5S") and (
                 gate.config(fault)["intent"] in condition) else []
         by_id = {m["id"]: payloads[n] for n, m in metas.items()}
@@ -384,6 +398,13 @@ class ReadonlyPreflightTests(unittest.TestCase):
                 self.assertEqual(len(downloaded), 4)  # 3 JSON + workspace; no model download
                 self.assertEqual(len(temporary), 1)
 
+    def test_preflight_accepts_consumed_old_ci5s_intent(self):
+        text, error, queried, _, _ = self.invoke(fault="consumed_old")
+        self.assertIsNone(error)
+        self.assertIn("WK08_PREFLIGHT_ALL_PASS", text)
+        self.assertTrue(any("WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in q for q in queried))
+        self.assertFalse(any("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in q for q in queried))
+
     def test_failures_do_not_reserve_upload_or_claim_success(self):
         for fault, reason in (
             ("missing_folder", "WK08_PREFLIGHT_APP_FOLDER_MISSING"),
@@ -398,6 +419,117 @@ class ReadonlyPreflightTests(unittest.TestCase):
                 self.assertIsInstance(error, RuntimeError)
                 self.assertIn("=FAIL reason=" + reason, text)
                 self.assertNotIn("WK08_PREFLIGHT_ALL_PASS", text)
+
+
+class B2IdentityTests(unittest.TestCase):
+    def test_ci5s_b_identity_and_r1_identity(self):
+        p = gate.config("CI_5S")
+        self.assertEqual(p["intent"], "WK08_CI5S_ATTEMPT_INTENT_20261103B.json")
+        self.assertEqual(p["message"], "WK08_CI_5S_ONE_SHOT_20261103B")
+        self.assertEqual(p["approval"], "APPROVE_WK08_CI5S_B_ONCE_AFTER_CLAUDE_GO")
+        with patch.dict(os.environ, {"WK08_MODE": "CI_5S"}, clear=True):
+            self.assertEqual(gate.receipt_name("123"), "WK08_CI5S_123_PRIVATE_RECEIPT_20261103B.json")
+        p = gate.config("R1")
+        self.assertEqual(p["intent"], "WK08_R1_ATTEMPT_INTENT_20261102.json")
+        self.assertEqual(p["message"], "WK08_PACK_340S_ONE_SHOT_20261102")
+        self.assertEqual(p["approval"], "APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO")
+        with patch.dict(os.environ, {"WK08_MODE": "R1"}, clear=True):
+            self.assertEqual(gate.receipt_name("123"), "WK08_123_PRIVATE_RECEIPT.json")
+
+
+class SupervisorLauncherTests(unittest.TestCase):
+    def run_mocked(self, mode, returncode=0, available=True, limit=None):
+        # Popen, OAuth/Drive, clocks and /proc probes are mocked; no launcher runs.
+        with tempfile.TemporaryDirectory() as temporary, ExitStack() as stack:
+            root = Path(temporary)
+            (root / "WK08_MANIFEST.json").write_text(json.dumps({
+                "mode": mode, "stopTime_s": 5 if mode == "CI_5S" else 340,
+                "run": "123", "commit": "c"*40}))
+            child_context = {"WK08_MODE": mode, "WK08_JOB_START_EPOCH": "1000",
+                "GITHUB_SHA": "c"*40, "GITHUB_RUN_ID": "123",
+                "GITHUB_REPOSITORY": gate.REPO, "GITHUB_ACTIONS": "true",
+                "RUNNER_TEMP": "/runner/temp", "RUNNER_TOOL_CACHE": "/runner/cache",
+                "PATH": "/runner/bin", "CUSTOM_SETTING": "kept",
+                "JTE_GOOGLE_CLIENT_ID": "private-client",
+                "JTE_GOOGLE_CLIENT_SECRET": "private-secret",
+                "JTE_GOOGLE_REFRESH_TOKEN": "private-refresh",
+                "GH_TOKEN": "private-gh", "GITHUB_TOKEN": "private-github"}
+            stack.enter_context(patch.dict(os.environ, child_context, clear=True))
+            stack.enter_context(patch.object(supervisor, "ROOT", root))
+            stack.enter_context(patch.object(supervisor, "context", return_value=("123", "c"*40)))
+            stack.enter_context(patch.object(supervisor, "drive", return_value=("token", "folder")))
+            stack.enter_context(patch.object(supervisor, "quota", return_value={"availableBytes": 8*gate.GiB}))
+            stack.enter_context(patch.object(supervisor, "memory",
+                return_value={"hostAvailable": 16*gate.GiB, "cgroupAvailable": 16*gate.GiB}))
+            stack.enter_context(patch.object(supervisor.shutil, "disk_usage",
+                return_value=SimpleNamespace(free=20*gate.GiB)))
+            launcher = "/opt/hostedtoolcache/matlab-batch/bin/matlab-batch"
+            which = stack.enter_context(patch.object(supervisor.shutil, "which",
+                return_value=launcher if available else None))
+            stack.enter_context(patch.object(supervisor.time, "time", return_value=1000))
+            stack.enter_context(patch.object(supervisor.time, "monotonic", return_value=10))
+            stack.enter_context(patch.object(supervisor.time, "sleep"))
+            stack.enter_context(patch.object(supervisor, "proc_start", return_value="identity"))
+            stack.enter_context(patch.object(supervisor, "proc_rss", return_value=gate.GiB))
+            violation = stack.enter_context(patch.object(supervisor, "violation", return_value=limit))
+            terminate = stack.enter_context(patch.object(supervisor, "terminate_tree"))
+            proc = SimpleNamespace(pid=4321)
+            from unittest.mock import Mock
+            proc.poll = Mock(side_effect=[None, returncode])
+            proc.wait = Mock(return_value=returncode)
+            payload = b"License checkout failed. private-console-id\n" + b"x"*2500
+            def launch(argv, **kwargs):
+                kwargs["stdout"].write(payload)
+                kwargs["stdout"].flush()
+                return proc
+            popen = stack.enter_context(patch.object(supervisor.subprocess, "Popen", side_effect=launch))
+            output = io.StringIO()
+            error = None
+            result = None
+            with redirect_stdout(output):
+                try:
+                    result = supervisor.main()
+                except RuntimeError as exc:
+                    error = exc
+            which.assert_called_once_with("matlab-batch")
+            if not available:
+                popen.assert_not_called()
+                self.assertEqual(gate.safe_failure_reason(error), "WK08_MATLAB_BATCH_UNAVAILABLE")
+                return
+            self.assertIsNone(error)
+            popen.assert_called_once()
+            self.assertEqual(popen.call_args.args[0], [launcher,
+                "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"])
+            expected_env = {k: v for k, v in child_context.items()
+                            if not k.startswith("JTE_GOOGLE_") and k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
+            self.assertEqual(popen.call_args.kwargs["env"], expected_env)
+            report = json.loads((root / "WK08_SUPERVISOR.json").read_text())
+            self.assertEqual(report["consoleExcerptBytes"], 2048)
+            self.assertEqual(base64.b64decode(report["consoleExcerptBase64"]), payload[:2048])
+            self.assertEqual(report["consoleExcerpt"], payload[:2048].decode())
+            self.assertEqual(output.getvalue(), "")
+            self.assertEqual(report["matlabProcessesLaunched"], 1)
+            self.assertFalse(report["automaticRetry"])
+            violation.assert_called_once()
+            self.assertEqual(violation.call_args.kwargs["wall"], 1185)
+            if limit:
+                terminate.assert_called_once_with(4321, "identity")
+                self.assertEqual(result, 1)
+            else:
+                terminate.assert_not_called()
+                self.assertEqual(result, 0 if returncode == 0 else 1)
+
+    def test_matlab_batch_argv_env_and_private_console_for_both_modes(self):
+        for mode in ("R1", "CI_5S"):
+            for returncode in (0, 1):
+                with self.subTest(mode=mode, returncode=returncode):
+                    self.run_mocked(mode, returncode=returncode)
+
+    def test_missing_matlab_batch_fails_without_fallback(self):
+        self.run_mocked("CI_5S", available=False)
+
+    def test_watchdog_still_terminates_the_single_process(self):
+        self.run_mocked("CI_5S", limit="HOST_RAM_RESERVE")
 
 
 class FixedGeometryTests(unittest.TestCase):

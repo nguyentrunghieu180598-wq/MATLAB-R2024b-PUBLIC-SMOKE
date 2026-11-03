@@ -1,6 +1,7 @@
 """Future protected runner: one MATLAB process, external bounds, no retry."""
 from __future__ import annotations
 import json
+import base64
 import os
 from pathlib import Path
 import shutil
@@ -38,9 +39,9 @@ def main():
         raise RuntimeError("WK08_PREFLIGHT_RESOURCE")
     env = {k: v for k, v in os.environ.items()
            if not k.startswith("JTE_GOOGLE_") and k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
-    executable = shutil.which("matlab")
-    if not executable:
-        raise RuntimeError("WK08_MATLAB_UNAVAILABLE")
+    matlab_batch = shutil.which("matlab-batch")
+    if not matlab_batch:
+        raise RuntimeError("WK08_MATLAB_BATCH_UNAVAILABLE")
     console = ROOT / "WK08_CONSOLE.log"
     report = {"run": run, "commit": commit, "status": "UNQUALIFIED", "returncode": None,
               "matlabProcessesLaunched": 0, "automaticRetry": False, "G5Accepted": False}
@@ -59,7 +60,7 @@ def main():
             updates.put((False, None))
     try:
         with console.open("xb") as output, (ROOT / "WK08_RESOURCES.jsonl").open("x") as samples:
-            proc = subprocess.Popen([executable, "-batch",
+            proc = subprocess.Popen([matlab_batch,
                 "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"],
                 env=env, stdout=output, stderr=subprocess.STDOUT)
             report["matlabProcessesLaunched"] = 1
@@ -103,6 +104,15 @@ def main():
             terminate_tree(proc.pid, identity)
     finally:
         report["elapsed_s"] = time.monotonic() - started
+        # Private report only: never echo console bytes into public job logs.
+        try:
+            with console.open("rb") as captured:
+                excerpt = captured.read(2048)
+            report["consoleExcerptBytes"] = len(excerpt)
+            report["consoleExcerpt"] = excerpt.decode("utf-8", errors="replace")
+            report["consoleExcerptBase64"] = base64.b64encode(excerpt).decode("ascii")
+        except OSError as exc:
+            report["consoleExcerptReadError"] = type(exc).__name__
         (ROOT / "WK08_SUPERVISOR.json").write_text(json.dumps(report, indent=2))
     return 0 if report["status"] == "PROCESS_EXIT_ZERO" else 1
 
