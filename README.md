@@ -135,6 +135,6 @@ Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or wo
 
 ## 03/11 fixes after run 41593851156 (Claude, owner-directed)
 - B4: `WK08_supervise.py` sets `MW_BATCH_LICENSING_ONLINE=true` for the MATLAB child. `matlab-actions/run-command@v3` sets the same flag (its `src/index.ts`); without it `matlab-batch` looks for a license file and fails with License Manager Error -1 (runs 41518493411, 41593851156).
-- B5: both one-shot workflows run a `matlab-batch` license probe in the pre-reservation step; only `WK08_LICENSE_PROBE_OK` / `WK08_LICENSE_PROBE_FAILED` reaches the public log. A licensing failure therefore consumes no intent.
+- B5: both one-shot workflows run a `matlab-batch` license probe in the pre-reservation step. A licensing failure consumes no intent. The probe's own command is a static `disp('WK08_LICENSE_OK')` with no model/run data, so since run 41600733363 (WK08_LICENSE_PROBE_FAILED, root cause still open) its console text is printed to the public log on failure (truncated to 4000 chars) for diagnosis; this is unrelated to the real supervised run's console, which stays private (WK08_SUPERVISOR.json, never printed).
 - B3: CI_5S uploads to BTMS-DATS are prefixed with the run id (earlier attempts left fixed names; JTE101_REFERENCE_NOT_UNIQUE). R1 names unchanged.
 - Active CI identity is now CI_5S-C (`...20261103C`); A and B are consumed evidence.

@@ -48,9 +48,18 @@ jobs:
         shell: bash
         run: |
           command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
-          # B5: license probe BEFORE the reservation; console bytes never reach the public log.
+          # B5: license probe BEFORE the reservation. This dummy disp() carries no
+          # model/simulation data (unlike the real supervised run below, which stays
+          # private), so on failure its console text is safe to print for diagnosis.
           out="$(MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch "disp('WK08_LICENSE_OK')" 2>&1)" || true
-          case "$out" in *WK08_LICENSE_OK*) echo WK08_LICENSE_PROBE_OK ;; *) echo WK08_LICENSE_PROBE_FAILED; exit 1 ;; esac
+          case "$out" in
+            *WK08_LICENSE_OK*) echo WK08_LICENSE_PROBE_OK ;;
+            *) echo WK08_LICENSE_PROBE_FAILED
+               echo "--- probe console (first 4000 chars; dummy command only, no model/run data) ---"
+               printf '%s\n' "$out" | head -c 4000
+               echo
+               exit 1 ;;
+          esac
       - name: Private source SHA and durable one-attempt reservation
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}

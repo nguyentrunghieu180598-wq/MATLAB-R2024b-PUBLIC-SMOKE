@@ -556,10 +556,14 @@ class WorkflowLauncherPreflightTests(unittest.TestCase):
                 self.assertEqual(check[0], setup[0] + 1)
                 self.assertEqual(reserve[0], check[0] + 1)
                 self.assertIn("shell: bash", steps[check[0]])
-                # B5: license probe sits in the same pre-reservation step and prints no console bytes.
+                # B5: license probe sits in the same pre-reservation step. Its own command is a
+                # static dummy disp() with no model/run data, so on failure its console text is
+                # printed (truncated) for diagnosis; this is unrelated to the real supervised
+                # run's console (WK08_SUPERVISOR.json), which stays private and is never printed.
                 self.assertIn("MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch", steps[check[0]])
-                self.assertIn("echo WK08_LICENSE_PROBE_FAILED; exit 1", steps[check[0]])
-                self.assertNotIn('echo "$out"', steps[check[0]])
+                self.assertIn("echo WK08_LICENSE_PROBE_FAILED", steps[check[0]])
+                self.assertIn('printf \'%s\\n\' "$out" | head -c 4000', steps[check[0]])
+                self.assertIn("exit 1 ;;", steps[check[0]])
 
 
 class FixedGeometryTests(unittest.TestCase):
