@@ -6,6 +6,10 @@ flags=struct('status','UNQUALIFIED','physicalRun',false,'G5Accepted',false, ...
  'run',M.run,'commit',M.commit,'stopTime_s',M.stopTime_s, ...
  'stage','INPUT','hiddenSimscapeICCertified',false);
 isCI5S=strcmp(M.mode,'CI_5S');
+isD13=strcmp(M.mode,'D13_REF');
+if isD13
+ flags.mode='D13_REF';flags.scenarioSHA256=M.scenarioSHA256;
+end
 if isCI5S
  flags.mode='CI_5S';flags.prepareWall_s=NaN;flags.firstStepWall_s=NaN;
  flags.trajectoryWall_s=NaN;flags.majorSteps=0;
@@ -17,7 +21,18 @@ guard=onCleanup(@finish); %#ok<NASGU>
 try
  assert(strcmp(char(version),'24.2.0.3361896 (R2024b) Update 10'), ...
   'WK08:Build','Pinned R2024b Update 10 build required.');
- if strcmp(M.mode,'R1')
+  if isD13
+   assert(M.stopTime_s==340 && strcmp(getenv('WK08_OWNER_APPROVAL'), ...
+    'APPROVE_WK10_D13_REF_K2_T340_A_ONCE_AFTER_CLAUDE_GO'), ...
+    'WK10:Approval','D13 requires its separate owner approval after Claude GO.');
+   assert(strcmp(M.run,getenv('GITHUB_RUN_ID')) && strcmp(M.commit,getenv('GITHUB_SHA')), ...
+    'WK10:Context','Run/commit provenance mismatch.');
+   specFile=fullfile(fileparts(mfilename('fullpath')),'WK10_scenario.json');
+   assert(strcmp(JTE2026sha256(specFile),M.scenarioSHA256), ...
+    'WK10:ScenarioSHA','Scenario bytes differ from manifest.');
+   scenario=jsondecode(fileread(specFile));
+   assert(isequaln(scenario,M.scenario),'WK10:Scenario','Scenario metadata mismatch.');
+  elseif strcmp(M.mode,'R1')
   assert(M.stopTime_s==340 && strcmp(getenv('WK08_OWNER_APPROVAL'), ...
    'APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO'), ...
    'WK08:Approval','R1 requires separate owner approval after Claude GO.');
@@ -53,7 +68,11 @@ try
  mkdir(native);
  flags.stage='PREPARE';
  if isCI5S,prepareTimer=tic;end
- proof=BTMS_WK08_prepare(source,target,native,M.sourceSHA256,M.stopTime_s);
+  if isD13
+   proof=BTMS_WK08_prepare(source,target,native,M.sourceSHA256,M.stopTime_s,scenario);
+  else
+   proof=BTMS_WK08_prepare(source,target,native,M.sourceSHA256,M.stopTime_s);
+  end
  if isCI5S,flags.prepareWall_s=toc(prepareTimer);end
  m='WK08R1';load_system(target);
  assert(isequaln(proof.fingerprint,BTMS_WK08_structFingerprint(m)), ...
@@ -64,6 +83,18 @@ try
  strcmp(JTE2026sha256(resolved),JTE2026sha256(fullfile(pinned.folder,pinned.name))), ...
  'WK08:Load','Resolved source current file differs from pinned vendor.');
  proof.loadSHA256=JTE2026sha256(resolved);
+  if isD13
+   assert(strcmp(proof.loadSHA256,scenario.vendor_mat_sha256) && ...
+    strcmp(pin,scenario.model_sha256),'WK10:Load','Scenario vendor provenance mismatch.');
+   gain=[m '/WK10 scenario current scale'];gp=get_param(gain,'PortHandles');
+   sp=get_param([m '/Current demand'],'PortHandles');dp=get_param([m '/Battery Control'],'PortHandles');
+   assert(strcmp(get_param(gain,'BlockType'),'Gain') && ...
+    str2double(get_param(gain,'Gain'))==scenario.k && ...
+    get_param(get_param(gp.Inport(1),'Line'),'SrcPortHandle')==sp.Outport(1) && ...
+    get_param(get_param(dp.Inport(2),'Line'),'SrcPortHandle')==gp.Outport(1), ...
+    'WK10:Load','Declared scenario Gain/edge mismatch.');
+   proof.scenarioSHA256=M.scenarioSHA256;
+  end
  proof.runtimeBuild=char(version);
  save(fullfile(root,'WK08_PREPARED_PROOF.mat'),'proof','M','-v7.3');
  for k=1:numel(proof.privateTargets)
@@ -168,6 +199,23 @@ try
  flags.nativeFinite=true;flags.nativeEndpointsChecked=true;
  flags.runtimeWall_s=toc(wall);flags.derivativeSHA256=proof.derivativeSHA256;
  flags.structuralFingerprintChecked=true;
+  if isD13
+   % Diagnostic only: failures in this derived export never change native PASS gates.
+   try
+    summary=derivedSummary(proof.privateTargets);
+    writeJSON(fullfile(root,'SUMMARY.json'),summary);
+    flags.summaryStatus='DERIVED_NOT_EVIDENCE';
+   catch summaryError
+    flags.summaryStatus='NOT VERIFIED';
+    try
+     writeJSON(fullfile(root,'SUMMARY.json'),struct('label','DERIVED_NOT_EVIDENCE', ...
+      'status','NOT VERIFIED','identifier',summaryError.identifier, ...
+      'SOC_limit_intervention','NOT VERIFIED'));
+    catch
+     % No fallback computation outside MATLAB and no effect on run qualification.
+    end
+   end
+  end
 catch err
  if isCI5S
   if exist('prepareTimer','var') && isnan(flags.prepareWall_s)
@@ -191,6 +239,27 @@ end
   if ~isempty(m),try,close_system(m,0);catch,end,end
   if ~isempty(project),try,close(project);catch,end,end
  end
+end
+function d=derivedSummary(files)
+% Logged sample statistics only; no interpolated crossing, suitability or PASS test.
+t=readNative(files{5},1,340,true);u=readNative(files{2},1,340,true);
+p=readNative(files{7},1,340,true);
+[peak,ix]=max(t.data(:,1));levels=[.25 .5 .75];counts=zeros(1,3);
+for k=1:3,counts(k)=nnz(u.data(:,1)==levels(k));end
+first305=NaN;ix305=find(t.data(:,1)>=305,1);
+if ~isempty(ix305),first305=t.time(ix305);end
+first3075=NaN;ix3075=find(t.data(:,1)>=307.5,1);
+if ~isempty(ix3075),first3075=t.time(ix3075);end
+% jsonencode converts NaN to JSON null: never-crossed thresholds are not failures.
+d=struct('label','DERIVED_NOT_EVIDENCE','diagnosticOnly',true, ...
+ 'Tmax_peak_K',peak,'Tmax_peak_time_s',t.time(ix), ...
+ 'first_logged_Tmax_ge_305_K_s',first305,'first_logged_Tmax_ge_307_5_K_s',first3075, ...
+ 'uSampled_levels',levels,'uSampled_counts',counts, ...
+ 'uSampled_level_switches',nnz(diff(u.data(:,1))~=0), ...
+ 'pump_energy_J',trapz(p.time,p.data(:,1)),'N_samples',numel(u.time), ...
+ 'sampleCounts',struct('TmaxTrue',numel(t.time),'uSampled',numel(u.time),'pumpPower',numel(p.time)), ...
+ 'SOC_limit_intervention','NOT VERIFIED', ...
+ 'SOC_limit_observability','Existing eight logs contain no demanded/applied current or SOC witness.');
 end
 function x=readNative(file,width,stopTime,complete)
 assert(isfile(file),'WK08:NativeMissing','Native To File missing.');

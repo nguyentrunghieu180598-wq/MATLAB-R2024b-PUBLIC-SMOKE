@@ -1,0 +1,14 @@
+{
+  "scenario_id": "D13_K2_T340_V1",
+  "k": 2,
+  "T": 340,
+  "model_sha256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+  "vendor_mat_sha256": "a6b9e9353cadf2819255e55c1bcaf7beee439345311d2d0de30220e8e36e6986",
+  "gain_block_path": "$ROOT/WK10 scenario current scale",
+  "expected_edge": {
+    "source": "$ROOT/Current demand",
+    "source_port": 1,
+    "destination": "$ROOT/Battery Control",
+    "destination_port": 2
+  }
+}

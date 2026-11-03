@@ -147,3 +147,37 @@ Licensing and prepare worked; `openProject` failed in `ssc_build batteryModule`:
 (`Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow`). Intent D is consumed, so the
 active identity is E (message, approval, intent, receipt suffix, concurrency group, MATLAB approval string).
 NOT VERIFIED until a run: later stages (initialize, first step, trajectory).
+
+## WK10 D13 source delivery (pending independent Claude review)
+
+This section describes a **new** declared input scenario; the WK08 material above
+is the historical vendor-load/CI_5S record. No WK08 workflow, marker or approval
+is repurposed. The completed R1 stays the vendor-load reference.
+
+- Scenario `D13_K2_T340_V1`: k=2, T=340 s, b=0, all 312 channels, Ts=10 ms.
+  `jte-public/WK10_scenario.json` pins the vendor model/MAT hashes, root Gain
+  path and original edge. Its exact byte SHA and full metadata are bound into
+  the private manifest and rechecked by gate, supervisor and MATLAB.
+- `WK10 scenario current scale` is a root Gain on `Current demand/1` to
+  `Battery Control/2`, multiplying every sample including rest and regen.
+  Vendor MAT/timing, controller, actuator, solver and native PASS criteria stay
+  unchanged. The complete Gain/edge delta is recorded and retained in the saved
+  fingerprint; retained config/workspace/scripts/graph must match exactly.
+- Private logs keep all eight R1 basenames/variables. `SUMMARY.json` is a small
+  MATLAB-derived `DERIVED_NOT_EVIDENCE` diagnostic: peak/time, first logged
+  threshold hits (JSON null if absent), command-level counts/switches, trapz
+  pump energy and sample counts. It is optional for qualification; no crossing,
+  summary field or summary export failure changes PASS. Existing logs cannot
+  establish SOC-limit intervention: `NOT VERIFIED`. No extra vendor probe added.
+- New read-only preflight: D13 intent absent, spent R1 and CI_5S-E intents
+  present and untouched, source metadata/input linkage and quota/ACL checks.
+  It cannot reserve an intent or launch MATLAB. Historical WK08 check semantics
+  remain unchanged; D13 uses its separate mode and workflow.
+- Both new WK10 jobs are `if: ${{ false }}` with zero reviewed SHA placeholders.
+  Their trigger files are absent. No MATLAB/CI run, workflow enable/trigger,
+  merge or retry is authorized by this source delivery. One separate owner
+  approval for preflight, then one separate approval for the probe, after Claude
+  independently reviews the final source. PR #77/WK09 is untouched.
+
+See [the complete D13 contract](actuator-amendment/WK10_D13_SCENARIO_DESIGN.md)
+for identities, exact files, test scope and NOT VERIFIED items.
