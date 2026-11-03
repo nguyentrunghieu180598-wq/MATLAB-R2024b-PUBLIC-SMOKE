@@ -108,26 +108,28 @@ private paths, IDs or credentials are printed. A check PASS is a point-in-time p
 prepare still repeats its own gates before any approved one-shot. No workflow was enabled
 or triggered and no live preflight/Drive call was performed for this source delivery.
 
-## B2: licensed launcher and CI_5S-C identity — source only
+## B2: licensed launcher (identity now CI_5S-C, see the 03/11 fixes section) — source only
 
 Both CI_5S and R1 now resolve `matlab-batch` and launch exactly
 `[matlab_batch, "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"]`.
-There is no direct `matlab -batch` fallback or second license-smoke process; the existing exact-build
-assert is still first in the single MATLAB entrypoint. Missing launcher fails with
+There is no direct `matlab -batch` fallback. Since B5 (03/11) a separate pre-reservation license probe
+(`matlab-batch "disp('WK08_LICENSE_OK')"`) runs in the workflow before the intent is reserved; the
+exact-build assert is still first in the single supervised MATLAB entrypoint. Missing launcher fails with
 `WK08_MATLAB_BATCH_UNAVAILABLE`, already accepted by the WK08 safe-reason pattern.
 The watchdog, termination escalation, resource sampling and no-retry rule remain.
 JTE_GOOGLE_* / GH_TOKEN / GITHUB_TOKEN are excluded from the child environment; all other
-variables, including GITHUB_* and RUNNER_* licensing context, are passed unchanged.
+variables, including GITHUB_* and RUNNER_* licensing context, are passed unchanged, plus
+`MW_BATCH_LICENSING_ONLINE=true` (B4).
 
 The private WK08_SUPERVISOR.json captures consoleExcerptBytes, UTF-8 consoleExcerpt
 (replacement decoding if necessary) and consoleExcerptBase64 for the exact first 2048 bytes
 of WK08_CONSOLE.log, including early license failures. These fields are never printed publicly.
 
-The consumed `WK08_CI5S_ATTEMPT_INTENT_20261103.json` remains historical evidence.
+The consumed intents `WK08_CI5S_ATTEMPT_INTENT_20261103.json` (A) and `WK08_CI5S_ATTEMPT_INTENT_20261103B.json` (B) remain historical evidence.
 The active CI_5S-C identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103C.json`,
 `WK08_CI_5S_ONE_SHOT_20261103C`, `APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO` and
 `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103C.json`. Mode stays CI_5S.
-Preflight requires the new B intent and R1 intent absent, and accepts the consumed old intent.
+Preflight requires the active C intent and the R1 intent absent, and accepts the consumed A and B intents.
 R1 identifiers stay unchanged. The CI_5S-C workflow stays disabled and no trigger marker is added.
 Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.
 
