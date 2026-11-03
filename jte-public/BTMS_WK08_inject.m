@@ -1,5 +1,8 @@
-function p=BTMS_WK08_inject(m,b,j,S)
+function p=BTMS_WK08_inject(m,b,j,S,forcePipeline)
 % Prepare measurement path only. No compile/simulation; T_true stays untouched.
+% WK09 C0 forces the same chart at zero bias; default preserves reviewed R1.
+if nargin<5,forcePipeline=false;end
+validateattributes(forcePipeline,{'logical'},{'scalar'});
 validateattributes(b,{'double'},{'real','scalar','finite'});
 validateattributes(j,{'double'},{'real','scalar','integer','>=',1,'<=',312});
 validateattributes(S,{'double'},{'real','vector','integer','>=',1,'<=',312});
@@ -19,7 +22,7 @@ assert(getSimulinkBlockHandle([bc '/JTE local bias'])==-1 && ...
 before=BTMS_WK08_structFingerprint(m);
 p=struct('truePort',source,'measuredPort',source,'bias_K',b,'channel',j, ...
  'subset',S,'identityBypass',false);
-if b==0 && isequal(S,1:312)
+if b==0 && isequal(S,1:312) && ~forcePipeline
  % Literal no-op, including workspace, chart, blocks and lines.
  p.identityBypass=true;
  assert(isequaln(before,BTMS_WK08_structFingerprint(m)), ...
