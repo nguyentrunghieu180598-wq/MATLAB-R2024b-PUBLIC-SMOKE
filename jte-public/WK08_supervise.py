@@ -13,7 +13,7 @@ import threading
 
 from BTMS_M3_oneShotWatchdog import memory, violation, proc_start, proc_rss, terminate_tree
 from JTE101_io import quota
-from WK08_private_gate import context, drive, ROOT, GiB, config, report_failure
+from WK08_private_gate import context, drive, ROOT, GiB, config, report_failure, validate_scenario_manifest
 
 
 def main():
@@ -22,6 +22,11 @@ def main():
     manifest = ROOT / "WK08_MANIFEST.json"
     if not manifest.is_file():
         raise RuntimeError("WK08_MANIFEST_REQUIRED")
+    if p["mode"] == "D13_REF":
+        data = json.loads(manifest.read_text())
+        validate_scenario_manifest(data)
+        if data.get("run") != run or data.get("commit") != commit:
+            raise RuntimeError("WK08_D13_MANIFEST_BINDING")
     if p["mode"] == "CI_5S":
         data = json.loads(manifest.read_text())
         if (data.get("mode") != "CI_5S" or data.get("stopTime_s") != 5
@@ -52,6 +57,8 @@ def main():
               "matlabProcessesLaunched": 0, "automaticRetry": False, "G5Accepted": False}
     if p["mode"] == "CI_5S":
         report["mode"] = "CI_5S"
+    if p["mode"] == "D13_REF":
+        report.update(mode="D13_REF", scenarioSHA256=data["scenarioSHA256"])
     proc = None
     identity = None
     started = time.monotonic()

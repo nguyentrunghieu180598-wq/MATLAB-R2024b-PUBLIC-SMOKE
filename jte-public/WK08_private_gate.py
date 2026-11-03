@@ -49,6 +49,66 @@ PREFLIGHT = {
     "approval": "APPROVE_WK08_PREFLIGHT_ONCE_AFTER_CLAUDE_GO",
 }
 
+D13_BRANCH = "codex/wk10-d13-k2-340"
+D13_SCENARIO_FILE = Path(__file__).with_name("WK10_scenario.json")
+D13 = {
+    "mode": "D13_REF", "stopTime_s": 340,
+    "message": "WK10_D13_REF_K2_T340_A_ONE_SHOT_20261103",
+    "workflow": ".github/workflows/wk10-d13-ref-one-shot.yml",
+    "marker": "jte-public/WK10_D13_REF_K2_T340_A_TRIGGER.txt",
+    "approval": "APPROVE_WK10_D13_REF_K2_T340_A_ONCE_AFTER_CLAUDE_GO",
+    "intent": "WK10_D13_REF_K2_T340_A_ATTEMPT_INTENT_20261103.json",
+    "schema": "WK10_D13_RAW_UNREVIEWED_NOT_G5",
+    "receiptPrefix": "WK10_D13_REF_K2_T340_A_",
+    "receiptSuffix": "_PRIVATE_RECEIPT_20261103.json",
+    # Same qualification criteria as the neutral R1; suitability is diagnostic only.
+    "flagsPass": "R1_NATIVE_GATES_PASS_PENDING_PRIVATE_READBACK",
+    "receiptPass": "R1_GATES_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE",
+}
+D13_PREFLIGHT = {
+    "workflow": ".github/workflows/wk10-d13-preflight-check.yml",
+    "marker": "jte-public/WK10_D13_PREFLIGHT_A_TRIGGER.txt",
+    "message": "WK10_D13_PREFLIGHT_A_CHECK_20261103",
+    "approval": "APPROVE_WK10_D13_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+}
+
+
+def scenario():
+    """Exact approved metadata, not a user-selectable load or horizon."""
+    expected = {
+        "scenario_id": "D13_K2_T340_V1", "k": 2, "T": 340,
+        "model_sha256": "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
+        "vendor_mat_sha256": "a6b9e9353cadf2819255e55c1bcaf7beee439345311d2d0de30220e8e36e6986",
+        "gain_block_path": "$ROOT/WK10 scenario current scale",
+        "expected_edge": {"source": "$ROOT/Current demand", "source_port": 1,
+                          "destination": "$ROOT/Battery Control", "destination_port": 2},
+    }
+    value = json.loads(D13_SCENARIO_FILE.read_text())
+    need(json.dumps(value, sort_keys=True) == json.dumps(expected, sort_keys=True),
+         "WK08_D13_SCENARIO_MISMATCH")
+    return value
+
+
+def validate_scenario_manifest(manifest):
+    need(manifest.get("mode") == "D13_REF" and manifest.get("stopTime_s") == 340
+         and json.dumps(manifest.get("scenario"), sort_keys=True) == json.dumps(scenario(), sort_keys=True)
+         and manifest.get("scenarioSHA256") == sha(D13_SCENARIO_FILE),
+         "WK08_D13_MANIFEST_MISMATCH")
+
+
+def d13_intents(token, folder):
+    """Read-only queries. Historical reservations are never removed or reused."""
+    for label, intent, present in (
+        ("D13_INTENT_ABSENT", D13["intent"], False),
+        ("R1_INTENT_CONSUMED", INTENT, True),
+        ("CI_5S_E_INTENT_CONSUMED", CI5S["intent"], True),
+    ):
+        condition = ("name = 'JTE063_PENDING_" + intent +
+                     "' or name = 'JTE063_VERIFIED_" + intent + "'")
+        reason = "WK08_D13_PRIOR_EVIDENCE_MISSING" if present else "WK08_ALREADY_RESERVED_NO_RETRY"
+        check_step(label, lambda condition=condition, present=present, reason=reason: need(
+            bool(query(token, folder, condition)) == present, reason))
+
 
 def safe_failure_reason(exc):
     # Never stringify exceptions or non-string payloads.
@@ -75,7 +135,9 @@ def report_failure(prefix, exc):
 
 def config(mode=None):
     mode = os.environ.get("WK08_MODE", "R1") if mode is None else mode
-    need(mode in {"R1", "CI_5S"}, "WK08_MODE_DENIED")
+    need(mode in {"R1", "CI_5S", "D13_REF"}, "WK08_MODE_DENIED")
+    if mode == "D13_REF":
+        return dict(D13)
     if mode == "CI_5S":
         return dict(CI5S)
     return {"mode": "R1", "stopTime_s": 340, "message": MESSAGE,
@@ -105,13 +167,16 @@ def git(*args):
 
 def context(check_only=False):
     p = config()  # validate WK08_MODE even for read-only check
+    is_d13 = p["mode"] == "D13_REF"
+    if is_d13:
+        scenario()
     if check_only:
-        p = PREFLIGHT
+        p = D13_PREFLIGHT if is_d13 else PREFLIGHT
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
     need(os.environ.get("GITHUB_REPOSITORY") == REPO
          and event.get("repository", {}).get("full_name") == REPO
          and event.get("repository", {}).get("private") is False
-         and os.environ.get("GITHUB_REF") == "refs/heads/" + BRANCH
+         and os.environ.get("GITHUB_REF") == "refs/heads/" + (D13_BRANCH if is_d13 else BRANCH)
          and os.environ.get("GITHUB_EVENT_NAME") == "push"
          and os.environ.get("GITHUB_RUN_ATTEMPT") == "1"
          and os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
@@ -158,7 +223,10 @@ def upload(token, folder, path):
 
 def code_hashes():
     paths = git("ls-files", "jte-public", config()["workflow"]).splitlines()
-    return {p: sha(p) for p in paths if Path(p).suffix in {".m", ".py", ".csv", ".yml"}}
+    result = {p: sha(p) for p in paths if Path(p).suffix in {".m", ".py", ".csv", ".yml"}}
+    if config()["mode"] == "D13_REF":
+        result["jte-public/WK10_scenario.json"] = sha(D13_SCENARIO_FILE)
+    return result
 
 
 def reserve_one_shot(token, folder, run, commit):
@@ -217,7 +285,9 @@ def readonly_app_folder(token):
 
 def check(run, commit):
     """Drive read-only: no ROOT, reservation, upload, vendor checkout or MATLAB."""
-    config()  # R1 and CI_5S are the only valid run modes.
+    is_d13 = config()["mode"] == "D13_REF"
+    if is_d13:
+        check_step("D13_SCENARIO", scenario)
     check_step("FRESH_SCRATCH", lambda: need(not ROOT.exists(), "WK08_FRESH_PRIVATE_ROOT"))
     def oauth():
         keys = ("JTE_GOOGLE_CLIENT_ID", "JTE_GOOGLE_CLIENT_SECRET", "JTE_GOOGLE_REFRESH_TOKEN")
@@ -229,17 +299,20 @@ def check(run, commit):
     check_step("WK06_NEUTRAL_RECEIPT", lambda: require_verified_neutral_preflight(token, folder))
     check_step("DRIVE_QUOTA", lambda: need(
         quota(token)["availableBytes"] > 3 * GiB, "WK08_DRIVE_RESERVE"))
-    # R1 must still be unreserved. The CI_5S-E identity is spent: its intent must exist.
-    intent = config("R1")["intent"]
-    condition = ("name = 'JTE063_PENDING_" + intent +
-                 "' or name = 'JTE063_VERIFIED_" + intent + "'")
-    check_step("R1_INTENT_ABSENT", lambda condition=condition: need(
-        not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY"))
-    intent = config("CI_5S")["intent"]
-    condition = ("name = 'JTE063_PENDING_" + intent +
-                 "' or name = 'JTE063_VERIFIED_" + intent + "'")
-    check_step("CI_5S_E_INTENT_CONSUMED", lambda condition=condition: need(
-        query(token, folder, condition), "WK08_CI5S_EVIDENCE_MISSING"))
+    if is_d13:
+        d13_intents(token, folder)
+    else:
+        # Historical WK08 check semantics are retained.
+        intent = config("R1")["intent"]
+        condition = ("name = 'JTE063_PENDING_" + intent +
+                     "' or name = 'JTE063_VERIFIED_" + intent + "'")
+        check_step("R1_INTENT_ABSENT", lambda condition=condition: need(
+            not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY"))
+        intent = config("CI_5S")["intent"]
+        condition = ("name = 'JTE063_PENDING_" + intent +
+                     "' or name = 'JTE063_VERIFIED_" + intent + "'")
+        check_step("CI_5S_E_INTENT_CONSUMED", lambda condition=condition: need(
+            query(token, folder, condition), "WK08_CI5S_EVIDENCE_MISSING"))
 
     prefix = "BTMS_M2_40701917441_"
     assets = (
@@ -310,10 +383,14 @@ def check(run, commit):
 
 def prepare(run, commit):
     p = config()
+    if p["mode"] == "D13_REF":
+        scenario()
     need(not ROOT.exists(), "WK08_FRESH_PRIVATE_ROOT")
     token, folder = drive()
     require_verified_neutral_preflight(token, folder)
     need(quota(token)["availableBytes"] > 3 * GiB, "WK08_DRIVE_RESERVE")
+    if p["mode"] == "D13_REF":
+        d13_intents(token, folder)
     reserve_one_shot(token, folder, run, commit)
     assets = []
     def asset(name, local, receipt=None):
@@ -351,26 +428,37 @@ def prepare(run, commit):
     need(sha(vendor_slx) ==
          "0a61b958173e55f9a5683d8f91fc82dc00078d6a948b66c23883b370bbc4abc0",
          "WK08_VENDOR_SHA")
+    if p["mode"] == "D13_REF":
+        load_file = vendor / "Scripts_Data/Battery_Pack_Thermal_Management_Ivst.mat"
+        need(sha(load_file) == scenario()["vendor_mat_sha256"], "WK08_D13_LOAD_SHA")
     manifest = {"run": run, "commit": commit, "mode": p["mode"], "stopTime_s": p["stopTime_s"],
         "privateRoot": str(ROOT.resolve()), "sourceSHA256": src["sha256"],
         "inputs": assets, "vendorRoot": str(vendor), "vendorSLX": str(vendor_slx),
         "inputCodeSHA256": code_hashes(), "retry": False}
+    if p["mode"] == "D13_REF":
+        manifest.update(scenario=scenario(), scenarioSHA256=sha(D13_SCENARIO_FILE))
+        validate_scenario_manifest(manifest)
     (ROOT / "WK08_MANIFEST.json").write_text(json.dumps(manifest, indent=2))
 
 
 def publish(run, commit):
     p = config()
     token, folder = drive()
-    if p["mode"] == "CI_5S":
+    if p["mode"] in {"CI_5S", "D13_REF"}:
         folder = btms_dats_folder(token, folder)
     manifest_path = ROOT / "WK08_MANIFEST.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
+    if p["mode"] == "D13_REF":
+        validate_scenario_manifest(manifest)
     flags_path = ROOT / "WK08_FLAGS.json"
     flags = json.loads(flags_path.read_text()) if flags_path.is_file() else {}
     monitor_path = ROOT / "WK08_SUPERVISOR.json"
     monitor = json.loads(monitor_path.read_text()) if monitor_path.is_file() else {}
     same = all(x.get("run") == run and x.get("commit") == commit
                for x in (manifest, flags, monitor))
+    if p["mode"] == "D13_REF":
+        same = (same and all(x.get("mode") == "D13_REF" and
+                x.get("scenarioSHA256") == manifest["scenarioSHA256"] for x in (flags, monitor)))
     if p["mode"] == "CI_5S":
         same = (same and manifest.get("mode") == "CI_5S"
                 and manifest.get("stopTime_s") == 5
@@ -393,7 +481,7 @@ def publish(run, commit):
         if path.stat().st_size == 0:
             continue  # omitted file prevents complete qualification below
         need(path.stat().st_size <= GiB, "WK08_DELIVERY_FILE_CAP")
-        if p["mode"] == "CI_5S":
+        if p["mode"] in {"CI_5S", "D13_REF"}:
             # B3: BTMS-DATS keeps earlier attempts; prefix the run id so names never collide.
             staged = path.with_name(run + "_" + path.name)
             shutil.copyfile(path, staged)
@@ -409,6 +497,22 @@ def publish(run, commit):
               and flags.get("status") == p["flagsPass"]
               and monitor.get("status") == "PROCESS_EXIT_ZERO"
               and monitor.get("returncode") == 0)
+    if p["mode"] == "D13_REF":
+        # Derived diagnostic only: neither its presence, values nor export failure
+        # changes complete/passed. Never exceed the existing delivery byte budget.
+        receipt["summaryDelivery"] = "NOT VERIFIED"
+        try:
+            summary = ROOT / "SUMMARY.json"
+            need(summary.is_file() and not summary.is_symlink() and
+                 0 < summary.stat().st_size <= 64 * 1024 and
+                 sum(x.stat().st_size for x in paths) + summary.stat().st_size <= 2 * GiB,
+                 "WK08_D13_SUMMARY_UNAVAILABLE")
+            staged = summary.with_name(run + "_SUMMARY.json")
+            shutil.copyfile(summary, staged)
+            receipt["files"].append({"name": "SUMMARY.json", **upload(token, folder, staged)})
+            receipt["summaryDelivery"] = "DERIVED_NOT_EVIDENCE_PRIVATE_READBACK"
+        except Exception as exc:
+            receipt["summaryDeliveryErrorType"] = type(exc).__name__
     receipt["requiredPayloadComplete"] = complete
     receipt["status"] = p["receiptPass"] if passed else "UNQUALIFIED"
     receipt_path = ROOT / receipt_name(run)

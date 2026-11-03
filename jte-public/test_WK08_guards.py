@@ -336,6 +336,14 @@ class ReadonlyPreflightTests(unittest.TestCase):
         queried = []
         def query(token, folder, condition):
             queried.append(condition)
+            if mode == "D13_REF":
+                if gate.D13["intent"] in condition:
+                    return [{"id": "spent-d13"}] if fault == "d13_reserved" else []
+                if gate.INTENT in condition:
+                    return [] if fault == "r1_missing" else [{"id": "spent-r1"}]
+                if gate.CI5S["intent"] in condition:
+                    return [] if fault == "ci5s_missing" else [{"id": "spent-ci5s"}]
+                raise AssertionError("Historical A/B/C/D intents must not be queried")
             if "WK08_CI5S_ATTEMPT_INTENT_20261103E.json" in condition:
                 # Spent CI_5S-E identity: its intent is on record unless the fault removes it.
                 return [] if fault == "ci5s_missing" else [{"id": "ci5s-e-evidence"}]
@@ -451,6 +459,10 @@ class SupervisorLauncherTests(unittest.TestCase):
             (root / "WK08_MANIFEST.json").write_text(json.dumps({
                 "mode": mode, "stopTime_s": 5 if mode == "CI_5S" else 340,
                 "run": "123", "commit": "c"*40}))
+            if mode == "D13_REF":
+                manifest = json.loads((root / "WK08_MANIFEST.json").read_text())
+                manifest.update(scenario=gate.scenario(), scenarioSHA256=gate.sha(gate.D13_SCENARIO_FILE))
+                (root / "WK08_MANIFEST.json").write_text(json.dumps(manifest))
             child_context = {"WK08_MODE": mode, "WK08_JOB_START_EPOCH": "1000",
                 "GITHUB_SHA": "c"*40, "GITHUB_RUN_ID": "123",
                 "GITHUB_REPOSITORY": gate.REPO, "GITHUB_ACTIONS": "true",
@@ -519,6 +531,9 @@ class SupervisorLauncherTests(unittest.TestCase):
             self.assertEqual(output.getvalue(), "")
             self.assertEqual(report["matlabProcessesLaunched"], 1)
             self.assertFalse(report["automaticRetry"])
+            if mode == "D13_REF":
+                self.assertEqual(report["mode"], mode)
+                self.assertEqual(report["scenarioSHA256"], gate.sha(gate.D13_SCENARIO_FILE))
             violation.assert_called_once()
             self.assertEqual(violation.call_args.kwargs["wall"], 1185)
             if limit:
@@ -619,6 +634,207 @@ class BiasGuardSourceTests(unittest.TestCase):
         self.assertIsNotNone(mutation)
         self.assertLess(neutral.end() + guard.end(), mutation.start(),
                         "The bias guard must reject before the first graph edit")
+
+
+class D13ScenarioTests(unittest.TestCase):
+    def test_exact_metadata_and_manifest_hash(self):
+        value = gate.scenario()
+        self.assertEqual((value["scenario_id"], value["k"], value["T"]), ("D13_K2_T340_V1", 2, 340))
+        manifest = {"mode": "D13_REF", "stopTime_s": 340, "scenario": value,
+                    "scenarioSHA256": gate.sha(gate.D13_SCENARIO_FILE)}
+        gate.validate_scenario_manifest(manifest)
+        for key, bad in (("scenarioSHA256", "0"*64), ("mode", "R1"), ("stopTime_s", 2400),
+                         ("scenario", {**value, "k": 1})):
+            with self.subTest(key=key), self.assertRaises(RuntimeError):
+                gate.validate_scenario_manifest({**manifest, key: bad})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "scenario.json"
+            for key in value:
+                bad = {**value, key: None}
+                path.write_text(json.dumps(bad))
+                with self.subTest(key=key), patch.object(gate, "D13_SCENARIO_FILE", path), \
+                     self.assertRaises(RuntimeError):
+                    gate.scenario()
+            bad = json.loads(json.dumps(value));bad["expected_edge"]["source_port"] = True
+            path.write_text(json.dumps(bad))
+            with patch.object(gate, "D13_SCENARIO_FILE", path), self.assertRaises(RuntimeError):
+                gate.scenario()
+
+    def test_supervisor_validates_d13_before_drive_or_launch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "WK08_MANIFEST.json").write_text(json.dumps({"mode": "D13_REF", "stopTime_s": 340}))
+            with patch.dict(os.environ, {"WK08_MODE": "D13_REF"}, clear=True), \
+                 patch.object(supervisor, "ROOT", root), \
+                 patch.object(supervisor, "context", return_value=("123", "c"*40)), \
+                 patch.object(supervisor, "drive") as drive, \
+                 patch.object(supervisor.subprocess, "Popen") as launch, self.assertRaises(RuntimeError):
+                supervisor.main()
+            drive.assert_not_called();launch.assert_not_called()
+
+    def test_single_supervised_process_env_console_and_watchdog(self):
+        for returncode in (0, 1):
+            SupervisorLauncherTests.run_mocked(self, "D13_REF", returncode=returncode)
+        SupervisorLauncherTests.run_mocked(self, "D13_REF", available=False)
+        SupervisorLauncherTests.run_mocked(self, "D13_REF", limit="HOST_RAM_RESERVE")
+
+    def test_matlab_scenario_bridge_summary_and_unchanged_gates_source(self):
+        root = Path(__file__).parent
+        source = (root / "BTMS_WK08_run.m").read_text()
+        prepare = (root / "BTMS_WK08_prepare.m").read_text()
+        self.assertIn("'" + gate.D13["approval"] + "'", source)
+        self.assertIn("JTE2026sha256(specFile),M.scenarioSHA256", source)
+        self.assertIn("strcmp(proof.loadSHA256,scenario.vendor_mat_sha256)", source)
+        self.assertIn("'Multiplication','Element-wise(K.*u)'", prepare)
+        self.assertIn("get_param(line,'SrcPortHandle')==sp.Outport(1)", prepare)
+        self.assertIn("isequaln(before,retained)", prepare)
+        self.assertIn("p.fingerprint=BTMS_WK08_structFingerprint(m)", prepare)
+        self.assertNotRegex(prepare, r"set_param\([^\n]*(?:'A'|'B'|'RelTol'|'AbsTol'|'Solver'|'SampleTime')")
+        summary = source.split("function d=derivedSummary(files)", 1)[1].split("function x=readNative", 1)[0]
+        for text in ("DERIVED_NOT_EVIDENCE", "first305=NaN", "first3075=NaN", ">=305,1", ">=307.5,1",
+                     "nnz(diff(u.data(:,1))~=0)", "trapz(p.time,p.data(:,1))", "'N_samples',numel(u.time)",
+                     "'SOC_limit_intervention','NOT VERIFIED'"):
+            self.assertIn(text, summary)
+        self.assertNotIn("assert(", summary)
+        self.assertIn("catch summaryError", source)
+        self.assertIn("No fallback computation outside MATLAB and no effect on run qualification", source)
+        self.assertIn("all(ismember(x.data(:),[.25 .5 .75]))", source)
+        self.assertIn("isequaln(tx.time,x.time) && isequaln(tx.data,x.data)", source)
+
+
+class D13ContextTests(ContextTests):
+    def setUp(self):
+        super().setUp()
+        p = gate.D13
+        self.env.update(WK08_MODE="D13_REF", GITHUB_REF="refs/heads/" + gate.D13_BRANCH,
+                        WK08_OWNER_APPROVAL=p["approval"])
+        event = json.loads(self.event.read_text());event["head_commit"]["message"] = p["message"]
+        self.event.write_text(json.dumps(event));self.marker.write_text(p["message"])
+
+    def invoke(self, changes=None, extra_source=False):
+        env = {**self.env, **(changes or {})}
+        p = gate.D13_PREFLIGHT if getattr(self, "check_only", False) else gate.D13
+        def git(*args):
+            return {("rev-parse", "HEAD"): "c"*40, ("rev-parse", "HEAD~2"): "a"*40,
+                    ("diff", "--name-only", "HEAD~2", "HEAD~1"):
+                        p["workflow"] + ("\njte-public/WK10_scenario.json" if extra_source else ""),
+                    ("diff", "--name-only", "HEAD~1", "HEAD"): str(self.marker)}[args]
+        with patch.dict(os.environ, env, clear=True), patch.object(gate, "git", git), \
+             patch.dict(gate.D13, marker=str(self.marker)), \
+             patch.dict(gate.D13_PREFLIGHT, marker=str(self.marker)):
+            return gate.context(check_only=getattr(self, "check_only", False))
+
+    def test_historical_approvals_and_preflight_cannot_authorize_probe(self):
+        for approval in (gate.config("R1")["approval"], gate.CI5S["approval"], gate.D13_PREFLIGHT["approval"]):
+            with self.subTest(approval=approval), self.assertRaises(RuntimeError):
+                self.invoke({"WK08_OWNER_APPROVAL": approval})
+        with self.assertRaises(RuntimeError):
+            self.invoke({"GITHUB_REF": "refs/heads/" + gate.BRANCH})
+
+
+class D13PreflightContextTests(D13ContextTests):
+    def setUp(self):
+        super().setUp();self.check_only = True
+        p = gate.D13_PREFLIGHT
+        self.env["WK08_OWNER_APPROVAL"] = p["approval"]
+        event = json.loads(self.event.read_text());event["head_commit"]["message"] = p["message"]
+        self.event.write_text(json.dumps(event));self.marker.write_text(p["message"])
+
+    def test_historical_approvals_and_preflight_cannot_authorize_probe(self):
+        for approval in (gate.config("R1")["approval"], gate.CI5S["approval"], gate.D13["approval"]):
+            with self.subTest(approval=approval), self.assertRaises(RuntimeError):
+                self.invoke({"WK08_OWNER_APPROVAL": approval})
+
+
+class D13ReadonlyTests(unittest.TestCase):
+    def test_new_absence_and_both_historical_presences_readonly(self):
+        text, error, queried, _, _ = ReadonlyPreflightTests.invoke(self, mode="D13_REF")
+        self.assertIsNone(error)
+        self.assertEqual(len(queried), 3)
+        self.assertEqual(len(re.findall(r"(?m)^CHECK .*?=PASS", text)), 26)
+        for name in ("D13_INTENT_ABSENT", "R1_INTENT_CONSUMED", "CI_5S_E_INTENT_CONSUMED"):
+            self.assertIn("CHECK " + name + "=PASS", text)
+        self.assertIn(gate.D13["intent"], queried[0])
+        self.assertIn(gate.INTENT, queried[1]);self.assertIn(gate.CI5S["intent"], queried[2])
+
+    def test_reserved_new_or_missing_old_intent_fails_without_writes(self):
+        for fault, reason in (("d13_reserved", "WK08_ALREADY_RESERVED_NO_RETRY"),
+                              ("r1_missing", "WK08_D13_PRIOR_EVIDENCE_MISSING"),
+                              ("ci5s_missing", "WK08_D13_PRIOR_EVIDENCE_MISSING")):
+            with self.subTest(fault=fault):
+                text, error, _, _, _ = ReadonlyPreflightTests.invoke(self, fault=fault, mode="D13_REF")
+                self.assertIsInstance(error, RuntimeError)
+                self.assertIn("=FAIL reason=" + reason, text)
+                self.assertNotIn("WK08_PREFLIGHT_ALL_PASS", text)
+
+
+class D13PublishTests(unittest.TestCase):
+    def test_summary_is_optional_diagnostic_and_all_uploads_are_private_per_run(self):
+        for include_summary, summary_upload_failure in ((False, False), (True, False), (True, True)):
+            with self.subTest(summary=include_summary, upload_failure=summary_upload_failure), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp);(root / "native").mkdir()
+                digest = gate.sha(gate.D13_SCENARIO_FILE)
+                common = {"run": "123", "commit": "c"*40, "mode": "D13_REF", "scenarioSHA256": digest}
+                manifest = {**common, "stopTime_s": 340, "scenario": gate.scenario(),
+                            "inputCodeSHA256": {"source": "hash"},
+                            "inputs": [{"local": "source.slx", "sha256": "hash"}]}
+                flags = {**common, "status": gate.D13["flagsPass"]}
+                monitor = {**common, "status": "PROCESS_EXIT_ZERO", "returncode": 0}
+                for name, data in (("WK08_MANIFEST.json", manifest), ("WK08_FLAGS.json", flags),
+                                   ("WK08_SUPERVISOR.json", monitor)):
+                    (root / name).write_text(json.dumps(data))
+                for role in gate.NATIVE:
+                    (root / "native" / ("WK08_" + role + ".mat")).write_bytes(b"synthetic bytes, not MATLAB")
+                for name in ("WK08_PREPARED_PROOF.mat", "WK08R1.slx", "WK08_RESOURCES.jsonl"):
+                    (root / name).write_bytes(b"synthetic")
+                if include_summary:
+                    (root / "SUMMARY.json").write_text(json.dumps({"label": "DERIVED_NOT_EVIDENCE",
+                        "first_logged_Tmax_ge_305_K_s": None, "first_logged_Tmax_ge_307_5_K_s": None}))
+                def uploaded(token, folder, path):
+                    if summary_upload_failure and path.name.endswith("SUMMARY.json"):
+                        raise RuntimeError("private-summary-error-must-not-be-printed")
+                    return {"integrity": "FULL_REMOTE_READBACK_VERIFIED"}
+                with patch.dict(os.environ, {"WK08_MODE": "D13_REF"}, clear=True), \
+                     patch.object(gate, "ROOT", root), patch.object(gate, "drive", return_value=("t", "app")), \
+                     patch.object(gate, "btms_dats_folder", return_value="owner-only"), \
+                     patch.object(gate, "sha", side_effect=lambda p: digest if p == gate.D13_SCENARIO_FILE else "hash"), \
+                     patch.object(gate, "code_hashes", return_value={"source": "hash"}), \
+                     patch.object(gate, "upload", side_effect=uploaded) as upload, \
+                     redirect_stdout(io.StringIO()):
+                    gate.publish("123", "c"*40)
+                    receipt_file = root / gate.receipt_name("123")
+                receipt = json.loads(receipt_file.read_text())
+                self.assertEqual(receipt["status"], gate.D13["receiptPass"])
+                self.assertTrue(receipt["requiredPayloadComplete"])
+                self.assertEqual("SUMMARY.json" in {x["name"] for x in receipt["files"]},
+                                 include_summary and not summary_upload_failure)
+                if not include_summary or summary_upload_failure:
+                    self.assertEqual(receipt["summaryDelivery"], "NOT VERIFIED")
+                self.assertTrue(all(c.args[1] == "owner-only" for c in upload.call_args_list))
+                self.assertTrue(all(c.args[2].name.startswith("123_") for c in upload.call_args_list[:-1]))
+                self.assertEqual(upload.call_args_list[-1].args[2], receipt_file)
+                self.assertTrue((root / "WK08_DELIVERY_VERIFIED").exists())
+
+
+class D13WorkflowTests(unittest.TestCase):
+    def test_new_workflows_disabled_placeholder_identity_and_no_markers(self):
+        root = Path(__file__).resolve().parents[1]
+        for p in (gate.D13, gate.D13_PREFLIGHT):
+            source = (root / p["workflow"]).read_text()
+            self.assertIn("if: " + "$" + "{{ false }}", source)
+            self.assertIn("WK08_REVIEWED_SOURCE_SHA: '" + "0"*40 + "'", source)
+            self.assertIn(gate.D13_BRANCH, source)
+            self.assertIn(p["marker"], source);self.assertIn(p["message"], source)
+            self.assertIn("WK08_MODE: D13_REF", source)
+            self.assertFalse((root / p["marker"]).exists())
+            self.assertNotIn("workflow_dispatch", source);self.assertNotIn("schedule:", source)
+        probe = (root / gate.D13["workflow"]).read_text()
+        self.assertLess(probe.index("uses: matlab-actions/setup-matlab@v3"), probe.index("uses: matlab-actions/run-command@v3"))
+        self.assertLess(probe.index("WK08_RUN_MATLAB_COMMAND="), probe.index("WK08_private_gate.py prepare"))
+        preflight = (root / gate.D13_PREFLIGHT["workflow"]).read_text()
+        for forbidden in ("setup-matlab", "run-command@", "WK08_supervise.py", "WK08_private_gate.py prepare",
+                          "WK08_private_gate.py publish"):
+            self.assertNotIn(forbidden, preflight)
 
 
 if __name__ == "__main__":
