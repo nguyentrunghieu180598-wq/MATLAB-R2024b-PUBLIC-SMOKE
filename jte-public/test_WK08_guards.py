@@ -336,10 +336,11 @@ class ReadonlyPreflightTests(unittest.TestCase):
         queried = []
         def query(token, folder, condition):
             queried.append(condition)
-            if fault == "consumed_old":
-                return [{"id": "consumed-evidence"}] if ("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103C.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103D.json" in condition) else []
-            return [{"id": "reserved"}] if fault in ("R1", "CI_5S") and (
-                gate.config(fault)["intent"] in condition) else []
+            if "WK08_CI5S_ATTEMPT_INTENT_20261103E.json" in condition:
+                # Spent CI_5S-E identity: its intent is on record unless the fault removes it.
+                return [] if fault == "ci5s_missing" else [{"id": "ci5s-e-evidence"}]
+            return [{"id": "reserved"}] if fault == "R1" and (
+                gate.config("R1")["intent"] in condition) else []
         by_id = {m["id"]: payloads[n] for n, m in metas.items()}
         downloads = []
         def urlopen(request, **kwargs):
@@ -415,7 +416,7 @@ class ReadonlyPreflightTests(unittest.TestCase):
             ("missing_folder", "WK08_PREFLIGHT_APP_FOLDER_MISSING"),
             ("quota", "WK08_DRIVE_RESERVE"),
             ("R1", "WK08_ALREADY_RESERVED_NO_RETRY"),
-            ("CI_5S", "WK08_ALREADY_RESERVED_NO_RETRY"),
+            ("ci5s_missing", "WK08_CI5S_EVIDENCE_MISSING"),
             ("duplicate_asset", "JTE101_REFERENCE_NOT_UNIQUE"),
             ("workspace", "WK08_WORKSPACE"),
         ):

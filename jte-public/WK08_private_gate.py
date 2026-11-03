@@ -229,12 +229,17 @@ def check(run, commit):
     check_step("WK06_NEUTRAL_RECEIPT", lambda: require_verified_neutral_preflight(token, folder))
     check_step("DRIVE_QUOTA", lambda: need(
         quota(token)["availableBytes"] > 3 * GiB, "WK08_DRIVE_RESERVE"))
-    for mode in ("R1", "CI_5S"):
-        intent = config(mode)["intent"]
-        condition = ("name = 'JTE063_PENDING_" + intent +
-                     "' or name = 'JTE063_VERIFIED_" + intent + "'")
-        check_step(mode + "_INTENT_ABSENT", lambda condition=condition: need(
-            not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY"))
+    # R1 must still be unreserved. The CI_5S-E identity is spent: its intent must exist.
+    intent = config("R1")["intent"]
+    condition = ("name = 'JTE063_PENDING_" + intent +
+                 "' or name = 'JTE063_VERIFIED_" + intent + "'")
+    check_step("R1_INTENT_ABSENT", lambda condition=condition: need(
+        not query(token, folder, condition), "WK08_ALREADY_RESERVED_NO_RETRY"))
+    intent = config("CI_5S")["intent"]
+    condition = ("name = 'JTE063_PENDING_" + intent +
+                 "' or name = 'JTE063_VERIFIED_" + intent + "'")
+    check_step("CI_5S_E_INTENT_CONSUMED", lambda condition=condition: need(
+        query(token, folder, condition), "WK08_CI5S_EVIDENCE_MISSING"))
 
     prefix = "BTMS_M2_40701917441_"
     assets = (

@@ -129,7 +129,7 @@ The consumed intents `WK08_CI5S_ATTEMPT_INTENT_20261103.json` (A), `...20261103B
 The active CI_5S-E identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103E.json`,
 `WK08_CI_5S_ONE_SHOT_20261103E`, `APPROVE_WK08_CI5S_E_ONCE_AFTER_CLAUDE_GO` and
 `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103E.json`. Mode stays CI_5S.
-Preflight requires the active E intent and the R1 intent absent, and accepts the consumed A, B, C and D intents.
+Preflight requires the R1 intent absent and the spent CI_5S-E intent present (evidence that the 5 s run is on record, step `CI_5S_E_INTENT_CONSUMED`); A, B, C and D are not queried.
 R1 identifiers stay unchanged. The CI_5S-E workflow stays disabled and no trigger marker is added.
 Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.
 
