@@ -14,4 +14,7 @@ Channel indices are 0-based here; `jte-public/WK08_sparse_sets.csv` is 1-based (
 
 Run: `cd postproc && python3 -m pytest -q -p no:cacheprovider` (numpy, scipy, h5py, matplotlib).
 
-Open: the oracle-equivalence tests re-implement the hub `tools/two_margin_oracle_*.py` logic; a byte-for-byte comparison against those files still has to be run where the hub is reachable.
+Closed 03/11: oracle equivalence with the hub file is now tested in `test_freeze.py`.
+- `selector.py` (03/11): JTE-050 v02 selector from the accepted R2 run (trapezoid time-weighted mean over 1800–2400 s, window ends interpolated, descending, ties by ascending 1-based index). Its JSON is exactly what `jte-public/WK09_run_definitions.resolve()` (PR #77) consumes; checked end to end on synthetic data.
+- `freeze.py` (03/11): freezes predictions for R5–R13 on R2 with two references, full sensing and the paired b = 0 control (R6/R7/R11→R5, R8/R9→R12, R10→R13), and returns the SHA-256 to record in the hub before any of R5–R13 runs.
+- `test_freeze.py`: 20 000 random states reproduce the hub oracle `tools/two_margin_oracle_static.py` (hub SHA-256 eeb0b06e…, hub @ cace1a7) with 0 mismatches, which closes the open oracle item above; selector window/tie/format tests; freeze determinism, sign checks and rejection of unresolved runs.
