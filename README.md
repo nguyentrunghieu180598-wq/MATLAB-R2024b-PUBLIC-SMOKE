@@ -130,3 +130,11 @@ The active CI_5S-B identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103B.json`,
 Preflight requires the new B intent and R1 intent absent, and accepts the consumed old intent.
 R1 identifiers stay unchanged. The CI_5S-B workflow stays disabled and no trigger marker is added.
 Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.
+
+## WK09 source-only R2–R13 definitions
+
+See [WK09 run definitions](actuator-amendment/WK09_RUN_DEFINITIONS.md) for the
+complete matrix, D10 C16/C8 controls, gates, estimates, changed-file inventory
+and pending checks. The machine-readable registry is
+[jte-public/WK09_runs.json](jte-public/WK09_runs.json). No run is authorized or
+executed; the new workflow is disabled and validates definitions only.

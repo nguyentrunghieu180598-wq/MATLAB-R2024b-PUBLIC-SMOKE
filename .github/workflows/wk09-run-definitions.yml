@@ -1,0 +1,33 @@
+name: WK09 per-run definition gate - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk09-runs']
+    paths: ['jte-public/WK09_R*_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk09-single-approved-definition
+  cancel-in-progress: false
+jobs:
+  definition:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      WK09_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
+      WK09_OWNER_APPROVAL: ${{ vars.WK09_OWNER_APPROVAL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Validate one run, S-to-E-to-T ancestry and separate owner approval
+        shell: bash
+        run: |
+          test "${{ github.run_attempt }}" = 1
+          test "$(git rev-parse HEAD~2)" = "$WK09_REVIEWED_SOURCE_SHA"
+          test "$(git diff --name-only HEAD~2 HEAD~1)" = '.github/workflows/wk09-run-definitions.yml'
+          python3 jte-public/WK09_definition_gate.py
+# Definition gate only: intentionally contains no MATLAB setup/launch or Drive
+# mutation. A future executable run workflow requires its own reviewed source S,
+# durable intent, dependency receipts and protected publisher before E/T.
