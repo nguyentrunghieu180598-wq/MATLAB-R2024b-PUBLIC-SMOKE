@@ -1,10 +1,11 @@
 """JTE-050 v02 channel selector, computed from the accepted R2 baseline (hub #5).
 
 Output is the exact JSON that jte-public/WK09_run_definitions.resolve() consumes.
-Rule (pre-registered): time-weighted mean of each channel over 1800..2400 s of R2,
-ranked descending, ties by ascending 1-based channel index. The mean is the trapezoid
-integral over the window divided by 600 s; the window ends are linearly interpolated,
-as in JTE067_G6_case.m (trapz/T). Never a MAX statistic (v01 is rejected).
+Rule (pre-registered): time-weighted mean of each channel over the declared window of R2
+(default 1800..2400 s; D13 re-baseline uses 200..340 s, passed explicitly), ranked
+descending, ties by ascending 1-based channel index. The mean is the trapezoid integral
+over the window divided by its length; the window ends are linearly interpolated, as in
+JTE067_G6_case.m (trapz/T). Never a MAX statistic (v01 is rejected).
 """
 from __future__ import annotations
 
@@ -27,10 +28,12 @@ def window_means(t, T, window=WINDOW_S):
     return np.trapezoid(edges, tw, axis=0) / (b - a)
 
 
-def selector_v02(t, T, baseline_receipt_sha256):
+def selector_v02(t, T, baseline_receipt_sha256, window=WINDOW_S):
     if not (isinstance(baseline_receipt_sha256, str) and len(baseline_receipt_sha256) == 64):
         raise ValueError("SELECTOR_RECEIPT")
-    m = window_means(t, T)
+    m = window_means(t, T, window)
+    a, b = (float(window[0]), float(window[1]))
+    length = b - a
     if m.size != 312:
         raise ValueError("SELECTOR_WIDTH")
     idx = np.arange(1, 313)
@@ -38,9 +41,9 @@ def selector_v02(t, T, baseline_receipt_sha256):
     return {
         "version": "JTE-050 v02",
         "source_run": "R2",
-        "window_s": [1800, 2400],
+        "window_s": [int(a) if a == int(a) else a, int(b) if b == int(b) else b],
         "statistic": "time-weighted mean",
-        "integration": "trapezoid, window ends linearly interpolated, divided by 600 s",
+        "integration": "trapezoid, window ends linearly interpolated, divided by %g s" % length,
         "accepted_baseline_receipt_SHA256": baseline_receipt_sha256,
         "ranking_descending": order,
         "means_K": [float(x) for x in m],
