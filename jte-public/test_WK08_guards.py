@@ -337,7 +337,7 @@ class ReadonlyPreflightTests(unittest.TestCase):
         def query(token, folder, condition):
             queried.append(condition)
             if fault == "consumed_old":
-                return [{"id": "consumed-evidence"}] if ("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in condition) else []
+                return [{"id": "consumed-evidence"}] if ("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103C.json" in condition) else []
             return [{"id": "reserved"}] if fault in ("R1", "CI_5S") and (
                 gate.config(fault)["intent"] in condition) else []
         by_id = {m["id"]: payloads[n] for n, m in metas.items()}
@@ -407,7 +407,7 @@ class ReadonlyPreflightTests(unittest.TestCase):
         text, error, queried, _, _ = self.invoke(fault="consumed_old")
         self.assertIsNone(error)
         self.assertIn("WK08_PREFLIGHT_ALL_PASS", text)
-        self.assertTrue(any("WK08_CI5S_ATTEMPT_INTENT_20261103C.json" in q for q in queried))
+        self.assertTrue(any("WK08_CI5S_ATTEMPT_INTENT_20261103D.json" in q for q in queried))
         self.assertFalse(any("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in q for q in queried))
 
     def test_failures_do_not_reserve_upload_or_claim_success(self):
@@ -429,11 +429,11 @@ class ReadonlyPreflightTests(unittest.TestCase):
 class B2IdentityTests(unittest.TestCase):
     def test_ci5s_b_identity_and_r1_identity(self):
         p = gate.config("CI_5S")
-        self.assertEqual(p["intent"], "WK08_CI5S_ATTEMPT_INTENT_20261103C.json")
-        self.assertEqual(p["message"], "WK08_CI_5S_ONE_SHOT_20261103C")
-        self.assertEqual(p["approval"], "APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO")
+        self.assertEqual(p["intent"], "WK08_CI5S_ATTEMPT_INTENT_20261103D.json")
+        self.assertEqual(p["message"], "WK08_CI_5S_ONE_SHOT_20261103D")
+        self.assertEqual(p["approval"], "APPROVE_WK08_CI5S_D_ONCE_AFTER_CLAUDE_GO")
         with patch.dict(os.environ, {"WK08_MODE": "CI_5S"}, clear=True):
-            self.assertEqual(gate.receipt_name("123"), "WK08_CI5S_123_PRIVATE_RECEIPT_20261103C.json")
+            self.assertEqual(gate.receipt_name("123"), "WK08_CI5S_123_PRIVATE_RECEIPT_20261103D.json")
         p = gate.config("R1")
         self.assertEqual(p["intent"], "WK08_R1_ATTEMPT_INTENT_20261102.json")
         self.assertEqual(p["message"], "WK08_PACK_340S_ONE_SHOT_20261102")
@@ -562,6 +562,15 @@ class WorkflowLauncherPreflightTests(unittest.TestCase):
                 self.assertIn("dist/bin/glnxa64/run-matlab-command", steps[resolve[0]])
                 self.assertIn("echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1", steps[resolve[0]])
                 self.assertNotIn("matlab-batch", steps[resolve[0]])
+
+
+class MatlabApprovalMatchesGateTests(unittest.TestCase):
+    def test_matlab_entrypoint_expects_the_gate_approval_strings(self):
+        # Run 41603841041: Python gate accepted ...CI5S_C..., MATLAB still demanded the old string.
+        source = (Path(__file__).parent / "BTMS_WK08_run.m").read_text()
+        self.assertIn("'" + gate.CI5S["approval"] + "'", source)
+        self.assertIn("'APPROVE_WK08_R1_ONCE_AFTER_CLAUDE_GO'", source)
+        self.assertNotIn("'APPROVE_WK08_CI5S_ONCE_AFTER_CLAUDE_GO'", source)
 
 
 class FixedGeometryTests(unittest.TestCase):

@@ -57,14 +57,14 @@ The v01 MAX-based selector is neither imported nor called.
 
 CI_5S mirrors the R1 neutral sampled-actuator model and exact R2024b Update 10 build,
 with a 5s horizon. Its disabled workflow sets `WK08_MODE=CI_5S`; R1 continues to default
-to R1. CI_5S requires approval `APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO`, its own marker
-`jte-public/WK08_CI5S_TRIGGER.txt` and message `WK08_CI_5S_ONE_SHOT_20261103C`.
+to R1. CI_5S requires approval `APPROVE_WK08_CI5S_D_ONCE_AFTER_CLAUDE_GO`, its own marker
+`jte-public/WK08_CI5S_TRIGGER.txt` and message `WK08_CI_5S_ONE_SHOT_20261103D`.
 The marker remains absent in this source delivery. Both workflows stay disabled.
 
-The separate private intent `WK08_CI5S_ATTEMPT_INTENT_20261103C.json` is reserved alongside
+The separate private intent `WK08_CI5S_ATTEMPT_INTENT_20261103D.json` is reserved alongside
 the R1 intent, but queries only its own pending/verified reservation. CI_5S neither consumes
 nor blocks R1. The same receipt-verified M2 model/workspace inputs and transport preflight
-are reused. CI outputs and `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103C.json` are uploaded to the owner-only
+are reused. CI outputs and `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103D.json` are uploaded to the owner-only
 `BTMS-DATS` subfolder of the existing app-private Drive folder, using
 `WK08_CI5S_RAW_UNREVIEWED_NOT_G5`. No raw data goes to public artifacts.
 
@@ -108,7 +108,7 @@ private paths, IDs or credentials are printed. A check PASS is a point-in-time p
 prepare still repeats its own gates before any approved one-shot. No workflow was enabled
 or triggered and no live preflight/Drive call was performed for this source delivery.
 
-## B2: licensed launcher (identity now CI_5S-C, see the 03/11 fixes section) — source only
+## B2: licensed launcher (identity now CI_5S-D, see the 03/11 fixes section) — source only
 
 Both CI_5S and R1 now resolve `matlab-batch` and launch exactly
 `[matlab_batch, "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"]`.
@@ -126,11 +126,11 @@ The private WK08_SUPERVISOR.json captures consoleExcerptBytes, UTF-8 consoleExce
 of WK08_CONSOLE.log, including early license failures. These fields are never printed publicly.
 
 The consumed intents `WK08_CI5S_ATTEMPT_INTENT_20261103.json` (A) and `WK08_CI5S_ATTEMPT_INTENT_20261103B.json` (B) remain historical evidence.
-The active CI_5S-C identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103C.json`,
-`WK08_CI_5S_ONE_SHOT_20261103C`, `APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO` and
-`WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103C.json`. Mode stays CI_5S.
+The active CI_5S-D identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103D.json`,
+`WK08_CI_5S_ONE_SHOT_20261103D`, `APPROVE_WK08_CI5S_D_ONCE_AFTER_CLAUDE_GO` and
+`WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103D.json`. Mode stays CI_5S.
 Preflight requires the active C intent and the R1 intent absent, and accepts the consumed A and B intents.
-R1 identifiers stay unchanged. The CI_5S-C workflow stays disabled and no trigger marker is added.
+R1 identifiers stay unchanged. The CI_5S-D workflow stays disabled and no trigger marker is added.
 Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.
 
 ## 03/11 fixes after run 41593851156 (Claude, owner-directed)
@@ -138,4 +138,4 @@ Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or wo
 - B6 (03/11, after run 41601825131): a bare `matlab-batch` ignored `MW_BATCH_LICENSING_ONLINE` (License Manager Error -1, license path = local files only). `run-command@v3` does not call `matlab-batch`; it runs its bundled `dist/bin/glnxa64/run-matlab-command`. Both one-shot workflows now (1) probe the license with `uses: matlab-actions/run-command@v3` and a static `disp('WK08_LICENSE_OK')` before the reservation, (2) resolve that binary into `WK08_RUN_MATLAB_COMMAND`, and `WK08_supervise.py` launches exactly that binary with the same single MATLAB statement and the same env. Missing/non-executable binary still fails with `WK08_MATLAB_BATCH_UNAVAILABLE`. NOT VERIFIED until a run: whether this binary licenses the supervised process.
 - B5 (superseded by B6 for the launcher): both one-shot workflows run a `matlab-batch` license probe in the pre-reservation step. A licensing failure consumes no intent. The probe's own command is a static `disp('WK08_LICENSE_OK')` with no model/run data, so since run 41600733363 (WK08_LICENSE_PROBE_FAILED, root cause still open) its console text is printed to the public log on failure (truncated to 4000 chars) for diagnosis; this is unrelated to the real supervised run's console, which stays private (WK08_SUPERVISOR.json, never printed).
 - B3: CI_5S uploads to BTMS-DATS are prefixed with the run id (earlier attempts left fixed names; JTE101_REFERENCE_NOT_UNIQUE). R1 names unchanged.
-- Active CI identity is now CI_5S-C (`...20261103C`); A and B are consumed evidence.
+- Active CI identity is now CI_5S-D (`...20261103D`); A, B and C are consumed evidence (C: run 41603841041 licensed and started MATLAB, then `BTMS_WK08_run.m` rejected the approval string because it still expected the pre-rename value; fixed in D, with a test that cross-checks the gate and MATLAB strings).
