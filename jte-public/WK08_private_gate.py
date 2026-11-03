@@ -27,14 +27,14 @@ INTENT = "WK08_R1_ATTEMPT_INTENT_20261102.json"
 GiB = 1024**3
 CI5S = {
     "mode": "CI_5S", "stopTime_s": 5,
-    "message": "WK08_CI_5S_ONE_SHOT_20261103B",
+    "message": "WK08_CI_5S_ONE_SHOT_20261103C",
     "workflow": ".github/workflows/wk08-ci5s-one-shot.yml",
     "marker": "jte-public/WK08_CI5S_TRIGGER.txt",
-    "approval": "APPROVE_WK08_CI5S_B_ONCE_AFTER_CLAUDE_GO",
-    "intent": "WK08_CI5S_ATTEMPT_INTENT_20261103B.json",
+    "approval": "APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO",
+    "intent": "WK08_CI5S_ATTEMPT_INTENT_20261103C.json",
     "schema": "WK08_CI5S_RAW_UNREVIEWED_NOT_G5",
     "receiptPrefix": "WK08_CI5S_",
-    "receiptSuffix": "_PRIVATE_RECEIPT_20261103B.json",
+    "receiptSuffix": "_PRIVATE_RECEIPT_20261103C.json",
     "flagsPass": "CI_5S_GATES_PASS_NOT_R1",
     "receiptPass": "CI_5S_GATES_AND_PRIVATE_READBACK_PASS_NOT_R1_PENDING_CLAUDE",
 }
@@ -388,7 +388,13 @@ def publish(run, commit):
         if path.stat().st_size == 0:
             continue  # omitted file prevents complete qualification below
         need(path.stat().st_size <= GiB, "WK08_DELIVERY_FILE_CAP")
-        receipt["files"].append({"name": path.name, **upload(token, folder, path)})
+        if p["mode"] == "CI_5S":
+            # B3: BTMS-DATS keeps earlier attempts; prefix the run id so names never collide.
+            staged = path.with_name(run + "_" + path.name)
+            shutil.copyfile(path, staged)
+            receipt["files"].append({"name": path.name, **upload(token, folder, staged)})
+        else:
+            receipt["files"].append({"name": path.name, **upload(token, folder, path)})
     required = {f"WK08_{role}.mat" for role in NATIVE} | {
         "WK08_FLAGS.json", "WK08_PREPARED_PROOF.mat", "WK08R1.slx",
         "WK08_MANIFEST.json", "WK08_SUPERVISOR.json", "WK08_RESOURCES.jsonl"}

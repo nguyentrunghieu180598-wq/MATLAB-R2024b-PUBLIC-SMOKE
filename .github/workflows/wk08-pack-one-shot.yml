@@ -44,10 +44,13 @@ jobs:
         with:
           release: R2024bU10
           products: Simulink Simscape Simscape_Electrical
-      - name: Verify matlab-batch before reserving one-shot
+      - name: Verify matlab-batch and its license before reserving one-shot
         shell: bash
         run: |
           command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
+          # B5: license probe BEFORE the reservation; console bytes never reach the public log.
+          out="$(MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch "disp('WK08_LICENSE_OK')" 2>&1)" || true
+          case "$out" in *WK08_LICENSE_OK*) echo WK08_LICENSE_PROBE_OK ;; *) echo WK08_LICENSE_PROBE_FAILED; exit 1 ;; esac
       - name: Private source SHA and durable one-attempt reservation
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}

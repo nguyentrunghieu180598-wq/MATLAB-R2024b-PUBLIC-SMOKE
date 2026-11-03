@@ -189,6 +189,11 @@ class CI5SPublishTests(unittest.TestCase):
                 self.assertEqual(receipt["schema"], gate.CI5S["schema"])
                 self.assertFalse((root / "WK08_DELIVERY_VERIFIED").exists())
                 self.assertTrue(all(c.args[1] == "private-BTMS-DATS" for c in upload.call_args_list))
+                # B3: every CI_5S upload carries the run id, so earlier attempts never collide.
+                self.assertTrue(upload.call_args_list)
+                self.assertTrue(all(c.args[2].name.startswith("123_") for c in upload.call_args_list
+                                    if c.args[2].name != gate.receipt_name("123")))
+                self.assertTrue(gate.receipt_name("123").startswith("WK08_CI5S_123_"))
 
 
 class SafeFailureLoggingTests(unittest.TestCase):
@@ -332,7 +337,7 @@ class ReadonlyPreflightTests(unittest.TestCase):
         def query(token, folder, condition):
             queried.append(condition)
             if fault == "consumed_old":
-                return [{"id": "consumed-evidence"}] if "WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition else []
+                return [{"id": "consumed-evidence"}] if ("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in condition or "WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in condition) else []
             return [{"id": "reserved"}] if fault in ("R1", "CI_5S") and (
                 gate.config(fault)["intent"] in condition) else []
         by_id = {m["id"]: payloads[n] for n, m in metas.items()}
@@ -402,7 +407,7 @@ class ReadonlyPreflightTests(unittest.TestCase):
         text, error, queried, _, _ = self.invoke(fault="consumed_old")
         self.assertIsNone(error)
         self.assertIn("WK08_PREFLIGHT_ALL_PASS", text)
-        self.assertTrue(any("WK08_CI5S_ATTEMPT_INTENT_20261103B.json" in q for q in queried))
+        self.assertTrue(any("WK08_CI5S_ATTEMPT_INTENT_20261103C.json" in q for q in queried))
         self.assertFalse(any("WK08_CI5S_ATTEMPT_INTENT_20261103.json" in q for q in queried))
 
     def test_failures_do_not_reserve_upload_or_claim_success(self):
@@ -424,11 +429,11 @@ class ReadonlyPreflightTests(unittest.TestCase):
 class B2IdentityTests(unittest.TestCase):
     def test_ci5s_b_identity_and_r1_identity(self):
         p = gate.config("CI_5S")
-        self.assertEqual(p["intent"], "WK08_CI5S_ATTEMPT_INTENT_20261103B.json")
-        self.assertEqual(p["message"], "WK08_CI_5S_ONE_SHOT_20261103B")
-        self.assertEqual(p["approval"], "APPROVE_WK08_CI5S_B_ONCE_AFTER_CLAUDE_GO")
+        self.assertEqual(p["intent"], "WK08_CI5S_ATTEMPT_INTENT_20261103C.json")
+        self.assertEqual(p["message"], "WK08_CI_5S_ONE_SHOT_20261103C")
+        self.assertEqual(p["approval"], "APPROVE_WK08_CI5S_C_ONCE_AFTER_CLAUDE_GO")
         with patch.dict(os.environ, {"WK08_MODE": "CI_5S"}, clear=True):
-            self.assertEqual(gate.receipt_name("123"), "WK08_CI5S_123_PRIVATE_RECEIPT_20261103B.json")
+            self.assertEqual(gate.receipt_name("123"), "WK08_CI5S_123_PRIVATE_RECEIPT_20261103C.json")
         p = gate.config("R1")
         self.assertEqual(p["intent"], "WK08_R1_ATTEMPT_INTENT_20261102.json")
         self.assertEqual(p["message"], "WK08_PACK_340S_ONE_SHOT_20261102")
@@ -502,6 +507,7 @@ class SupervisorLauncherTests(unittest.TestCase):
                 "addpath('jte-public'); BTMS_WK08_run('actuator-review-private/WK08_MANIFEST.json')"])
             expected_env = {k: v for k, v in child_context.items()
                             if not k.startswith("JTE_GOOGLE_") and k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
+            expected_env["MW_BATCH_LICENSING_ONLINE"] = "true"  # B4
             self.assertEqual(popen.call_args.kwargs["env"], expected_env)
             report = json.loads((root / "WK08_SUPERVISOR.json").read_text())
             self.assertEqual(report["consoleExcerptBytes"], 2048)
@@ -550,6 +556,10 @@ class WorkflowLauncherPreflightTests(unittest.TestCase):
                 self.assertEqual(check[0], setup[0] + 1)
                 self.assertEqual(reserve[0], check[0] + 1)
                 self.assertIn("shell: bash", steps[check[0]])
+                # B5: license probe sits in the same pre-reservation step and prints no console bytes.
+                self.assertIn("MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch", steps[check[0]])
+                self.assertIn("echo WK08_LICENSE_PROBE_FAILED; exit 1", steps[check[0]])
+                self.assertNotIn('echo "$out"', steps[check[0]])
 
 
 class FixedGeometryTests(unittest.TestCase):

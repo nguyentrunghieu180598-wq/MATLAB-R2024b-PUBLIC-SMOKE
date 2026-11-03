@@ -1,4 +1,4 @@
-name: WK08 CI_5S-B 5s source design - DEFAULT DISABLED
+name: WK08 CI_5S-C 5s source design - DEFAULT DISABLED
 on:
   push:
     branches: ['codex/wk08-geometric-injection']
@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: wk08-ci5s-one-shot-20261103B
+  group: wk08-ci5s-one-shot-20261103C
   cancel-in-progress: false
 jobs:
   ci5s:
@@ -29,7 +29,7 @@ jobs:
       - name: Reviewed source S then workflow-only E then marker-only T
         shell: bash
         run: |
-          test "${{ github.event.head_commit.message }}" = "WK08_CI_5S_ONE_SHOT_20261103B"
+          test "${{ github.event.head_commit.message }}" = "WK08_CI_5S_ONE_SHOT_20261103C"
           test "${{ github.run_attempt }}" = "1"
           test "$(git rev-parse HEAD~2)" = "$WK08_REVIEWED_SOURCE_SHA"
           test "$(git diff --name-only HEAD~2 HEAD~1)" = ".github/workflows/wk08-ci5s-one-shot.yml"
@@ -45,10 +45,13 @@ jobs:
         with:
           release: R2024bU10
           products: Simulink Simscape Simscape_Electrical
-      - name: Verify matlab-batch before reserving one-shot
+      - name: Verify matlab-batch and its license before reserving one-shot
         shell: bash
         run: |
           command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
+          # B5: license probe BEFORE the reservation; console bytes never reach the public log.
+          out="$(MW_BATCH_LICENSING_ONLINE=true timeout 600 matlab-batch "disp('WK08_LICENSE_OK')" 2>&1)" || true
+          case "$out" in *WK08_LICENSE_OK*) echo WK08_LICENSE_PROBE_OK ;; *) echo WK08_LICENSE_PROBE_FAILED; exit 1 ;; esac
       - name: Private source SHA and durable one-attempt reservation
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}

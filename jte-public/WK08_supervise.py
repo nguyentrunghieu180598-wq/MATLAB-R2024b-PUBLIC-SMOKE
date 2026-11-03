@@ -39,6 +39,9 @@ def main():
         raise RuntimeError("WK08_PREFLIGHT_RESOURCE")
     env = {k: v for k, v in os.environ.items()
            if not k.startswith("JTE_GOOGLE_") and k not in {"GH_TOKEN", "GITHUB_TOKEN"}}
+    # B4: matlab-batch licenses online only with this flag; matlab-actions/run-command@v3
+    # sets it for its own launch (src/index.ts). Without it: License Manager Error -1.
+    env["MW_BATCH_LICENSING_ONLINE"] = "true"
     matlab_batch = shutil.which("matlab-batch")
     if not matlab_batch:
         raise RuntimeError("WK08_MATLAB_BATCH_UNAVAILABLE")
