@@ -125,11 +125,11 @@ The private WK08_SUPERVISOR.json captures consoleExcerptBytes, UTF-8 consoleExce
 (replacement decoding if necessary) and consoleExcerptBase64 for the exact first 2048 bytes
 of WK08_CONSOLE.log, including early license failures. These fields are never printed publicly.
 
-The consumed intents `WK08_CI5S_ATTEMPT_INTENT_20261103.json` (A) and `WK08_CI5S_ATTEMPT_INTENT_20261103B.json` (B) remain historical evidence.
+The consumed intents `WK08_CI5S_ATTEMPT_INTENT_20261103.json` (A), `...20261103B.json` (B) and `...20261103C.json` (C) remain historical evidence.
 The active CI_5S-D identity uses `WK08_CI5S_ATTEMPT_INTENT_20261103D.json`,
 `WK08_CI_5S_ONE_SHOT_20261103D`, `APPROVE_WK08_CI5S_D_ONCE_AFTER_CLAUDE_GO` and
 `WK08_CI5S_<run>_PRIVATE_RECEIPT_20261103D.json`. Mode stays CI_5S.
-Preflight requires the active C intent and the R1 intent absent, and accepts the consumed A and B intents.
+Preflight requires the active D intent and the R1 intent absent, and accepts the consumed A, B and C intents.
 R1 identifiers stay unchanged. The CI_5S-D workflow stays disabled and no trigger marker is added.
 Tests use mocked launchers/processes only; no MATLAB, CI, live Drive check or workflow trigger.
 
