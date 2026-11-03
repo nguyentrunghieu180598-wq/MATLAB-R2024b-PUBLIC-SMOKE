@@ -532,6 +532,26 @@ class SupervisorLauncherTests(unittest.TestCase):
         self.run_mocked("CI_5S", limit="HOST_RAM_RESERVE")
 
 
+class WorkflowLauncherPreflightTests(unittest.TestCase):
+    def test_launcher_check_is_between_setup_and_reservation_in_both_workflows(self):
+        root = Path(__file__).resolve().parents[1]
+        command = "command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }"
+        for name in ("wk08-ci5s-one-shot.yml", "wk08-pack-one-shot.yml"):
+            with self.subTest(workflow=name):
+                source = (root / ".github/workflows" / name).read_text()
+                self.assertIn("if: " + "$" + "{{ false }}", source)
+                steps = re.split(r"(?m)^      - ", source)[1:]
+                setup = [i for i, step in enumerate(steps) if "uses: matlab-actions/setup-matlab@" in step]
+                check = [i for i, step in enumerate(steps) if command in step]
+                reserve = [i for i, step in enumerate(steps) if "python3 jte-public/WK08_private_gate.py prepare" in step]
+                self.assertEqual(len(setup), 1)
+                self.assertEqual(len(check), 1)
+                self.assertEqual(len(reserve), 1)
+                self.assertEqual(check[0], setup[0] + 1)
+                self.assertEqual(reserve[0], check[0] + 1)
+                self.assertIn("shell: bash", steps[check[0]])
+
+
 class FixedGeometryTests(unittest.TestCase):
     def test_per_module_counts_and_axial_locations(self):
         with (Path(__file__).parent / "WK08_sparse_sets.csv").open() as stream:

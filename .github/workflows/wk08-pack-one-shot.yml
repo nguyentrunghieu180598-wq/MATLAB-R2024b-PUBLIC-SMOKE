@@ -44,6 +44,10 @@ jobs:
         with:
           release: R2024bU10
           products: Simulink Simscape Simscape_Electrical
+      - name: Verify matlab-batch before reserving one-shot
+        shell: bash
+        run: |
+          command -v matlab-batch >/dev/null || { echo WK08_MATLAB_BATCH_UNAVAILABLE; exit 1; }
       - name: Private source SHA and durable one-attempt reservation
         env:
           JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
