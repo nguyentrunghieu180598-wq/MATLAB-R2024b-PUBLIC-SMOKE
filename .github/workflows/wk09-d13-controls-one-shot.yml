@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: false
 jobs:
   group:
-    if: ${{ true }}
+    if: ${{ false }}
     runs-on: ubuntu-latest
     environment: JTE_DRIVE_WRITE
     timeout-minutes: 210
     env:
       WK09_GROUP: CONTROLS
       WK09_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
-      WK09_REVIEWED_SOURCE_SHA: '581b43bd24a1340d372444477f8d84f52a34637d'
+      WK09_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
       WK09_OWNER_APPROVAL: ${{ vars.WK09_OWNER_APPROVAL }}
       WK09_CONTROLS_ACCEPTANCE_SHA256: ${{ vars.WK09_CONTROLS_ACCEPTANCE_SHA256 }}
       WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT: ${{ vars.WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT }}
