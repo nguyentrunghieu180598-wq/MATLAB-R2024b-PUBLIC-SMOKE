@@ -9,7 +9,7 @@ H_R2 = '7074b363ee0c97b52f5f8d80a4148852c54432b417b8e2dc73024b765b9a0612'
 H_PRED = '50f97a1226858944b5cb0088f561959334b59c5efcc51d36d99850555bf2d5a5'
 H_SCENARIO = '372683adc8c45d6c9bc84213619916cf9cee18d03471b9ed4ae7fab3c0bc9f7b'
 ORDERS = {'CONTROLS': ['R5','R12','R13','R3','R4'],
-          'CASES': ['R6','R7','R8','R9','R10','R11'], 'R14': ['R14']}
+          'CASES': ['R6','R7','R8','R9','R10','R11'], 'R14': ['R14'], 'ROBUST': ['R3','R4']}
 
 
 def need(value, code):
@@ -66,7 +66,9 @@ def definitions():
     for key, order in ORDERS.items():
         g = d['groups'][key]
         need(g['runs'] == order and g['identity'] == 'WK09_D13_'+key+'_A'
-             and g['timeout_minutes'] == {'CONTROLS':210,'CASES':240,'R14':35}[key], 'WK09_SEALED_GROUP')
+             and g['timeout_minutes'] == {'CONTROLS':210,'CASES':240,'R14':35,'ROBUST':180}[key], 'WK09_SEALED_GROUP')
+        wall_s=3000 if key=='ROBUST' else 1185
+        need(g['matlab_wall_s']==wall_s and g['case_seconds']==wall_s+915,'WK09_SEALED_GROUP')
         identity='WK09_D13_'+key+'_A';pf='WK09_D13_'+key+'_PREFLIGHT_A'
         expected=dict(optional=key=='R14',message=identity+'_ONE_SHOT',
             marker='jte-public/'+identity+'_TRIGGER.txt',approval='APPROVE_'+identity+'_ONCE_AFTER_CLAUDE_GO',
@@ -79,11 +81,15 @@ def definitions():
     return d
 
 
-def resolve(run_id):
+def resolve(run_id,group=None):
     import csv
     d = definitions()
     need(run_id in {r['id'] for r in d['runs']}, 'WK09_RUN_NOT_SCHEDULED')
     r = next(dict(x) for x in d['runs'] if x['id'] == run_id)
+    if group is not None:
+        need(group in d['groups'] and run_id in d['groups'][group]['runs'], 'WK09_CASE_OUTSIDE_ALLOWLIST')
+        g=d['groups'][group]
+        r.update(matlab_wall_s=g['matlab_wall_s'],case_seconds=g['case_seconds'])
     with (ROOT / 'WK08_sparse_sets.csv').open() as f:
         r['subset'] = [int(x['channel']) for x in csv.DictReader(f) if int(x['sensor_count']) == r['sensors']]
     order = selector()['ranking_descending']

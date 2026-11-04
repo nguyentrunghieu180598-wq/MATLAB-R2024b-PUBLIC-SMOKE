@@ -9,6 +9,47 @@ import WK09_run_definitions as D
 
 
 class DefinitionTests(unittest.TestCase):
+    def test_robust_sealed_names_and_per_case_limits(self):
+        d=D.definitions();g=d['groups']['ROBUST']
+        self.assertEqual(D.ORDERS['ROBUST'],['R3','R4']);self.assertEqual(g['runs'],['R3','R4'])
+        self.assertEqual(g['identity'],'WK09_D13_ROBUST_A');self.assertFalse(g['optional'])
+        self.assertEqual(g['timeout_minutes'],180)
+        self.assertEqual(g['matlab_wall_s'],3000);self.assertEqual(g['case_seconds'],3915)
+        self.assertEqual(g['case_seconds'],g['matlab_wall_s']+600+300+15)
+        expected=dict(marker='jte-public/WK09_D13_ROBUST_A_TRIGGER.txt',
+            message='WK09_D13_ROBUST_A_ONE_SHOT',approval='APPROVE_WK09_D13_ROBUST_A_ONCE_AFTER_CLAUDE_GO',
+            intent='WK09_D13_ROBUST_A_JOB_INTENT.json',workflow='.github/workflows/wk09-d13-robust-one-shot.yml',
+            preflight_message='WK09_D13_ROBUST_PREFLIGHT_A_CHECK',
+            preflight_marker='jte-public/WK09_D13_ROBUST_PREFLIGHT_A_TRIGGER.txt',
+            preflight_approval='APPROVE_WK09_D13_ROBUST_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO',
+            preflight_workflow='.github/workflows/wk09-d13-robust-preflight.yml')
+        for k,v in expected.items():self.assertEqual(g[k],v)
+        for case in g['runs']:
+            r=D.resolve(case,'ROBUST');self.assertEqual(r['matlab_wall_s'],3000)
+            self.assertEqual(r['matlab_wall_s']+15,3015)
+            self.assertEqual(r['case_seconds'],3915)
+            old=D.resolve(case,'CONTROLS');self.assertEqual(old['matlab_wall_s'],1185)
+            for k,v in D.resolve(case).items():self.assertEqual(r[k],v)
+        with self.assertRaisesRegex(RuntimeError,'WK09_CASE_OUTSIDE_ALLOWLIST'):D.resolve('R5','ROBUST')
+
+    def test_legacy_groups_keep_effective_walls_envelopes_and_timeouts(self):
+        d=D.definitions()
+        expected={'CONTROLS':(['R5','R12','R13','R3','R4'],210),
+                  'CASES':(['R6','R7','R8','R9','R10','R11'],240),'R14':(['R14'],35)}
+        for key,(order,timeout) in expected.items():
+            g=d['groups'][key];self.assertEqual(g['runs'],order);self.assertEqual(g['timeout_minutes'],timeout)
+            self.assertEqual(g['matlab_wall_s'],1185);self.assertEqual(g['case_seconds'],2100)
+            self.assertEqual(g['matlab_wall_s']+15,1200)
+            for case in order:
+                r=D.resolve(case,key);self.assertEqual(r['matlab_wall_s'],1185);self.assertEqual(r['case_seconds'],2100)
+        self.assertEqual(d['controls_acceptance']['required_runs'],['R5','R12','R13'])
+
+    def test_matlab_internal_wall_reads_definition_with_legacy_default(self):
+        s=(D.ROOT/'BTMS_WK09_run.m').read_text()
+        self.assertIn("matlab_wall_s=1185;if isfield(D,'matlab_wall_s'),matlab_wall_s=D.matlab_wall_s;end",s)
+        self.assertIn("assert(toc(wall)<matlab_wall_s+15,'WK09:Wall'",s)
+        self.assertNotIn('assert(toc(wall)<1200',s)
+
     def test_controls_order_and_acceptance_subset_unset(self):
         d=D.definitions();g=d['groups']['CONTROLS'];c=d['controls_acceptance']
         self.assertEqual(g['runs'],['R5','R12','R13','R3','R4'])
@@ -53,7 +94,12 @@ class DefinitionTests(unittest.TestCase):
                    lambda d:d['baseline'].update(scheduled=True),
                    lambda d:d['runs'][2].update(measurement_pipeline='identity_bypass'),
                    lambda d:d['runs'][3].update(Ts_s=.005),
-                   lambda d:d['runs'][3].update(RelTol='1e-4')]
+                   lambda d:d['runs'][3].update(RelTol='1e-4'),
+                   lambda d:d['groups']['ROBUST'].update(runs=['R4','R3']),
+                   lambda d:d['groups']['ROBUST'].update(matlab_wall_s=1185),
+                   lambda d:d['groups']['ROBUST'].update(case_seconds=2100),
+                   lambda d:d['groups']['ROBUST'].update(timeout_minutes=210),
+                   lambda d:d['groups']['CASES'].update(matlab_wall_s=3000)]
         old=Path.read_text
         for mutate in mutations:
             d=copy.deepcopy(original);mutate(d)
@@ -77,7 +123,7 @@ class DefinitionTests(unittest.TestCase):
         self.assertIn('b==0 && isequal(S,1:312) && ~forcePipeline',s)
         self.assertIn('mat2str(j),mat2str(j),b,mat2str(S)',s)
 
-    def test_six_disabled_workflows_and_independent_identities(self):
+    def test_eight_disabled_workflows_and_independent_identities(self):
         repo=D.ROOT.parent;d=D.definitions();seen=set()
         for key,g in d['groups'].items():
             self.assertEqual(g['runs'],D.ORDERS[key])
@@ -98,6 +144,15 @@ class DefinitionTests(unittest.TestCase):
                     self.assertLess(s.index('WK09_group_gate.py authorize'),s.index('matlab-actions/setup-matlab@v3'))
                     self.assertLess(s.index('matlab-actions/run-command@v3'),s.index('WK09_group.py run'))
                     self.assertIn('persist-credentials: false',s)
+
+    def test_robust_workflows_are_only_declared_controls_copies(self):
+        repo=D.ROOT.parent
+        for kind in ('one-shot','preflight'):
+            old=(repo/('.github/workflows/wk09-d13-controls-'+kind+'.yml')).read_bytes()
+            expected=old.replace(b'CONTROLS',b'ROBUST').replace(b'controls',b'robust')
+            expected=expected.replace(b'WK09_ROBUST_ACCEPTANCE_',b'WK09_CONTROLS_ACCEPTANCE_')
+            if kind=='one-shot':expected=expected.replace(b'timeout-minutes: 210',b'timeout-minutes: 180')
+            self.assertEqual((repo/('.github/workflows/wk09-d13-robust-'+kind+'.yml')).read_bytes(),expected)
 
 
 if __name__=='__main__':unittest.main()

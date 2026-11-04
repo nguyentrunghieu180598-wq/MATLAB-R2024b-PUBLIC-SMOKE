@@ -1,6 +1,7 @@
 function BTMS_WK09_run(manifestFile)
 % Exactly one fresh direct-start trajectory. Warnings remain warnings.
 M=jsondecode(fileread(manifestFile));root=char(M.privateRoot);D=M.definition;
+matlab_wall_s=1185;if isfield(D,'matlab_wall_s'),matlab_wall_s=D.matlab_wall_s;end
 flags=struct('run',M.run,'commit',M.commit,'case',D.id,'group',M.group, ...
  'status','UNQUALIFIED','physicalRun',false,'G5Accepted',false,'hiddenSimscapeICCertified',false);
 s=[];project=[];m='';failure=[];wall=tic;guard=onCleanup(@finish); %#ok<NASGU>
@@ -47,7 +48,7 @@ try
   'WK09:T0','Declared true/measured initial witness mismatch.');
  flags.visibleT0Checked=true;flags.stage='TRAJECTORY';
  while ~final
-  assert(toc(wall)<1200,'WK09:Wall','Internal process wall ceiling reached.');final=step(s);
+  assert(toc(wall)<matlab_wall_s+15,'WK09:Wall','Internal process wall ceiling reached.');final=step(s);
  end
  terminalStatus=char(s.Status);
  assert(any(strcmp(terminalStatus,{'paused','inactive'})),'WK09:Terminal','Unexpected terminal status.');

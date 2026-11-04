@@ -37,7 +37,9 @@
       "preflight_workflow": ".github/workflows/wk09-d13-controls-preflight.yml",
       "preflight_marker": "jte-public/WK09_D13_CONTROLS_PREFLIGHT_A_TRIGGER.txt",
       "preflight_message": "WK09_D13_CONTROLS_PREFLIGHT_A_CHECK",
-      "preflight_approval": "APPROVE_WK09_D13_CONTROLS_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO"
+      "preflight_approval": "APPROVE_WK09_D13_CONTROLS_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
     },
     "CASES": {
       "identity": "WK09_D13_CASES_A",
@@ -59,7 +61,9 @@
       "preflight_workflow": ".github/workflows/wk09-d13-cases-preflight.yml",
       "preflight_marker": "jte-public/WK09_D13_CASES_PREFLIGHT_A_TRIGGER.txt",
       "preflight_message": "WK09_D13_CASES_PREFLIGHT_A_CHECK",
-      "preflight_approval": "APPROVE_WK09_D13_CASES_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO"
+      "preflight_approval": "APPROVE_WK09_D13_CASES_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
     },
     "R14": {
       "identity": "WK09_D13_R14_A",
@@ -76,7 +80,29 @@
       "preflight_workflow": ".github/workflows/wk09-d13-r14-preflight.yml",
       "preflight_marker": "jte-public/WK09_D13_R14_PREFLIGHT_A_TRIGGER.txt",
       "preflight_message": "WK09_D13_R14_PREFLIGHT_A_CHECK",
-      "preflight_approval": "APPROVE_WK09_D13_R14_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO"
+      "preflight_approval": "APPROVE_WK09_D13_R14_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
+    },
+    "ROBUST": {
+      "identity": "WK09_D13_ROBUST_A",
+      "runs": [
+        "R3",
+        "R4"
+      ],
+      "timeout_minutes": 180,
+      "optional": false,
+      "workflow": ".github/workflows/wk09-d13-robust-one-shot.yml",
+      "marker": "jte-public/WK09_D13_ROBUST_A_TRIGGER.txt",
+      "message": "WK09_D13_ROBUST_A_ONE_SHOT",
+      "approval": "APPROVE_WK09_D13_ROBUST_A_ONCE_AFTER_CLAUDE_GO",
+      "intent": "WK09_D13_ROBUST_A_JOB_INTENT.json",
+      "preflight_workflow": ".github/workflows/wk09-d13-robust-preflight.yml",
+      "preflight_marker": "jte-public/WK09_D13_ROBUST_PREFLIGHT_A_TRIGGER.txt",
+      "preflight_message": "WK09_D13_ROBUST_PREFLIGHT_A_CHECK",
+      "preflight_approval": "APPROVE_WK09_D13_ROBUST_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+      "matlab_wall_s": 3000,
+      "case_seconds": 3915
     }
   },
   "runs": [

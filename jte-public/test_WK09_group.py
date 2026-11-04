@@ -33,16 +33,17 @@ class SequenceTests(unittest.TestCase):
             if bad=='R3':self.assertEqual(journal[-1],('R4','SKIPPED_AFTER_R3_FAILURE'))
 
     def test_success_exact_order_fresh_deadlines(self):
-        for group in ('CONTROLS','CASES','R14'):
+        for group in ('CONTROLS','CASES','R14','ROBUST'):
             calls=[];journal=[];now=time.monotonic()
             ok=G.sequence(auth(group),now,now+30000,lambda c,s,d:calls.append((c,s,d)) or True,
                           lambda c,s:journal.append((c,s)))
             self.assertTrue(ok);self.assertEqual([x[0] for x in calls],auth(group)['runs'])
-            self.assertTrue(all(abs(d-s-G.CASE_SECONDS)<.001 for _,s,d in calls))
+            expected=definitions()['groups'][group]['case_seconds']
+            self.assertTrue(all(abs(d-s-expected)<.001 for _,s,d in calls))
             self.assertTrue(all('PENDING_CLAUDE' in s for _,s in journal))
 
     def test_every_failure_position_skips_rest_without_retry(self):
-        for group in ('CONTROLS','CASES'):
+        for group in ('CONTROLS','CASES','ROBUST'):
             order=auth(group)['runs']
             for ix,bad in enumerate(order):
                 calls=[];journal=[];now=time.monotonic()
@@ -64,6 +65,34 @@ class SequenceTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'WK09_PREPARE_WALL'):G.launch_budget(now-601,now+3000)
         with self.assertRaisesRegex(RuntimeError,'WK09_DELIVERY_TIME_RESERVE'):G.launch_budget(now,now+1484)
         G.launch_budget(now,now+1600)
+
+    def test_robust_full_case_and_final_journal_time_reserve(self):
+        now=time.monotonic();called=Mock();journal=[]
+        with patch.object(G.time,'monotonic',return_value=now):
+            self.assertFalse(G.sequence(auth('ROBUST'),now,now+3915+299,called,lambda c,s:journal.append((c,s))))
+        called.assert_not_called()
+        self.assertEqual(journal,[('R3','FAILED_JOB_TIME_RESERVE'),('R4','SKIPPED_AFTER_R3_FAILURE')])
+
+    def test_robust_launch_reserves_actual_wall_plus_delivery(self):
+        now=time.monotonic()
+        with patch.object(G.time,'monotonic',return_value=now):
+            with self.assertRaisesRegex(RuntimeError,'WK09_DELIVERY_TIME_RESERVE'):G.launch_budget(now,now+3299,3000)
+            G.launch_budget(now,now+3300,3000)
+            G.launch_budget(now,now+1485) # absent wall keeps the original default
+
+    def test_prepare_writes_group_limits_into_each_manifest_definition(self):
+        scenario=G.read(G.CODE/'WK10_scenario.json')
+        for group,case,wall in [('ROBUST','R3',3000),('ROBUST','R4',3000),('CONTROLS','R3',1185),('CASES','R6',1185),('R14','R14',1185)]:
+            with tempfile.TemporaryDirectory() as t,patch.object(A,'inputs',return_value=([],scenario['model_sha256'])),\
+                 patch.object(A,'git',return_value=definitions()['vendor_commit']),patch.object(A,'code_hashes',return_value={}):
+                def digest(p):
+                    if p.name.endswith('_Ivst.mat'):return scenario['vendor_mat_sha256']
+                    return scenario['model_sha256']
+                root=Path(t)
+                with patch.object(G,'sha',side_effect=digest):G.prepare(auth(group),case,root,'t','f')
+                m=G.read(root/'WK09_MANIFEST.json');d=G.read(root/'WK09_DEFINITION.json')
+                self.assertEqual(m['definition'],d);self.assertEqual(d['matlab_wall_s'],wall)
+                self.assertEqual(d['case_seconds'],wall+915)
 
 
 class AcceptanceTests(unittest.TestCase):
@@ -145,6 +174,18 @@ class AcceptanceTests(unittest.TestCase):
 
 
 class PreflightTests(unittest.TestCase):
+    def test_robust_preflight_does_not_require_controls_acceptance(self):
+        for group in ('ROBUST','CONTROLS'):
+            with tempfile.TemporaryDirectory() as t,patch.object(A,'ROOT',Path(t)/'absent'),\
+                 patch.object(A,'drive',return_value=('t','app','results')),\
+                 patch.object(A,'require_verified_neutral_preflight'),\
+                 patch.object(A,'quota',return_value={'availableBytes':100*A.GiB}),patch.object(A,'absent'),\
+                 patch.object(A,'read_baseline'),patch.object(A,'controls_acceptance') as acceptance,\
+                 patch.object(A,'inputs'),patch.object(A,'upload') as upload,\
+                 patch.object(A,'reserve') as reserve,patch.object(G.subprocess,'Popen') as popen,contextlib.redirect_stdout(io.StringIO()):
+                A.check(auth(group));acceptance.assert_not_called()
+                upload.assert_not_called();reserve.assert_not_called();popen.assert_not_called()
+
     def test_r14_requires_same_acceptance_before_inputs_without_writes_or_launch(self):
         with tempfile.TemporaryDirectory() as t,patch.object(A,'ROOT',Path(t)/'absent'),\
              patch.object(A,'drive',return_value=('t','app','results')),\
@@ -208,9 +249,9 @@ class ContextTests(unittest.TestCase):
                     ('ls-tree','HEAD~2','--',g[pre+'marker']):''}[args]
         return env,git
 
-    def test_all_six_contexts_and_exact_ordered_grant(self):
+    def test_all_eight_contexts_and_exact_ordered_grant(self):
         old=Path.read_text
-        for group in ('CONTROLS','CASES','R14'):
+        for group in ('CONTROLS','CASES','R14','ROBUST'):
             for check in (False,True):
                 with tempfile.TemporaryDirectory() as t:
                     root=Path(t);env,git=self.setup_context(root,group,check)
@@ -242,9 +283,48 @@ class ContextTests(unittest.TestCase):
 
 
 class ProcessTests(unittest.TestCase):
+    def test_watchdog_wall_comes_from_each_manifest_definition(self):
+        cases=[('ROBUST','R3',3000),('ROBUST','R4',3000),('CONTROLS','R3',1185),
+               ('CONTROLS','R4',1185),('CASES','R6',1185),('R14','R14',1185)]
+        for group,case,wall in cases:
+            with self.subTest(group=group,case=case),tempfile.TemporaryDirectory() as t:
+                root=Path(t);launcher=root/'launcher';launcher.write_text('not executed');launcher.chmod(0o700)
+                (root/'WK09_MANIFEST.json').write_text(json.dumps(dict(definition=G.resolve(case,group))))
+                fake=Mock(pid=123);fake.poll.return_value=None;fake.wait.return_value=0
+                with patch.dict(os.environ,WK08_RUN_MATLAB_COMMAND=str(launcher),WK09_CASE=case),\
+                     patch.object(G,'memory',return_value={'hostAvailable':20*A.GiB,'cgroupAvailable':20*A.GiB}),\
+                     patch.object(G.shutil,'disk_usage',return_value=Mock(free=20*A.GiB)),\
+                     patch.object(A,'quota',return_value={'availableBytes':20*A.GiB}),\
+                     patch.object(G.subprocess,'Popen',return_value=fake) as popen,\
+                     patch.object(G,'proc_start',return_value='id'),patch.object(G,'proc_rss',return_value=0),\
+                     patch.object(G,'violation',return_value='WALL_CEILING') as violation,patch.object(G,'terminate_tree') as kill:
+                    now=time.monotonic();self.assertFalse(G.supervisor(auth(group),root,'t',now,now+wall+915))
+                    self.assertEqual(violation.call_args.kwargs['wall'],wall)
+                    self.assertEqual(popen.call_count,1);kill.assert_called_once_with(123,'id')
+                self.assertEqual(G.read(root/'WK09_SUPERVISOR.json')['status'],'UNQUALIFIED_WALL_CEILING')
+
+    def test_robust_child_grant_requires_its_longer_case_envelope(self):
+        for seconds in (2100,3915):
+            with tempfile.TemporaryDirectory() as t:
+                a=auth('ROBUST');start=time.monotonic();limit=start+seconds
+                parent=Path(t)/a['run'];root=parent/'R3';root.mkdir(parents=True)
+                remote=dict(codeSHA256={},orderedAllowlist=['R3','R4'],allowRetry=False,
+                            job_start=start-10,job_deadline=start+10000)
+                (parent/definitions()['groups']['ROBUST']['intent']).write_text(json.dumps(remote))
+                (root/'WK09_GRANT.json').write_text(json.dumps(dict(auth=a,case='R3',codeSHA256={},case_start=start,deadline=limit)))
+                with patch.dict(os.environ,WK09_CASE='R3'),patch.object(A,'ROOT',Path(t)),\
+                     patch.object(A,'code_hashes',return_value={}),patch.object(A,'drive',return_value=('t','f','r')),\
+                     patch.object(A,'json_asset',return_value=remote),patch.object(A,'reserve') as reserve,\
+                     patch.object(G,'prepare'),patch.object(G,'supervisor',return_value=True),patch.object(G,'publish',return_value=True):
+                    if seconds==2100:
+                        with self.assertRaisesRegex(RuntimeError,'WK09_PARENT_INTENT_MISMATCH'):G.worker(a,'R3',start,limit)
+                        reserve.assert_not_called()
+                    else:self.assertEqual(G.worker(a,'R3',start,limit),0);reserve.assert_called_once()
+
     def test_one_launcher_process_secret_stripping_private_2048_bytes(self):
         with tempfile.TemporaryDirectory() as t:
             root=Path(t);launcher=root/'launcher';launcher.write_text('not executed');launcher.chmod(0o700)
+            (root/'WK09_MANIFEST.json').write_text('{}') # absent per-case wall exercises legacy default
             fake=Mock(pid=123);fake.poll.return_value=0;fake.wait.return_value=0
             def start(argv,**kwargs):kwargs['stdout'].write(b'PRIVATE_CONSOLE'*300);return fake
             env=dict(WK08_RUN_MATLAB_COMMAND=str(launcher),WK09_CASE='R3',JTE_GOOGLE_CLIENT_ID='secret',

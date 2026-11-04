@@ -1,7 +1,7 @@
 """WK09 sealed ordered job. One disposable worker/process per case, never retry.
 
 The parent clock covers all cases, preparation and full-byte private readback.
-Each worker has an independent 35-minute envelope; a failed/undelivered case
+Each worker has its declared per-case envelope; a failed/undelivered case
 stops the group. Scientific CONTROLS acceptance remains Claude's separate act.
 """
 import base64
@@ -36,13 +36,15 @@ def case_root(auth,case):
     return gate.ROOT/auth['run']/case
 
 
-def launch_budget(case_start,deadline):
+def launch_budget(case_start,deadline,matlab_wall_s=1185):
     need(time.monotonic()-case_start <= 600, 'WK09_PREPARE_WALL')
-    need(remaining(deadline) >= 1185+DELIVERY_SECONDS, 'WK09_DELIVERY_TIME_RESERVE')
+    need(remaining(deadline) >= matlab_wall_s+DELIVERY_SECONDS, 'WK09_DELIVERY_TIME_RESERVE')
 
 
 def supervisor(auth,root,token,case_start,deadline):
-    launch_budget(case_start,deadline)
+    definition=read(root/'WK09_MANIFEST.json').get('definition',{})
+    matlab_wall_s=definition.get('matlab_wall_s',1185)
+    launch_budget(case_start,deadline,matlab_wall_s)
     free_drive=gate.quota(token)['availableBytes'];mem=memory()
     need(mem['hostAvailable'] >= 8*gate.GiB and
          (mem['cgroupAvailable'] is None or mem['cgroupAvailable'] >= 8*gate.GiB)
@@ -74,7 +76,7 @@ def supervisor(auth,root,token,case_start,deadline):
                         ok,value=updates.get();need(ok,'WK09_DRIVE_REFRESH_FAILED');free_drive=value;refresh=None
                     else: need(now-refreshed <= 10,'WK09_DRIVE_REFRESH_TIMEOUT')
                 sizes=[p.stat().st_size for p in (root/'native').glob('*.mat')]
-                mem=memory();reason=violation(mem,shutil.disk_usage(root).free,free_drive,sizes,now-started,wall=1185)
+                mem=memory();reason=violation(mem,shutil.disk_usage(root).free,free_drive,sizes,now-started,wall=matlab_wall_s)
                 samples.write(json.dumps(dict(unix=time.time(),memory=mem,matlabRSS_bytes=proc_rss(proc.pid),
                                               nativeBytes=sum(sizes),elapsed_s=now-started))+'\n');samples.flush()
                 if reason:
@@ -104,7 +106,7 @@ def prepare(auth,case,root,token,folder):
     need(sha(vendor_slx)==scenario['model_sha256'] and
          sha(vendor/'Scripts_Data/Battery_Pack_Thermal_Management_Ivst.mat')==scenario['vendor_mat_sha256'],
          'WK09_VENDOR_BYTES')
-    definition=resolve(case);definition_file=root/'WK09_DEFINITION.json';gate.write(definition_file,definition)
+    definition=resolve(case,auth['group']);definition_file=root/'WK09_DEFINITION.json';gate.write(definition_file,definition)
     manifest=dict(auth,case=case,definition=definition,definitionFile=str(definition_file.resolve()),
                   definitionSHA256=sha(definition_file),scenario=scenario,privateRoot=str(root.resolve()),
                   sourceSHA256=source_sha,inputs=assets,vendorRoot=str(vendor),vendorSLX=str(vendor_slx),
@@ -161,6 +163,7 @@ def publish(auth,case,root,token,results):
 
 def worker(auth,case,case_start,deadline):
     root=case_root(auth,case);grant=read(root/'WK09_GRANT.json')
+    case_seconds=resolve(case,auth['group']).get('case_seconds',CASE_SECONDS)
     need(os.environ.get('WK09_CASE')==case and grant['auth']==auth and grant['case']==case and grant['codeSHA256']==gate.code_hashes()
          and grant['case_start']==case_start and grant['deadline']==deadline,'WK09_GRANT_MISMATCH')
     token,folder,results=gate.drive();g=definitions()['groups'][auth['group']]
@@ -169,7 +172,7 @@ def worker(auth,case,case_start,deadline):
     need(remote==read(gate.ROOT/auth['run']/g['intent']) and remote['codeSHA256']==grant['codeSHA256']
          and remote['orderedAllowlist']==auth['runs'] and remote['allowRetry'] is False
          and case_start >= remote['job_start']
-         and deadline == min(case_start+CASE_SECONDS,remote['job_deadline']), 'WK09_PARENT_INTENT_MISMATCH')
+         and deadline == min(case_start+case_seconds,remote['job_deadline']), 'WK09_PARENT_INTENT_MISMATCH')
     if not g['optional']:
         gate.reserve(token,results,gate.child_intent(g,case),root,dict(auth,case=case,exactlyOneInitialize=True))
     success=False
@@ -208,10 +211,11 @@ def sequence(auth,job_start,job_deadline,execute,record):
         if stopped:
             record(case,'SKIPPED_AFTER_'+stopped+'_FAILURE');continue
         start=job_start if auth['group']=='R14' else time.monotonic()
-        # Keep the complete 35-minute per-run envelope plus final journal reserve.
-        if auth['group']!='R14' and remaining(job_deadline) < CASE_SECONDS+DELIVERY_SECONDS:
+        case_seconds=resolve(case,auth['group']).get('case_seconds',CASE_SECONDS)
+        # Keep the complete declared per-case envelope plus final journal reserve.
+        if auth['group']!='R14' and remaining(job_deadline) < case_seconds+DELIVERY_SECONDS:
             record(case,'FAILED_JOB_TIME_RESERVE');stopped=case;success=False;continue
-        deadline=min(start+CASE_SECONDS,job_deadline)
+        deadline=min(start+case_seconds,job_deadline)
         try: ok=execute(case,start,deadline)
         except Exception: ok=False
         record(case,'NATIVE_PRIVATE_PASS_PENDING_CLAUDE' if ok else 'FAILED_UNQUALIFIED')
