@@ -134,7 +134,8 @@ class AcceptanceTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):self.run_acceptance(a)
 
     def test_unset_acceptance_rejected_before_source_or_private_receipt_reads(self):
-        with patch.dict(os.environ,{},clear=True),patch.object(A,'json_asset') as fetch,patch.object(A.subprocess,'check_output') as show:
+        d=definitions();d['controls_acceptance']['sha256']='0'*64
+        with patch.dict(os.environ,{},clear=True),patch.object(A,'definitions',return_value=d),patch.object(A,'json_asset') as fetch,patch.object(A.subprocess,'check_output') as show:
             with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_ACCEPTANCE_UNSET'):
                 A.controls_acceptance('t','f',Path('private'))
             fetch.assert_not_called();show.assert_not_called()

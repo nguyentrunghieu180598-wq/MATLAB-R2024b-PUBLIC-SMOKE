@@ -50,15 +50,15 @@ class DefinitionTests(unittest.TestCase):
         self.assertIn("assert(toc(wall)<matlab_wall_s+15,'WK09:Wall'",s)
         self.assertNotIn('assert(toc(wall)<1200',s)
 
-    def test_controls_order_and_acceptance_subset_unset(self):
+    def test_controls_order_and_acceptance_subset_pinned(self):
         d=D.definitions();g=d['groups']['CONTROLS'];c=d['controls_acceptance']
         self.assertEqual(g['runs'],['R5','R12','R13','R3','R4'])
         self.assertEqual(D.ORDERS['CONTROLS'],g['runs']);self.assertEqual(g['timeout_minutes'],210)
         self.assertEqual(c['required_runs'],['R5','R12','R13'])
         self.assertEqual(list(c['criteria']),c['required_runs'])
-        self.assertEqual(c['sha256'],'0'*64)
+        self.assertEqual(c['sha256'],'4abe454ac6fb415b0196587db2add5150e606c7ed39246cf28a7dd2b2e8927bb')
         self.assertEqual(c['file'],'jte-public/WK09_CONTROLS_ACCEPTED.json')
-        self.assertFalse((D.ROOT.parent/c['file']).exists())
+        self.assertEqual(D.sha(D.ROOT.parent/c['file']),c['sha256'])
 
     def test_exact_selector_bytes_and_permutation(self):
         p=D.ROOT/'WK09_selector_D13_200_340.json';b=p.read_bytes()
