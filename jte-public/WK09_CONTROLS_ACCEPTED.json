@@ -1,0 +1,47 @@
+{
+  "schema": "WK09_D13_CONTROLS_ACCEPTANCE_V1",
+  "reviewer": "Claude",
+  "decision": "ACCEPTED",
+  "hub_commit": "52fe8612ad28cd63ea41cbb7534b23910b422677",
+  "selector_sha256": "cbaf7ede34dee318b1ab3a73cfbc53dbde44bda6700133c864c3dfc8ae148233",
+  "scenario_sha256": "372683adc8c45d6c9bc84213619916cf9cee18d03471b9ed4ae7fab3c0bc9f7b",
+  "baseline_receipt_sha256": "7074b363ee0c97b52f5f8d80a4148852c54432b417b8e2dc73024b765b9a0612",
+  "predictions_sha256": "50f97a1226858944b5cb0088f561959334b59c5efcc51d36d99850555bf2d5a5",
+  "controls_run": "41763366933",
+  "runs": [
+    {
+      "id": "R5",
+      "accepted": true,
+      "finite": true,
+      "same_grid": true,
+      "true_measured_exact": true,
+      "law": true,
+      "identical_level_sequence": true,
+      "receipt_name": "WK09_D13_CONTROLS_A_41763366933_R5_PRIVATE_RECEIPT.json",
+      "receipt_sha256": "46ce29e000310603461d8577e75785e2f774f9d21975e72cc4509582b6ee7525",
+      "max_abs_Tmax_R5_minus_R2_K": 0.0
+    },
+    {
+      "id": "R12",
+      "accepted": true,
+      "finite": true,
+      "same_grid": true,
+      "law": true,
+      "measured_le_true": true,
+      "deficit_nonnegative": true,
+      "receipt_name": "WK09_D13_CONTROLS_A_41763366933_R12_PRIVATE_RECEIPT.json",
+      "receipt_sha256": "93067fb5b9a5a1ebcf8f51c5c0295363ffbcddae56e293bf254e5ae5f5d3df74"
+    },
+    {
+      "id": "R13",
+      "accepted": true,
+      "finite": true,
+      "same_grid": true,
+      "law": true,
+      "measured_le_true": true,
+      "deficit_nonnegative": true,
+      "receipt_name": "WK09_D13_CONTROLS_A_41763366933_R13_PRIVATE_RECEIPT.json",
+      "receipt_sha256": "979547530161e2b94c15f98307f87d0ea5b5f49c5862e913f581900e6be04253"
+    }
+  ]
+}

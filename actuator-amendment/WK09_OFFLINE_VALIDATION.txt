@@ -1,0 +1,73 @@
+WK09 D13 source-only author validation — 2026-11-04 (Asia/Bangkok)
+Request: PR #77, Claude comment 6609673672, items 1–4.
+Base: 5f4222eb8311556f04a122f9fb3be32b758ed6bd
+Base tree: 5affff3162e02815340c049894bee4f51f3db1d2
+Branch: codex/wk09-d13-340s
+
+These are author checks, not independent review or MATLAB validation.
+No MATLAB, CI, workflow enable/trigger, merge, environment change or live
+Drive call was performed. Process and transport calls in new tests are mocked.
+
+1. python -B -m unittest test_WK09_definitions test_WK09_group test_WK08_guards
+   Ran 79 tests in 8.742s
+   OK (exit 0)
+   Includes 24 new WK09 tests and all 55 existing WK08 executions.
+   The only WK08 test edit preserves its meaning: require ALL biased channels
+   sensed before graph edits rather than a scalar-only membership expression.
+
+2. python -B -O -m unittest test_WK09_definitions test_WK09_group
+   Ran 24 tests in 2.672s
+   OK (exit 0). Authorization checks do not depend on Python assert statements.
+
+3. Extended legacy transport command:
+   python -B -m unittest test_WK09_definitions test_WK09_group
+     test_WK08_guards test_JTE063_streaming_drive
+   Ran 90 tests in 5.647s; FAILED (errors=1).
+   test_local_symlink_rejected: Windows OSError [WinError 1314], missing OS
+   privilege to create the test symlink. This fixture could not be constructed.
+   No test or OS privilege was changed to hide this failure. Symlink behavior
+   in that legacy test remains NOT VERIFIED on this host.
+
+4. Legacy transport suite selected with unittest's loader, excluding only
+   test_local_symlink_rejected (test source unchanged):
+   Ran 10 tests in 0.157s
+   OK (exit 0). Does not resolve or certify the excluded symlink test.
+
+5. MISS_HIT core 0.9.44 static parser, --no-style --single --ignore-config
+   --matlab 2022a (the parser's supported syntax version), four files:
+     BTMS_WK09_prepare.m
+     BTMS_WK09_run.m
+     BTMS_WK08_inject.m
+     test_BTMS_WK09_guard.m
+   Result: 4 files analysed, everything seems fine (exit 0).
+   Cosmetic Windows stdout encoding warning was emitted.
+   This is NOT MATLAB execution, compilation, code generation or an R2024b
+   API/build certification. MATLAB unit tests were NOT RUN.
+
+6. Offline structural checks (Python AST / JSON / PyYAML 6.0.3): PASS.
+   Six new YAML workflows: default false, zero reviewed SHA, exact branch,
+   separate identities, absent trigger markers; preflight has no MATLAB
+   action/vendor checkout; execution context check precedes MATLAB actions,
+   license probe and launcher resolution precede reservation.
+   Selector: 2625 bytes, no final newline, SHA-256
+   cbaf7ede34dee318b1ab3a73cfbc53dbde44bda6700133c864c3dfc8ae148233.
+   Exact frozen permutation/choices, scenario SHA and case contracts pass.
+   UTF-8/LF, git diff --check, scoped file inventory: PASS.
+   Historical workflow/gate files, marker files, geometric CSV and vendor
+   graph/archives unchanged; no raw MAT/SLX/key or bytecode added.
+   Read-only event-filter audit: source delta matches no push path filter;
+   no PR-event workflow exists in the inspected repository source.
+
+New control tests cover all six authorization contexts; wrong approval,
+branch, attempt, event and chain; old-head marker; exact allowlist/order;
+every failure position and skipped tail; never-reset group deadline/reserves;
+read-only preflight; spent intents; acceptance pins, hub attestation and all
+frozen criteria; isolated worker timeout; secret stripping; one launcher;
+private 2048-byte console capture; run/case names and receipt readback.
+
+NOT VERIFIED: owner-local MATLAB tests, Update 10 graph/code-generation/API
+behavior, runtime logs/grids/IC/finite/equivalence/law checks, scientific
+results, real warnings, live group authorization and private delivery,
+control acceptance, private prediction bytes, resource/time feasibility,
+environment deployment rules and the owner-pinned hub-attestation bridge.
+Native success is not Claude acceptance. STOP for independent Claude review.

@@ -181,3 +181,11 @@ is repurposed. The completed R1 stays the vendor-load reference.
 
 See [the complete D13 contract](actuator-amendment/WK10_D13_SCENARIO_DESIGN.md)
 for identities, exact files, test scope and NOT VERIFIED items.
+
+## WK09 D13 340 s source implementation
+
+Branch `codex/wk09-d13-340s` re-baselines WK09 on the restored WK10 source. R2 is an accepted external baseline; CONTROLS (R3/R4/R5/R12/R13) and CASES (R6-R11) have separate read-only preflights and execution approvals. Optional R14 has its own identity and is outside both groups. All six new workflows remain false, reviewed-source SHA zero, with no trigger files.
+
+The selector is Claude's exact 2625-byte projection (no final newline), SHA-256 `cbaf7ede34dee318b1ab3a73cfbc53dbde44bda6700133c864c3dfc8ae148233`. CASES is blocked until an owner-pinned private attestation references Claude's CONTROLS acceptance in the hub. New group authorization requires independent review before any invocation.
+
+See the [WK09 source contract](actuator-amendment/WK09_RUN_DEFINITIONS.md) for cases, identities, S-E-T chains, acceptance criteria, private transport and NOT VERIFIED items, and the [offline validation log](actuator-amendment/WK09_OFFLINE_VALIDATION.txt). No MATLAB/CI run, workflow enable/trigger, environment change or merge is authorized by this source delivery.
