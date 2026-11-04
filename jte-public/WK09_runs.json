@@ -21,11 +21,11 @@
     "CONTROLS": {
       "identity": "WK09_D13_CONTROLS_A",
       "runs": [
-        "R3",
-        "R4",
         "R5",
         "R12",
-        "R13"
+        "R13",
+        "R3",
+        "R4"
       ],
       "timeout_minutes": 210,
       "optional": false,
@@ -302,16 +302,6 @@
     "reviewer": "Claude",
     "R5_max_abs_Tmax_K": 1e-06,
     "criteria": {
-      "R3": [
-        "finite",
-        "same_grid",
-        "law"
-      ],
-      "R4": [
-        "finite",
-        "same_grid",
-        "law"
-      ],
       "R5": [
         "finite",
         "same_grid",
@@ -333,6 +323,13 @@
         "measured_le_true",
         "deficit_nonnegative"
       ]
-    }
+    },
+    "file": "jte-public/WK09_CONTROLS_ACCEPTED.json",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "required_runs": [
+      "R5",
+      "R12",
+      "R13"
+    ]
   }
 }

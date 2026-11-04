@@ -3,6 +3,7 @@
 The historical single-run authorization functions are deliberately not called.
 Native success never creates Claude's CONTROLS acceptance record.
 """
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -129,20 +130,24 @@ def read_baseline(token,results,temp):
 
 
 def controls_acceptance(token,results,temp):
-    """Owner-pinned private attestation of Claude's recorded hub decision, not native PASS."""
-    digest = os.environ.get('WK09_CONTROLS_ACCEPTANCE_SHA256','')
-    hub = os.environ.get('WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT','')
-    need(re.fullmatch('[a-f0-9]{64}',digest) and digest != '0'*64
-         and re.fullmatch('[a-f0-9]{40}',hub) and hub != '0'*40, 'WK09_CONTROLS_NOT_ACCEPTED_IN_HUB')
-    a = json_asset(token,results,'WK09_D13_CONTROLS_ACCEPTED.json',temp/'accepted.json',digest)
+    """Hash-only Claude acceptance in reviewed S; native receipts stay private."""
     d = definitions(); criteria = d['controls_acceptance']
+    digest = criteria['sha256']
+    need(re.fullmatch('[a-f0-9]{64}',digest) and digest != '0'*64, 'WK09_CONTROLS_ACCEPTANCE_UNSET')
+    try:
+        raw = subprocess.check_output(['git','show','HEAD~2:'+criteria['file']], stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise RuntimeError('WK09_CONTROLS_ACCEPTANCE_UNSET') from None
+    need(hashlib.sha256(raw).hexdigest() == digest, 'WK09_CONTROLS_ACCEPTANCE_DIGEST')
+    a = json.loads(raw)
+    hub = a.get('hub_commit','')
     need(a.get('schema') == criteria['schema'] and a.get('reviewer') == 'Claude'
-         and a.get('decision') == 'ACCEPTED' and a.get('hub_commit') == hub
+         and a.get('decision') == 'ACCEPTED' and re.fullmatch('[a-f0-9]{40}',hub) and hub != '0'*40
          and a.get('selector_sha256') == H_SEL and a.get('scenario_sha256') == H_SCENARIO
          and a.get('baseline_receipt_sha256') == H_R2 and a.get('predictions_sha256') == H_PRED,
          'WK09_CONTROLS_ATTESTATION')
     entries = a.get('runs',[])
-    need([r.get('id') for r in entries] == d['groups']['CONTROLS']['runs'], 'WK09_CONTROLS_ALLOWLIST')
+    need([r.get('id') for r in entries] == criteria['required_runs'], 'WK09_CONTROLS_ALLOWLIST')
     for row in entries:
         case = row['id']
         need(row.get('accepted') is True and all(row.get(k) is True for k in criteria['criteria'][case]),
@@ -196,7 +201,7 @@ def check(auth):
     with tempfile.TemporaryDirectory(prefix='wk09-check-') as temporary:
         temp=Path(temporary);os.chmod(temp,0o700)
         read_baseline(token,results,temp)
-        if auth['group']=='CASES': controls_acceptance(token,results,temp)
+        if auth['group'] in {'CASES','R14'}: controls_acceptance(token,results,temp)
         inputs(token,folder,temp,model=False)
     print('WK09_PREFLIGHT_ALL_PASS group='+auth['group']+' MATLAB_STARTED=0')
 

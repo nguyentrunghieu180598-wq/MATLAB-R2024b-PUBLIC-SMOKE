@@ -1,6 +1,7 @@
 """Offline mocked control/transport/process tests. Never invoke MATLAB or CI."""
 import contextlib
 import copy
+import hashlib
 import io
 import json
 import os
@@ -22,6 +23,15 @@ def auth(group='CONTROLS'):
 
 
 class SequenceTests(unittest.TestCase):
+    def test_sensitivity_failure_cannot_skip_dependency_controls(self):
+        for bad in ('R3','R4'):
+            calls=[];journal=[];now=time.monotonic()
+            def execute(c,s,d):calls.append(c);return c!=bad
+            self.assertFalse(G.sequence(auth(),now,now+30000,execute,lambda c,s:journal.append((c,s))))
+            self.assertEqual(calls[:3],['R5','R12','R13'])
+            self.assertEqual(calls[-1],bad)
+            if bad=='R3':self.assertEqual(journal[-1],('R4','SKIPPED_AFTER_R3_FAILURE'))
+
     def test_success_exact_order_fresh_deadlines(self):
         for group in ('CONTROLS','CASES','R14'):
             calls=[];journal=[];now=time.monotonic()
@@ -61,7 +71,7 @@ class AcceptanceTests(unittest.TestCase):
         d=definitions();a=dict(schema=d['controls_acceptance']['schema'],reviewer='Claude',decision='ACCEPTED',
             hub_commit='b'*40,selector_sha256=H_SEL,scenario_sha256=H_SCENARIO,
             baseline_receipt_sha256=H_R2,predictions_sha256=H_PRED,runs=[])
-        for c in d['groups']['CONTROLS']['runs']:
+        for c in d['controls_acceptance']['required_runs']:
             a['runs'].append(dict(id=c,accepted=True,receipt_name=c+'.json',receipt_sha256='d'*64,
                             max_abs_Tmax_R5_minus_R2_K=1e-6,
                             **{k:True for k in d['controls_acceptance']['criteria'][c]}))
@@ -69,15 +79,20 @@ class AcceptanceTests(unittest.TestCase):
 
     def run_acceptance(self,a):
         def fetch(token,folder,name,path,digest=None):
-            if name=='WK09_D13_CONTROLS_ACCEPTED.json':return a
             return dict(case=name[:-5],group='CONTROLS',status='NATIVE_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE',
                         selectorSHA256=H_SEL,scenarioSHA256=H_SCENARIO,baselineReceiptSHA256=H_R2)
-        with patch.dict(os.environ,WK09_CONTROLS_ACCEPTANCE_SHA256='c'*64,WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT='b'*40),patch.object(A,'json_asset',side_effect=fetch):
-            return A.controls_acceptance('token','folder',Path('private-temp'))
+        raw=json.dumps(a).encode();d=definitions();d['controls_acceptance']['sha256']=hashlib.sha256(raw).hexdigest()
+        with patch.dict(os.environ,{},clear=True),patch.object(A,'definitions',return_value=d),\
+             patch.object(A.subprocess,'check_output',return_value=raw) as show,patch.object(A,'json_asset',side_effect=fetch) as receipts:
+            result=A.controls_acceptance('token','folder',Path('private-temp'))
+            show.assert_called_once_with(['git','show','HEAD~2:jte-public/WK09_CONTROLS_ACCEPTED.json'],stderr=A.subprocess.DEVNULL)
+            self.assertEqual([c.args[2] for c in receipts.call_args_list],['R5.json','R12.json','R13.json'])
+            self.assertTrue(all(c.args[4]=='d'*64 for c in receipts.call_args_list))
+            return result
 
     def test_exact_acceptance_and_frozen_tolerance(self):
         self.assertEqual(self.run_acceptance(self.accepted())['hub_commit'],'b'*40)
-        a=self.accepted();a['runs'][2]['max_abs_Tmax_R5_minus_R2_K']=1.00001e-6
+        a=self.accepted();a['runs'][0]['max_abs_Tmax_R5_minus_R2_K']=1.00001e-6
         with self.assertRaisesRegex(RuntimeError,'WK09_R5_EQUIVALENCE'):self.run_acceptance(a)
 
     def test_every_criterion_required_not_native_success(self):
@@ -85,15 +100,41 @@ class AcceptanceTests(unittest.TestCase):
             for criterion in definitions()['controls_acceptance']['criteria'][row['id']]:
                 a=self.accepted();a['runs'][ix][criterion]=False
                 with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_CRITERIA'):self.run_acceptance(a)
-        for field,value in [('decision','NATIVE_PASS'),('reviewer','Codex'),('hub_commit','e'*40),('selector_sha256','0'*64)]:
+        for field,value in [('decision','NATIVE_PASS'),('reviewer','Codex'),('hub_commit','invalid'),('selector_sha256','0'*64)]:
             a=self.accepted();a[field]=value
             with self.assertRaises(RuntimeError):self.run_acceptance(a)
 
-    def test_absent_hub_acceptance_rejected_before_read_or_write(self):
-        with patch.dict(os.environ,{},clear=True),patch.object(A,'json_asset') as fetch:
-            with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_NOT_ACCEPTED_IN_HUB'):
+    def test_unset_acceptance_rejected_before_source_or_private_receipt_reads(self):
+        with patch.dict(os.environ,{},clear=True),patch.object(A,'json_asset') as fetch,patch.object(A.subprocess,'check_output') as show:
+            with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_ACCEPTANCE_UNSET'):
                 A.controls_acceptance('t','f',Path('private'))
-            fetch.assert_not_called()
+            fetch.assert_not_called();show.assert_not_called()
+
+    def test_missing_or_wrong_source_bytes_fail_before_private_receipts(self):
+        d=definitions();d['controls_acceptance']['sha256']='a'*64
+        for failure in (A.subprocess.CalledProcessError(128,['git','show']),b'wrong bytes'):
+            kwargs={'side_effect':failure} if isinstance(failure,Exception) else {'return_value':failure}
+            with patch.object(A,'definitions',return_value=d),patch.object(A.subprocess,'check_output',**kwargs),patch.object(A,'json_asset') as fetch:
+                with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_ACCEPTANCE_(UNSET|DIGEST)'):
+                    A.controls_acceptance('t','f',Path('private'))
+                fetch.assert_not_called()
+
+    def test_acceptance_requires_exact_dependency_order_without_sensitivities(self):
+        for order in (['R12','R5','R13'],['R5','R12'],['R5','R12','R13','R3','R4']):
+            a=self.accepted();byid={r['id']:r for r in a['runs']}
+            a['runs']=[byid.get(c,dict(id=c)) for c in order]
+            with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_ALLOWLIST'):self.run_acceptance(a)
+
+    def test_private_receipt_case_group_status_provenance_still_checked(self):
+        a=self.accepted();raw=json.dumps(a).encode();d=definitions()
+        d['controls_acceptance']['sha256']=hashlib.sha256(raw).hexdigest()
+        good=dict(case='R5',group='CONTROLS',status='NATIVE_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE',
+                  selectorSHA256=H_SEL,scenarioSHA256=H_SCENARIO,baselineReceiptSHA256=H_R2)
+        for field in good:
+            bad=dict(good);bad[field]='wrong'
+            with patch.object(A,'definitions',return_value=d),patch.object(A.subprocess,'check_output',return_value=raw),\
+                 patch.object(A,'json_asset',return_value=bad),self.assertRaisesRegex(RuntimeError,'WK09_CONTROL_RECEIPT'):
+                A.controls_acceptance('t','f',Path('private'))
 
     def test_pin_bytes_and_acl_checked(self):
         meta=dict(id='private',size='20',appProperties=dict(state='VERIFIED',sha256='a'*64))
@@ -104,6 +145,18 @@ class AcceptanceTests(unittest.TestCase):
 
 
 class PreflightTests(unittest.TestCase):
+    def test_r14_requires_same_acceptance_before_inputs_without_writes_or_launch(self):
+        with tempfile.TemporaryDirectory() as t,patch.object(A,'ROOT',Path(t)/'absent'),\
+             patch.object(A,'drive',return_value=('t','app','results')),\
+             patch.object(A,'require_verified_neutral_preflight'),\
+             patch.object(A,'quota',return_value={'availableBytes':100*A.GiB}),patch.object(A,'absent'),\
+             patch.object(A,'read_baseline'),patch.object(A,'controls_acceptance',side_effect=RuntimeError('WK09_CONTROLS_ACCEPTANCE_UNSET')) as acceptance,\
+             patch.object(A,'inputs') as inputs,patch.object(A,'upload') as upload,\
+             patch.object(A,'reserve') as reserve,patch.object(G.subprocess,'Popen') as popen:
+            with self.assertRaisesRegex(RuntimeError,'WK09_CONTROLS_ACCEPTANCE_UNSET'):A.check(auth('R14'))
+            acceptance.assert_called_once();inputs.assert_not_called()
+            upload.assert_not_called();reserve.assert_not_called();popen.assert_not_called()
+
     def test_check_readonly_and_cases_acceptance_before_inputs(self):
         calls=[]
         with tempfile.TemporaryDirectory() as t,patch.object(A,'ROOT',Path(t)/'absent'),\
