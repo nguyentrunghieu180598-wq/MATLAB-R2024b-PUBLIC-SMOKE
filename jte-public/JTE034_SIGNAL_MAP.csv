@@ -1,0 +1,12 @@
+ID,Math/metric,Existing data signal,Simulink path/operation,New block required,Must Work verify,Gate
+D1,One-channel sensor bias,"jteTtrue; jteTmeas","JTE local bias: Tm(j)=T(j)+b",No,"Vector channels; unit K; fixed j; b<=0",G6
+D2,Controller feedback Tmax measured,"jteTmaxMeas; jteUcore; jteAmbient","Battery Control/FlwR_calc In1=JTE measured min-max T Out2; In2=Ambient",No,"Wiring; command meaning; Ambient Const3 value/unit",G5/G6
+D3,Max selector masking identity,"jteTtrue; jteTmeas","Compare max true vs measured on same STUDY plant state",No,"logged max matches max(sensor vector); time stamps valid",G6/G7
+D4,Masking fraction over time,"jteTtrue; jteTmeas","Postprocess sampled indicator against time grid",No,"Flag approximate event fraction unless transitions resolved",G7
+D5,Closed-loop true temperature impact,"jteTtrue baseline; jteTtrue bias; jteUcore","Compare two fully matched simulations",No,"Same load/IC/ambient/solver; aligned time; u semantics",G6/G7
+D6,Solver numeric G5,"B0L original/fine; C0 original/fine","Pure comparison of raw outputs (same numerical problem)",No,"Original vs fine tolerances; unknown raw event completeness",G5
+D7,Thermal spread,"jteTtrue","max across verified sensing channels - min across same channels",No,"Channels represent sensors not necessarily all cells; do NOT rename jteTminTrue vector",G7
+D8,Model pump energy conditional,"jteUcore","Pump_power_calc P=500*FlwR (tag specific)",No,"Exact FlwR=jteUcore identity and normalized 0..1 and temporal semantics",G7
+D9,Heat balance reference,"Coolant m_dot,Tin,Tout,cp (not yet logged)","Source Simscape thermal-fluid paths",Yes if validated measurement needed,"Physical units and sources; avoid double-counting internal heat generation",Optional later
+D10,Numerical uncertainty,"real solver raw traces","Numeric error envelope from solver original/fine",No,"Scientifically justified comparison; not experimentally validated uncertainty",G5/G7
+Charge1,SOC / current charging,"Icharge; SOC; Vterminal (unavailable in current export)","Separate future charging supervisor",New separate charging model,"Sign convention; Qnom; chemistry limits; do not modify paper-1 baseline",Paper 2

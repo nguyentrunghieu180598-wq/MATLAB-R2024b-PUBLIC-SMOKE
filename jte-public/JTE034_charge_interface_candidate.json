@@ -1,0 +1,48 @@
+{
+  "status": "INTERFACE_CANDIDATE_ONLY_NO_CHARGING_MODEL",
+  "activation": "Only after paper-one independent acceptance; separate model branch",
+  "fields": {
+    "time_s": {
+      "unit": "s",
+      "requirement": "strictly increasing"
+    },
+    "SOC": {
+      "unit": "1",
+      "range": [
+        0,
+        1
+      ],
+      "source_verified": false
+    },
+    "Vterminal_V": {
+      "unit": "V",
+      "source_verified": false
+    },
+    "Icharge_A": {
+      "unit": "A",
+      "interface_convention": "positive into battery",
+      "source_polarity": "UNVERIFIED",
+      "conversion": "sourceSign * Ilogged_A; sourceSign must be traced"
+    },
+    "Tchannels_K": {
+      "unit": "K",
+      "shape": "N x verified sensing channels",
+      "source_verified": false
+    }
+  },
+  "required_provenance": [
+    "source model hash",
+    "signal source paths",
+    "time semantics",
+    "SOC scale",
+    "current sign mapping",
+    "temperature unit",
+    "chemistry constraints"
+  ],
+  "not_defined": [
+    "CC/CV limits",
+    "nominal capacity",
+    "thermal charging limits"
+  ],
+  "changes_to_paper_one": []
+}

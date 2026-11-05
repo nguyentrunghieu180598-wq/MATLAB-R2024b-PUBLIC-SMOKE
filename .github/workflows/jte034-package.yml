@@ -1,0 +1,33 @@
+name: JTE034 source-only reproducible package
+on:
+  push:
+    branches: ['codex/jte034-math-integration']
+    paths: ['.github/workflows/jte034-package.yml']
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package reviewed source only
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,shutil
+          p=pathlib.Path('source-handoff');p.mkdir()
+          names=['JTE034_metrics.m','JTE034_selectChannels.m','JTE034_selftest.m','JTE034_crossing_test.m','JTE034_failure_boundary_test.m','ci_jte030_logging.m','JTE034_SIGNAL_MAP.csv','JTE034_charge_interface_candidate.json','JTE034_README.md']
+          rows=[]
+          for name in names:
+              src=pathlib.Path('jte-public')/name
+              shutil.copyfile(src,p/name)
+              rows.append({'path':name,'bytes':src.stat().st_size,'sha256':hashlib.sha256(src.read_bytes()).hexdigest()})
+          manifest={'commit':os.environ['GITHUB_SHA'],'run':os.environ['GITHUB_RUN_ID'],'scope':'source-only; no G5 numeric acceptance','files':rows,'synthetic_runs':[40003171214,40003391326]}
+          (p/'manifest.json').write_text(json.dumps(manifest,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jte034-reviewed-source-only
+          path: source-handoff/
+          retention-days: 30
+          if-no-files-found: error
