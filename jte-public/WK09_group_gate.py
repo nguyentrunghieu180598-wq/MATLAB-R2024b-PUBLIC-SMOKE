@@ -11,7 +11,7 @@ import re
 import subprocess
 import tempfile
 
-from WK09_run_definitions import ROOT as CODE, definitions, resolve, sha, need, H_SEL, H_R2, H_PRED, H_SCENARIO
+from WK09_run_definitions import ROOT as CODE, definitions as legacy_definitions, resolve, sha, need, H_SEL, H_R2, H_PRED, H_SCENARIO
 from WK08_private_gate import readonly_app_folder, private_acl, NATIVE
 from WK04_private_gate import require_verified_neutral_preflight
 from JTE062_google_drive_synthetic import access_token
@@ -28,6 +28,17 @@ ASSETS = (
  ('BTMS_M2_40701917441_B0L_Ref_PROOF.json', 'old_proof.json'),
  ('BTMS_M2_40701917441_INPUT_MANIFEST.json', 'old_manifest.json'),
  ('JTE101_40449421507_PREPARE_WORKSPACE.mat', 'source_workspace.mat'))
+
+
+def definitions():
+    if os.environ.get('WK09_GROUP') == 'PROBE14':
+        from WK10_D14_probe import definitions as probe_definitions
+        return probe_definitions()
+    return legacy_definitions()
+
+
+def registry_file():
+    return 'WK10_D14_probe.json' if os.environ.get('WK09_GROUP') == 'PROBE14' else 'WK09_runs.json'
 
 
 def git(*args):
@@ -63,10 +74,14 @@ def context(check_only=False):
          and Path(marker).read_text(encoding='utf-8').strip() == message
          and git('ls-tree','HEAD~2','--',marker) == '', 'WK09_CHAIN_DENIED')
     run = os.environ.get('GITHUB_RUN_ID',''); need(run.isdecimal(), 'WK09_RUN_ID')
-    return dict(run=run, commit=os.environ['GITHUB_SHA'], source=source, group=group,
-                identity=g['identity'], runs=g['runs'], registrySHA256=sha(CODE/'WK09_runs.json'),
+    result = dict(run=run, commit=os.environ['GITHUB_SHA'], source=source, group=group,
+                identity=g['identity'], runs=g['runs'], registrySHA256=sha(CODE/registry_file()),
                 selectorSHA256=H_SEL, scenarioSHA256=H_SCENARIO, predictionsSHA256=H_PRED,
                 baselineReceiptSHA256=H_R2, automaticRetry=False, G5Accepted=False)
+    if group == 'PROBE14':
+        result.pop('scenarioSHA256')
+        result['scenarioSHA256ByCase'] = {r['id']:r['scenario_sha256'] for r in d['runs']}
+    return result
 
 
 def code_hashes():
