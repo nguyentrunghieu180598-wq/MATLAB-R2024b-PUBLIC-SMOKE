@@ -16,11 +16,22 @@ import threading
 import time
 
 import WK09_group_gate as gate
-from WK09_run_definitions import ROOT as CODE, definitions, resolve, sha, need
+from WK09_run_definitions import ROOT as CODE, resolve as legacy_resolve, sha, need
 from BTMS_M3_oneShotWatchdog import memory, violation, proc_start, proc_rss, terminate_tree
 
 CASE_SECONDS = 35*60
 DELIVERY_SECONDS = 300
+
+
+def definitions():
+    return gate.definitions()
+
+
+def resolve(case,group=None):
+    if group == 'PROBE14':
+        from WK10_D14_probe import resolve as probe_resolve
+        return probe_resolve(case,group)
+    return legacy_resolve(case,group)
 
 
 def remaining(deadline):
@@ -100,17 +111,19 @@ def supervisor(auth,root,token,case_start,deadline):
 
 def prepare(auth,case,root,token,folder):
     assets,source_sha=gate.inputs(token,folder,root,model=True)
-    d=definitions();scenario=read(CODE/'WK10_scenario.json');vendor=Path('vendor-pack').resolve()
+    d=definitions();definition=resolve(case,auth['group'])
+    scenario=read(CODE/definition.get('scenario_file','WK10_scenario.json'));vendor=Path('vendor-pack').resolve()
     need(gate.git('-C',str(vendor),'rev-parse','HEAD')==d['vendor_commit'],'WK09_VENDOR_COMMIT')
     vendor_slx=vendor/'Models/Battery_Pack_Thermal_Management.slx'
     need(sha(vendor_slx)==scenario['model_sha256'] and
          sha(vendor/'Scripts_Data/Battery_Pack_Thermal_Management_Ivst.mat')==scenario['vendor_mat_sha256'],
          'WK09_VENDOR_BYTES')
-    definition=resolve(case,auth['group']);definition_file=root/'WK09_DEFINITION.json';gate.write(definition_file,definition)
+    definition_file=root/'WK09_DEFINITION.json';gate.write(definition_file,definition)
     manifest=dict(auth,case=case,definition=definition,definitionFile=str(definition_file.resolve()),
                   definitionSHA256=sha(definition_file),scenario=scenario,privateRoot=str(root.resolve()),
                   sourceSHA256=source_sha,inputs=assets,vendorRoot=str(vendor),vendorSLX=str(vendor_slx),
                   inputCodeSHA256=gate.code_hashes())
+    if auth['group']=='PROBE14': manifest['scenarioSHA256']=definition['scenario_sha256']
     gate.write(root/'WK09_MANIFEST.json',manifest)
 
 
@@ -134,6 +147,9 @@ def publish(auth,case,root,token,results):
     same=all(x.get('run')==auth['run'] and x.get('commit')==auth['commit'] and
              x.get('case')==case and x.get('group')==auth['group'] for x in (manifest,flags,monitor))
     unchanged=manifest.get('inputCodeSHA256')==gate.code_hashes()
+    if auth['group']=='PROBE14':
+        expected=resolve(case,'PROBE14')['scenario_sha256']
+        same=same and manifest.get('scenarioSHA256')==flags.get('scenarioSHA256')==expected
     inputs_ok=bool(manifest.get('inputs')) and all(sha(root/a['local'])==a['sha256'] for a in manifest.get('inputs',[]))
     paths,required=payloads(root,case);staging=root/'delivery';staging.mkdir(mode=0o700)
     def send(path):
@@ -154,6 +170,11 @@ def publish(auth,case,root,token,results):
     except Exception as exc: receipt['summaryDeliveryErrorType']=type(exc).__name__
     receipt.update(sameAttempt=same,sourceCodeUnchanged=unchanged,inputsUnchanged=inputs_ok,requiredPayloadComplete=complete)
     if passed: receipt['status']='NATIVE_AND_PRIVATE_READBACK_PASS_PENDING_CLAUDE'
+    if auth['group']=='PROBE14':
+        from WK10_D14_probe import diagnostics
+        receipt['scenarioSHA256']=manifest.get('scenarioSHA256')
+        try: receipt['probeDiagnostics']=diagnostics(root)
+        except Exception: receipt['probeDiagnostics']={'status':'NOT VERIFIED'}
     name=gate.receipt_name(auth,case)
     path=staging/name;gate.write(path,receipt);gate.upload(token,results,path)
     # Existence is recorded only after the receipt's full-byte remote readback.

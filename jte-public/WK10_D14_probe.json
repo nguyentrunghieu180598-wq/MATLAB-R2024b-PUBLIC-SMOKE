@@ -1,0 +1,90 @@
+{
+  "schema": "WK10_D14_PROBE_SOURCE_ONLY_V1",
+  "source_only": true,
+  "reviewed_WK10_head": "5f4222eb8311556f04a122f9fb3be32b758ed6bd",
+  "reviewed_WK10_tree": "5affff3162e02815340c049894bee4f51f3db1d2",
+  "branch": "codex/wk11-d14-probe",
+  "baseline": {
+    "id": "R2",
+    "github_run": "41659796627",
+    "receipt_name": "WK10_D13_REF_K2_T340_A_41659796627_PRIVATE_RECEIPT_20261103.json",
+    "receipt_sha256": "7074b363ee0c97b52f5f8d80a4148852c54432b417b8e2dc73024b765b9a0612",
+    "scheduled": false
+  },
+  "selector_file": "WK09_selector_D13_200_340.json",
+  "selector_sha256": "cbaf7ede34dee318b1ab3a73cfbc53dbde44bda6700133c864c3dfc8ae148233",
+  "predictions_sha256": "50f97a1226858944b5cb0088f561959334b59c5efcc51d36d99850555bf2d5a5",
+  "scenario_sha256": "372683adc8c45d6c9bc84213619916cf9cee18d03471b9ed4ae7fab3c0bc9f7b",
+  "build": "24.2.0.3361896 (R2024b) Update 10",
+  "vendor_commit": "f98d21929a3a269dacd1ee38999cd9773760c6db",
+  "groups": {
+    "PROBE14": {
+      "identity": "WK10_D14_PROBE_A",
+      "runs": [
+        "P150",
+        "P175"
+      ],
+      "timeout_minutes": 90,
+      "optional": false,
+      "workflow": ".github/workflows/wk10-d14-probe-one-shot.yml",
+      "marker": "jte-public/WK10_D14_PROBE_A_TRIGGER.txt",
+      "message": "WK10_D14_PROBE_A_ONE_SHOT",
+      "approval": "APPROVE_WK10_D14_PROBE_A_ONCE_AFTER_CLAUDE_GO",
+      "intent": "WK10_D14_PROBE_A_JOB_INTENT.json",
+      "preflight_workflow": ".github/workflows/wk10-d14-probe-preflight.yml",
+      "preflight_marker": "jte-public/WK10_D14_PROBE_PREFLIGHT_A_TRIGGER.txt",
+      "preflight_message": "WK10_D14_PROBE_PREFLIGHT_A_CHECK",
+      "preflight_approval": "APPROVE_WK10_D14_PROBE_PREFLIGHT_A_ONCE_AFTER_CLAUDE_GO",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
+    }
+  },
+  "runs": [
+    {
+      "start_s": 0,
+      "stop_s": 340,
+      "k": 1.5,
+      "Ts_s": 0.01,
+      "tau_s": 0.001,
+      "solver": "ode23t",
+      "MaxStep_s": 0.05,
+      "RelTol": "1e-3",
+      "AbsTol": "1e-3",
+      "ambient_K": 300,
+      "sensors": 312,
+      "bias_K": 0,
+      "channel_rule": "first_sensed",
+      "measurement_pipeline": "active",
+      "id": "P150",
+      "optional": false,
+      "mode": "D13_REF",
+      "scenario_file": "WK10_D14_K150_T340_V1.json",
+      "scenario_sha256": "c7c459f95cebd198ee58c73a34d53f233f95984310920baf99244ab6972c281a",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
+    },
+    {
+      "start_s": 0,
+      "stop_s": 340,
+      "k": 1.75,
+      "Ts_s": 0.01,
+      "tau_s": 0.001,
+      "solver": "ode23t",
+      "MaxStep_s": 0.05,
+      "RelTol": "1e-3",
+      "AbsTol": "1e-3",
+      "ambient_K": 300,
+      "sensors": 312,
+      "bias_K": 0,
+      "channel_rule": "first_sensed",
+      "measurement_pipeline": "active",
+      "id": "P175",
+      "optional": false,
+      "mode": "D13_REF",
+      "scenario_file": "WK10_D14_K175_T340_V1.json",
+      "scenario_sha256": "36d846335c1e8143437bf87a64af0d8a67f6444e04bbb372c8ac74d099358ec4",
+      "matlab_wall_s": 1185,
+      "case_seconds": 2100
+    }
+  ]
+}

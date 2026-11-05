@@ -1,0 +1,61 @@
+name: WK10 D14 PROBE14 one-shot group - DEFAULT DISABLED
+on:
+  push:
+    branches: ['codex/wk11-d14-probe']
+    paths: ['jte-public/WK10_D14_PROBE_A_TRIGGER.txt']
+permissions:
+  contents: read
+concurrency:
+  group: wk09-d13-private-exclusive
+  cancel-in-progress: false
+jobs:
+  group:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    environment: JTE_DRIVE_WRITE
+    timeout-minutes: 90
+    env:
+      WK09_GROUP: PROBE14
+      WK09_PROTECTED_ENV_NAME: JTE_DRIVE_WRITE
+      WK09_REVIEWED_SOURCE_SHA: '0000000000000000000000000000000000000000'
+      WK09_OWNER_APPROVAL: ${{ vars.WK09_OWNER_APPROVAL }}
+      WK09_CONTROLS_ACCEPTANCE_SHA256: ${{ vars.WK09_CONTROLS_ACCEPTANCE_SHA256 }}
+      WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT: ${{ vars.WK09_CONTROLS_ACCEPTANCE_HUB_COMMIT }}
+    steps:
+      - name: Start the never-reset job clock before setup
+        run: echo "WK09_JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 3
+      - name: Validate protected context and S-E-T before any MATLAB action
+        run: python3 -B jte-public/WK09_group_gate.py authorize
+      - uses: actions/checkout@v4
+        with:
+          repository: mathworks/Battery-Pack-Model-Simscape
+          ref: f98d21929a3a269dacd1ee38999cd9773760c6db
+          path: vendor-pack
+          persist-credentials: false
+      - uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024bU10
+          products: Simulink Simscape Simscape_Battery Simscape_Electrical Simscape_Fluids Stateflow
+      - name: License probe before any private reservation - no study trajectory
+        uses: matlab-actions/run-command@v3
+        with:
+          command: disp('WK09_LICENSE_OK')
+          generate-summary: false
+      - name: Resolve the reviewed run-command launcher before reservation
+        shell: bash
+        run: |
+          bin="$(find "$(dirname "$RUNNER_WORKSPACE")/_actions/matlab-actions/run-command" -path '*/dist/bin/glnxa64/run-matlab-command' -type f 2>/dev/null | head -n1)"
+          test -n "$bin" || { echo WK09_LAUNCHER_UNAVAILABLE; exit 1; }
+          chmod +x "$bin"
+          test -x "$bin" || { echo WK09_LAUNCHER_UNAVAILABLE; exit 1; }
+          echo "WK08_RUN_MATLAB_COMMAND=$bin" >> "$GITHUB_ENV"
+      - name: Sealed allowlist - fresh cases - stop on first failure - private delivery
+        env:
+          JTE_GOOGLE_CLIENT_ID: ${{ secrets.JTE_GOOGLE_CLIENT_ID }}
+          JTE_GOOGLE_CLIENT_SECRET: ${{ secrets.JTE_GOOGLE_CLIENT_SECRET }}
+          JTE_GOOGLE_REFRESH_TOKEN: ${{ secrets.JTE_GOOGLE_REFRESH_TOKEN }}
+        run: python3 -B jte-public/WK09_group.py run
